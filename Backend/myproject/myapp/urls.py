@@ -21,4 +21,4 @@ urlpatterns = [
     path("auth/me/",       MeView.as_view(),       name="me"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("", include(router.urls)),
-]
+]  
