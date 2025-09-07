@@ -1,9 +1,13 @@
 // pages/auth/Signup.jsx
 import React, { useState } from 'react';
-import { AlertTriangle, Eye, EyeOff, User, Mail, Lock, Phone, MapPin, Globe, Check } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Eye, EyeOff, User, Mail, Lock, Phone, MapPin, Globe, Check, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
-const Signup = ({ onSignup, loading = false, error = '' }) => {
+const Signup = () => {
+  const navigate = useNavigate();
+  const { register, loading, error } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -23,11 +27,11 @@ const Signup = ({ onSignup, loading = false, error = '' }) => {
 
   // Rwanda districts
   const rwandaDistricts = [
-    'Gasabo', 'Kicukiro', 'Nyarugenge', 'Bugesera', 'Gatsibo', 'Kayonza',
-    'Kirehe', 'Ngoma', 'Nyagatare', 'Rwamagana', 'Burera', 'Gakenke',
-    'Gicumbi', 'Musanze', 'Rulindo', 'Gisagara', 'Huye', 'Kamonyi',
-    'Muhanga', 'Nyamagabe', 'Nyanza', 'Nyaruguru', 'Ruhango', 'Karongi',
-    'Ngororero', 'Nyabihu', 'Rubavu', 'Rusizi', 'Rutsiro'
+    'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo', 'Gicumbi', 
+    'Gisagara', 'Huye', 'Kamonyi', 'Karongi', 'Kayonza', 'Kicukiro', 
+    'Kirehe', 'Muhanga', 'Musanze', 'Ngoma', 'Ngororero', 'Nyabihu', 
+    'Nyagatare', 'Nyamagabe', 'Nyanza', 'Nyarugenge', 'Nyaruguru', 
+    'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana'
   ];
 
   const validateStep1 = () => {
@@ -97,9 +101,11 @@ const Signup = ({ onSignup, loading = false, error = '' }) => {
     if (!validateStep2()) return;
 
     try {
-      await onSignup(formData);
+      await register(formData);
+      // Registration successful, user will be redirected by AuthContext
     } catch (err) {
-      // Error handling is done in parent component
+      // Error is handled by AuthContext and displayed via error prop
+      console.error('Registration failed:', err);
     }
   };
 
@@ -339,9 +345,9 @@ const Signup = ({ onSignup, loading = false, error = '' }) => {
                       onChange={handleChange}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                     >
-                      <option value="rw">🇷🇼 Kinyarwanda</option>
-                      <option value="en">🇬🇧 English</option>
-                      <option value="fr">🇫🇷 Français</option>
+                      <option value="rw">Kinyarwanda</option>
+                      <option value="en">English</option>
+                      <option value="fr">Français</option>
                     </select>
                   </div>
                 </div>
@@ -525,8 +531,9 @@ const Signup = ({ onSignup, loading = false, error = '' }) => {
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 font-medium transition-colors"
+                className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 font-medium transition-colors flex items-center justify-center"
               >
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </button>
             )}
@@ -562,7 +569,7 @@ const Signup = ({ onSignup, loading = false, error = '' }) => {
           </div>
           <div className="mt-4 text-center">
             <Link 
-              to="/auth/login" 
+              to="/login" 
               className="inline-flex items-center justify-center w-full py-3 px-4 border border-green-300 rounded-lg text-green-700 bg-green-50 hover:bg-green-100 font-medium transition-colors"
             >
               Sign In Instead

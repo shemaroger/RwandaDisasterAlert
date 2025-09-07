@@ -1,9 +1,14 @@
 // pages/auth/Login.jsx
-import React, { useState } from 'react';
-import { AlertTriangle, Eye, EyeOff, Mail, Lock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { AlertTriangle, Eye, EyeOff, Mail, Lock, Shield, Clock } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
-const Login = ({ onLogin, loading = false, error = '' }) => {
+const Login = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, loading, error, clearError } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -11,6 +16,21 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Check for redirect message from protected routes
+  const fromPath = location.state?.from?.pathname;
+  const redirectMessage = location.state?.message;
+
+  useEffect(() => {
+    // Clear any existing errors when component mounts
+    clearError();
+    
+    // Check if user was remembered
+    const rememberedUser = localStorage.getItem('remember_user');
+    if (rememberedUser === 'true') {
+      setRememberMe(true);
+    }
+  }, [clearError]);
 
   const validateForm = () => {
     const errors = {};
@@ -37,9 +57,18 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
     if (!validateForm()) return;
 
     try {
-      await onLogin(formData.email, formData.password, rememberMe);
+      await login(formData.email, formData.password, rememberMe);
+      
+      // Redirect to intended page or dashboard based on role
+      if (fromPath && fromPath !== '/login') {
+        navigate(fromPath, { replace: true });
+      } else {
+        // Default redirects based on role will be handled by the app routing
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
-      // Error handling is done in parent component
+      // Error is handled by AuthContext and displayed via error prop
+      console.error('Login failed:', err);
     }
   };
 
@@ -56,6 +85,11 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
         ...prev,
         [name]: ''
       }));
+    }
+    
+    // Clear global error when user makes changes
+    if (error) {
+      clearError();
     }
   };
 
@@ -79,6 +113,17 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
             Emergency Management System
           </p>
         </div>
+
+        {/* Redirect Message */}
+        {redirectMessage && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg mb-6 flex items-start">
+            <Shield className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Access Required</p>
+              <p className="text-sm mt-1">{redirectMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Error Alert */}
         {error && (
@@ -151,7 +196,7 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
               >
                 {showPassword ? (
                   <EyeOff className="h-5 w-5" />
@@ -183,7 +228,7 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
               </label>
             </div>
             <Link 
-              to="/auth/forgot-password" 
+              to="/forgot-password" 
               className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
             >
               Forgot password?
@@ -222,24 +267,44 @@ const Login = ({ onLogin, loading = false, error = '' }) => {
         {/* Sign Up Link */}
         <div className="text-center">
           <Link 
-            to="/auth/signup" 
+            to="/signup" 
             className="inline-flex items-center justify-center w-full py-3 px-4 border border-red-300 rounded-lg text-red-700 bg-red-50 hover:bg-red-100 font-medium transition-colors"
           >
             Create New Account
           </Link>
         </div>
 
-        {/* Emergency Contact Info */}
-        <div className="mt-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+        {/* Account Pending Notice */}
+        <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
           <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+            <Clock className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
             <div>
-              <h4 className="text-sm font-medium text-yellow-800">Emergency Access</h4>
+              <h4 className="text-sm font-medium text-yellow-800">Account Approval Process</h4>
               <p className="text-xs text-yellow-700 mt-1">
-                In case of emergency, call 112 for immediate assistance or contact MINEMA at +250-788-000-000
+                New accounts require approval by MINEMA administrators before full access is granted. 
+                This ensures system security for emergency operations.
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Emergency Contact Info */}
+        <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-red-800">Emergency Access</h4>
+              <p className="text-xs text-red-700 mt-1">
+                In case of emergency, call <strong>112</strong> for immediate assistance or contact MINEMA at <strong>+250-788-000-000</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* System Status */}
+        <div className="mt-6 flex items-center justify-center space-x-2 text-xs text-gray-500">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span>Emergency System Operational</span>
         </div>
 
         {/* Footer */}
