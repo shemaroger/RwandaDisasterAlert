@@ -31,6 +31,7 @@ class ApiService {
   getHeaders(includeAuth = true) {
     const headers = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
 
     if (includeAuth && this.getToken()) {
@@ -44,6 +45,7 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     const config = {
       headers: this.getHeaders(options.includeAuth !== false),
+      credentials: 'include', // Include credentials for CORS
       ...options,
     };
 
@@ -59,17 +61,31 @@ class ApiService {
       
       if (!response.ok) {
         let errorData = null;
+        let errorMessage = `HTTP ${response.status}`;
+        
         try {
-          errorData = await response.json();
-        } catch {
-          // Response might not be JSON
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json();
+            errorMessage = errorData?.detail || errorData?.message || errorMessage;
+            
+            // Handle validation errors
+            if (errorData?.errors || errorData?.non_field_errors) {
+              const errors = errorData.errors || errorData.non_field_errors;
+              if (Array.isArray(errors)) {
+                errorMessage = errors.join(', ');
+              } else if (typeof errors === 'object') {
+                errorMessage = Object.values(errors).flat().join(', ');
+              }
+            }
+          } else {
+            errorMessage = await response.text() || errorMessage;
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse error response:', parseError);
         }
         
-        throw new ApiError(
-          errorData?.detail || `HTTP ${response.status}`,
-          response.status,
-          errorData
-        );
+        throw new ApiError(errorMessage, response.status, errorData);
       }
 
       // Handle 204 No Content
@@ -77,11 +93,26 @@ class ApiService {
         return null;
       }
 
-      return await response.json();
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      }
+      
+      return await response.text();
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
       }
+      
+      // Network errors, CORS errors, etc.
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new ApiError(
+          'Unable to connect to the server. Please check your internet connection and try again.',
+          0,
+          null
+        );
+      }
+      
       throw new ApiError('Network error', 0, null);
     }
   }
@@ -375,13 +406,102 @@ class ApiService {
     return this.request(`/audit-logs/${query ? `?${query}` : ''}`);
   }
 
-  // Utility methods
-  logout() {
+  // Logout method - now calls backend to invalidate session
+  async logout() {
+    try {
+      // Call backend logout endpoint if token exists
+      if (this.getToken()) {
+        await this.request('/auth/logout/', {
+          method: 'POST',
+        });
+      }
+    } catch (error) {
+      // Even if backend logout fails, continue with client cleanup
+      console.warn('Backend logout failed:', error);
+    } finally {
+      // Always clear client-side data
+      this.setToken(null);
+    }
+  }
+
+  // Synchronous logout for immediate cleanup
+  logoutSync() {
     this.setToken(null);
   }
 
   isAuthenticated() {
     return !!this.getToken();
+  }
+
+  // Add 401 handling to automatically logout on token expiry
+  async request(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const config = {
+      headers: this.getHeaders(options.includeAuth !== false),
+      ...options,
+    };
+
+    // Handle FormData (for file uploads)
+    if (config.body instanceof FormData) {
+      delete config.headers['Content-Type'];
+    } else if (config.body && typeof config.body === 'object') {
+      config.body = JSON.stringify(config.body);
+    }
+
+    try {
+      const response = await fetch(url, config);
+      
+      // Handle 401 Unauthorized - token expired or invalid
+      if (response.status === 401 && this.getToken()) {
+        this.setToken(null);
+        // Redirect to login page
+        window.location.href = '/login?message=Session expired. Please sign in again.';
+        throw new ApiError('Session expired', 401);
+      }
+      
+      if (!response.ok) {
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch {
+          // Response might not be JSON
+        }
+        
+        throw new ApiError(
+          errorData?.detail || `HTTP ${response.status}`,
+          response.status,
+          errorData
+        );
+      }
+
+      // Handle 204 No Content
+      if (response.status === 204) {
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Network error', 0, null);
+    }
+  }
+
+  // Health check method
+  async healthCheck() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health/`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
+    }
   }
 }
 

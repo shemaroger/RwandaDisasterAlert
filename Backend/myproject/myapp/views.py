@@ -72,7 +72,18 @@ def audit(actor, action, entity, entity_id, meta=None):
     from .models import AuditLog  # local import to avoid cycles
     AuditLog.objects.create(actor=actor, action=action, entity=entity, entity_id=str(entity_id), meta=meta or {})
 
-
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            # Delete the user's token
+            request.user.auth_token.delete()
+            return Response({'message': 'Successfully logged out'}, status=200)
+        except Token.DoesNotExist:
+            return Response({'message': 'Token not found'}, status=200)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
 # ---------------------------
 # Core ViewSets
 # ---------------------------

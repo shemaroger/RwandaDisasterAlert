@@ -21,6 +21,26 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Clear all browser storage completely
+  const clearAllStorage = () => {
+    try {
+      // Clear localStorage
+      localStorage.clear();
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Clear cookies
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      
+      console.log('All browser storage cleared');
+    } catch (error) {
+      console.warn('Error clearing storage:', error);
+    }
+  };
+
   // Initialize authentication state
   useEffect(() => {
     const initializeAuth = async () => {
@@ -28,22 +48,29 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         const token = apiService.getToken();
         
+        console.log('Auth init - token exists:', !!token);
+        
         if (token) {
           // Try to get user profile with existing token
           try {
             const userData = await apiService.getProfile();
+            console.log('Auth init - user loaded:', userData?.role, userData?.email);
             setUser(userData);
             setError('');
           } catch (err) {
             // Token might be expired or invalid
             console.warn('Failed to load user profile:', err);
-            apiService.logout();
+            clearAllStorage();
+            apiService.logoutSync();
             setUser(null);
           }
+        } else {
+          console.log('Auth init - no token found');
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
         setError('Failed to initialize authentication');
+        clearAllStorage();
       } finally {
         setLoading(false);
         setIsInitialized(true);
@@ -53,17 +80,36 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Listen for storage changes (e.g., logout in another tab)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'auth_token' && !e.newValue) {
+        // Token was removed, clear user
+        setUser(null);
+        setError('');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // Login function
   const login = async (email, password, rememberMe = false) => {
     try {
       setLoading(true);
       setError('');
+      
+      // Clear any existing data first
+      clearAllStorage();
 
       const response = await apiService.login(email, password);
       
       if (response.token && response.user) {
         apiService.setToken(response.token);
         setUser(response.user);
+        
+        console.log('Login successful - user:', response.user.role, response.user.email);
         
         // Handle remember me functionality
         if (rememberMe) {
@@ -94,6 +140,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       setError(errorMessage);
+      clearAllStorage();
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
@@ -105,12 +152,18 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError('');
+      
+      // Clear any existing data first
+      clearAllStorage();
 
       const response = await apiService.register(userData);
       
       if (response.token && response.user) {
         apiService.setToken(response.token);
         setUser(response.user);
+        
+        console.log('Registration successful - user:', response.user.role, response.user.email);
+        
         return response;
       } else {
         throw new Error('Invalid response from server');
@@ -140,6 +193,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       setError(errorMessage);
+      clearAllStorage();
       throw new Error(errorMessage);
     } finally {
       setLoading(false);
@@ -156,21 +210,52 @@ export const AuthProvider = ({ children }) => {
       case 'citizen':
         return '/citizen/dashboard';
       default:
-        return '/dashboard';
+        return '/login';
     }
   };
 
-  // Logout function - now returns logout info instead of navigating
-  const logout = () => {
-    apiService.logout();
+  // Logout function - now properly handles backend logout and complete cleanup
+  const logout = async () => {
+    try {
+      console.log('Logout initiated for user:', user?.email);
+      
+      // Call backend logout to invalidate session
+      if (apiService.getToken()) {
+        await apiService.logout();
+      }
+    } catch (error) {
+      // Continue with logout even if backend call fails
+      console.warn('Backend logout failed, continuing with client logout:', error);
+    } finally {
+      // Always clear all client state and storage
+      clearAllStorage();
+      setUser(null);
+      setError('');
+      
+      console.log('Logout completed - all data cleared');
+      
+      // Return logout info for components to handle navigation
+      return {
+        success: true,
+        message: 'You have been signed out successfully.',
+        redirectTo: '/login'
+      };
+    }
+  };
+
+  // Immediate logout function for emergency situations
+  const logoutImmediate = () => {
+    console.log('Immediate logout initiated');
+    
+    // Immediate client-side logout without waiting for backend
+    clearAllStorage();
+    apiService.logoutSync();
     setUser(null);
     setError('');
-    localStorage.removeItem('remember_user');
     
-    // Return logout info for components to handle navigation
     return {
       success: true,
-      message: 'You have been signed out successfully.',
+      message: 'You have been signed out.',
       redirectTo: '/login'
     };
   };
@@ -181,6 +266,7 @@ export const AuthProvider = ({ children }) => {
       setError('');
       const updatedUser = await apiService.updateProfile(profileData);
       setUser(updatedUser);
+      console.log('Profile updated for user:', updatedUser.email);
       return updatedUser;
     } catch (err) {
       let errorMessage = 'Profile update failed';
@@ -267,6 +353,22 @@ export const AuthProvider = ({ children }) => {
     setError('');
   };
 
+  // Force refresh user data
+  const refreshUser = async () => {
+    if (!apiService.getToken()) return;
+    
+    try {
+      const userData = await apiService.getProfile();
+      setUser(userData);
+      return userData;
+    } catch (err) {
+      console.warn('Failed to refresh user data:', err);
+      // If refresh fails, user might need to login again
+      logout();
+      throw err;
+    }
+  };
+
   // Context value
   const value = {
     // State
@@ -279,8 +381,10 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    logoutImmediate,
     updateProfile,
     changePassword,
+    refreshUser,
     
     // Utility functions
     hasRole,
@@ -291,6 +395,7 @@ export const AuthProvider = ({ children }) => {
     isCitizen,
     clearError,
     getRedirectPath,
+    clearAllStorage,
     
     // Setters for manual state management if needed
     setUser,
