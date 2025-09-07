@@ -146,12 +146,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
+  // Helper function to get redirect path based on role
+  const getRedirectPath = (role) => {
+    switch (role) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'operator':
+        return '/operator/dashboard';
+      case 'citizen':
+        return '/citizen/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
+
+  // Logout function - now returns logout info instead of navigating
   const logout = () => {
     apiService.logout();
     setUser(null);
     setError('');
     localStorage.removeItem('remember_user');
+    
+    // Return logout info for components to handle navigation
+    return {
+      success: true,
+      message: 'You have been signed out successfully.',
+      redirectTo: '/login'
+    };
   };
 
   // Update profile function
@@ -269,6 +290,7 @@ export const AuthProvider = ({ children }) => {
     isOperator,
     isCitizen,
     clearError,
+    getRedirectPath,
     
     // Setters for manual state management if needed
     setUser,
