@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 // import ErrorBoundary from './components/ErrorBoundary';
-import Layout from './components/layout/Layout';
+import Layout from './components/Layout';
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -16,6 +16,7 @@ import Dashboard from './pages/dashboard/Dashboard';
 import CitizenDashboard from './pages/dashboard/CitizenDashboard';
 import OperatorDashboard from './pages/dashboard/OperatorDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
+import Home from './pages/Home';
 
 // // Alert Management pages
 // import AlertManagement from './pages/alerts/AlertManagement';
@@ -91,7 +92,7 @@ function App() {
           <div className="App">
             <Routes>
               {/* Default route - redirect to dashboard or login */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/Home" replace />} />
 
               {/* Public routes - no layout */}
               <Route path="/login" element={<Login />} />
