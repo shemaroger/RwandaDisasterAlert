@@ -3,7 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-// import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 
 // Auth pages
@@ -75,9 +75,9 @@ import Home from './pages/Home';
 // import NotificationSettings from './pages/profile/NotificationSettings';
 
 // // Safety & Emergency pages
-// import SafetyCheckin from './pages/safety/SafetyCheckin';
-// import EmergencyContacts from './pages/safety/EmergencyContacts';
-// import EmergencyGuide from './pages/safety/EmergencyGuide';
+import SafetyCheckin from './pages/safety/SafetyCheckin';
+import EmergencyContacts from './pages/safety/EmergencyContacts';
+import EmergencyGuide from './pages/safety/EmergencyGuide';
 
 // Other pages
 import NotFound from './pages/NotFound';
@@ -92,7 +92,7 @@ function App() {
           <div className="App">
             <Routes>
               {/* Default route - redirect to dashboard or login */}
-              <Route path="/" element={<Navigate to="/Home" replace />} />
+              <Route path="/" element={<Navigate to="/Dashboard" replace />} />
 
               {/* Public routes - no layout */}
               <Route path="/login" element={<Login />} />

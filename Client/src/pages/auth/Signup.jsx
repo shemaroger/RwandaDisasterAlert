@@ -1,7 +1,7 @@
 // pages/auth/Signup.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Eye, EyeOff, User, Mail, Lock, Phone, MapPin, Globe, Check, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, User, Mail, Lock, Phone, MapPin, Globe, Check, ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Signup = () => {
@@ -24,6 +24,8 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successData, setSuccessData] = useState(null);
 
   // Rwanda districts
   const rwandaDistricts = [
@@ -101,8 +103,29 @@ const Signup = () => {
     if (!validateStep2()) return;
 
     try {
-      await register(formData);
-      // Registration successful, user will be redirected by AuthContext
+      const result = await register(formData);
+      
+      // Set success data
+      setSuccessData({
+        name: `${formData.first_name} ${formData.last_name}`,
+        email: formData.email,
+        district: formData.district || 'Not specified',
+        language: formData.preferred_language === 'rw' ? 'Kinyarwanda' : 
+                 formData.preferred_language === 'en' ? 'English' : 'Français'
+      });
+      
+      setShowSuccess(true);
+      
+      // Auto-redirect after 5 seconds
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { 
+            message: 'Account created successfully! Please sign in to continue.',
+            email: formData.email 
+          }
+        });
+      }, 5000);
+      
     } catch (err) {
       // Error is handled by AuthContext and displayed via error prop
       console.error('Registration failed:', err);
@@ -153,6 +176,102 @@ const Signup = () => {
     if (strength <= 3) return 'Medium';
     return 'Strong';
   };
+
+  // Success screen component
+  if (showSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-gray-100 text-center">
+          {/* Success Icon */}
+          <div className="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <CheckCircle className="text-green-600 w-12 h-12" />
+          </div>
+
+          {/* Success Title */}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to the Network!</h1>
+          <p className="text-lg text-gray-600 mb-6">
+            Your account has been created successfully
+          </p>
+
+          {/* Success Details */}
+          <div className="bg-green-50 rounded-lg p-6 mb-6 text-left">
+            <h3 className="font-semibold text-green-800 mb-4 flex items-center">
+              <Check className="w-4 h-4 mr-2" />
+              Account Details
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Name:</span>
+                <span className="font-medium text-gray-900">{successData?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Email:</span>
+                <span className="font-medium text-gray-900">{successData?.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">District:</span>
+                <span className="font-medium text-gray-900">{successData?.district}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Language:</span>
+                <span className="font-medium text-gray-900">{successData?.language}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Next Steps */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start text-left">
+              <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-blue-800">What's Next?</h4>
+                <ul className="text-xs text-blue-700 mt-2 space-y-1">
+                  <li>• You'll receive emergency alerts for your district</li>
+                  <li>• Check your email for account verification (if required)</li>
+                  <li>• Sign in to access safety features and settings</li>
+                  <li>• Download our mobile app for instant notifications</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/login', { 
+                state: { 
+                  message: 'Account created successfully! Please sign in to continue.',
+                  email: formData.email 
+                }
+              })}
+              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg flex items-center justify-center"
+            >
+              Continue to Sign In
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+            
+            <button
+              onClick={() => navigate('/')}
+              className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              Return to Home
+            </button>
+          </div>
+
+          {/* Auto-redirect notice */}
+          <p className="text-xs text-gray-500 mt-4">
+            You'll be automatically redirected to sign in in a few seconds...
+          </p>
+
+          {/* Footer */}
+          <div className="mt-8 text-center text-xs text-gray-500">
+            <p>© 2024 MINEMA - Ministry of Emergency Management</p>
+            <p className="mt-1">Republic of Rwanda</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-4">
