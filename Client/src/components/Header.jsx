@@ -63,12 +63,27 @@ const Header = ({
   };
 
   const handleLogout = () => {
-    const logoutResult = logout();
-    if (logoutResult.success) {
-      navigate(logoutResult.redirectTo, {
-        replace: true,
-        state: { message: logoutResult.message }
-      });
+    try {
+      const logoutResult = logout();
+      console.log('Logout result:', logoutResult); // Debug log
+      
+      // Handle both object return and simple logout
+      if (logoutResult && logoutResult.success) {
+        navigate(logoutResult.redirectTo, {
+          replace: true,
+          state: { message: logoutResult.message }
+        });
+      } else {
+        // Fallback navigation if logout doesn't return expected object
+        navigate('/login', {
+          replace: true,
+          state: { message: 'You have been signed out successfully.' }
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force navigation even if there's an error
+      navigate('/login', { replace: true });
     }
   };
 
