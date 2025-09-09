@@ -140,7 +140,7 @@ const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
         window.location.href = '/citizen/dashboard';
         break;
       default:
-        window.location.href = '/dashboard';
+        window.location.href = '/';
     }
   };
 

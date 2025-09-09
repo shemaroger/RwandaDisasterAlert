@@ -87,7 +87,13 @@ class LogoutView(APIView):
 # ---------------------------
 # Core ViewSets
 # ---------------------------
-
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all().order_by('-created_at')
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated & IsAdmin]
+    filterset_fields = ['role', 'is_active', 'is_approved', 'district']
+    search_fields = ['email', 'first_name', 'last_name', 'phone']
+    
 class GeoZoneViewSet(viewsets.ModelViewSet):
     queryset = GeoZone.objects.all()
     serializer_class = GeoZoneSerializer

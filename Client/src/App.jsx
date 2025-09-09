@@ -12,7 +12,7 @@ import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 
 // Dashboard pages
-import Dashboard from './pages/dashboard/Dashboard';
+// import Dashboard from './pages/dashboard/Dashboard';
 import CitizenDashboard from './pages/dashboard/CitizenDashboard';
 import OperatorDashboard from './pages/dashboard/OperatorDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
@@ -91,9 +91,9 @@ function App() {
         <Router>
           <div className="App">
             <Routes>
-              {/* Default route - redirect to dashboard or login */}
-              <Route path="/" element={<Navigate to="/Home" replace />} />
-
+              {/* Default route - redirect to Home or login */}
+              {/* <Route path="/" element={<Navigate to="/Home" replace />} /> */}
+              <Route path="/" element={<Home/>}/>
               {/* Public routes - no layout */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
