@@ -92,7 +92,7 @@ function App() {
           <div className="App">
             <Routes>
               {/* Default route - redirect to dashboard or login */}
-              <Route path="/" element={<Navigate to="/Dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/Home" replace />} />
 
               {/* Public routes - no layout */}
               <Route path="/login" element={<Login />} />
