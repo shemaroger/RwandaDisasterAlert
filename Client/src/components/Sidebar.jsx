@@ -58,6 +58,7 @@ const Sidebar = ({
     if (path.includes('/settings')) return 'settings';
     if (path.includes('/audit')) return 'audit';
     if (path.includes('/integrations')) return 'integrations';
+    if(path.includes('/user/management')) return 'management';
     return 'dashboard';
   };
 
@@ -106,6 +107,14 @@ const Sidebar = ({
         roles: ['admin', 'operator']
       },
       {
+        name: 'User Management',
+        id: 'management',
+        path: '/user/management',
+        icon: Users,
+        description: 'Manage system users',
+        roles: ['admin', 'operator']
+      },
+      {
         name: 'Citizens & Subscribers',
         id: 'subscribers',
         path: '/subscribers',
@@ -151,6 +160,15 @@ const Sidebar = ({
     ];
 
     const adminNavigation = [
+      {
+
+        name: 'User Management',
+        id: 'management',
+        path: '/user/management',
+        icon: Users,
+        description: 'Manage system users',
+        roles: ['admin', 'operator']
+      },
       {
         name: 'System Settings',
         id: 'settings',

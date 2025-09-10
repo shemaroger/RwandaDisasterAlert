@@ -17,6 +17,7 @@ import CitizenDashboard from './pages/dashboard/CitizenDashboard';
 import OperatorDashboard from './pages/dashboard/OperatorDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import Home from './pages/Home';
+import UserManagement from './pages/UserManagement';
 
 // // Alert Management pages
 // import AlertManagement from './pages/alerts/AlertManagement';
@@ -101,7 +102,8 @@ function App() {
               <Route path="/auth/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-              
+              <Route path="/user/management" element={<UserManagement />} />
+
               {/* Public emergency information */}
               <Route path="/emergency-guide" element={<EmergencyGuide />} />
               <Route path="/emergency-contacts" element={<EmergencyContacts />} />

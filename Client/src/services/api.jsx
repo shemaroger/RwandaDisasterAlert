@@ -151,7 +151,191 @@ class ApiService {
       body: passwordData,
     });
   }
+// User Management methods
+async getUsers(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/users/${query ? `?${query}` : ''}`);
+}
 
+async createUser(userData) {
+  return this.request('/users/', {
+    method: 'POST',
+    body: userData,
+  });
+}
+
+async updateUser(id, userData) {
+  return this.request(`/users/${id}/`, {
+    method: 'PATCH',
+    body: userData,
+  });
+}
+
+async deleteUser(id) {
+  return this.request(`/users/${id}/`, {
+    method: 'DELETE',
+  });
+}
+
+async getUserById(id) {
+  return this.request(`/users/${id}/`);
+}
+
+// Role Management specific methods
+async getRoleStatistics() {
+  return this.request('/users/role_statistics/');
+}
+
+async bulkRoleChange(userIds, targetRole) {
+  return this.request('/users/bulk_role_change/', {
+    method: 'POST',
+    body: {
+      user_ids: userIds,
+      target_role: targetRole
+    }
+  });
+}
+
+async bulkApproveUsers(userIds) {
+  return this.request('/users/bulk_approve/', {
+    method: 'POST',
+    body: {
+      user_ids: userIds
+    }
+  });
+}
+
+async bulkActivateUsers(userIds, isActive = true) {
+  return this.request('/users/bulk_activate/', {
+    method: 'POST',
+    body: {
+      user_ids: userIds,
+      is_active: isActive
+    }
+  });
+}
+
+async resetUserPassword(userId) {
+  return this.request(`/users/${userId}/reset_password/`, {
+    method: 'POST'
+  });
+}
+
+// Individual user status methods
+async approveUser(userId) {
+  return this.updateUser(userId, { is_approved: true });
+}
+
+async activateUser(userId) {
+  return this.updateUser(userId, { is_active: true });
+}
+
+async deactivateUser(userId) {
+  return this.updateUser(userId, { is_active: false });
+}
+
+async changeUserRole(userId, newRole) {
+  return this.updateUser(userId, { role: newRole });
+}
+
+// Validation methods for role management
+validateRoleChange(currentUserRole, targetUserRole, newRole) {
+  // Only admins can change roles
+  if (currentUserRole !== 'admin') {
+    throw new Error('Only administrators can change user roles');
+  }
+  
+  // Valid roles check
+  const validRoles = ['admin', 'operator', 'citizen'];
+  if (!validRoles.includes(newRole)) {
+    throw new Error('Invalid role specified');
+  }
+  
+  return true;
+}
+
+validateBulkOperation(currentUserRole, operation, userIds) {
+  if (currentUserRole !== 'admin') {
+    throw new Error('Only administrators can perform bulk operations');
+  }
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new Error('No users selected for bulk operation');
+  }
+  
+  const validOperations = ['role_change', 'approve', 'activate', 'deactivate'];
+  if (!validOperations.includes(operation)) {
+    throw new Error('Invalid bulk operation');
+  }
+  
+  return true;
+}
+
+// Helper method to check if user can perform action
+canUserPerformAction(currentUser, targetUser, action) {
+  // Self-check
+  if (currentUser.id === targetUser.id) {
+    const allowedSelfActions = ['view', 'update_profile'];
+    return allowedSelfActions.includes(action);
+  }
+  
+  // Role-based permissions
+  switch (currentUser.role) {
+    case 'admin':
+      // Admins can perform all actions on all users
+      return true;
+    
+    case 'operator':
+      // Operators can only view users, no modifications
+      return action === 'view';
+    
+    case 'citizen':
+      // Citizens can only view/update their own profile
+      return currentUser.id === targetUser.id && ['view', 'update_profile'].includes(action);
+    
+    default:
+      return false;
+  }
+}
+
+// Export user data
+async exportUsers(format = 'csv', filters = {}) {
+  const params = new URLSearchParams({
+    ...filters,
+    export_format: format
+  }).toString();
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/users/export/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    // Return blob for file download
+    return await response.blob();
+  } catch (error) {
+    throw new Error(`Export failed: ${error.message}`);
+  }
+}
+
+// Audit trail methods
+async getUserAuditLog(userId, params = {}) {
+  const query = new URLSearchParams({
+    entity: 'User',
+    entity_id: userId,
+    ...params
+  }).toString();
+  
+  return this.request(`/audit-logs/?${query}`);
+}
+
+async getSystemAuditLog(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/audit-logs/?${query}`);
+}
   // GeoZone methods
   async getGeoZones(params = {}) {
     const query = new URLSearchParams(params).toString();
