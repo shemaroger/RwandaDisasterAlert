@@ -90,9 +90,15 @@ class LogoutView(APIView):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-created_at')
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated & IsAdmin]
+    permission_classes = [IsAdminOrOperator]  # Fixed permission
     filterset_fields = ['role', 'is_active', 'is_approved', 'district']
     search_fields = ['email', 'first_name', 'last_name', 'phone']
+    
+    def get_queryset(self):
+        # Operators can only see citizens, admins see all
+        if self.request.user.role == User.Roles.OPERATOR:
+            return self.queryset.filter(role=User.Roles.CITIZEN)
+        return self.queryset
     
 class GeoZoneViewSet(viewsets.ModelViewSet):
     queryset = GeoZone.objects.all()

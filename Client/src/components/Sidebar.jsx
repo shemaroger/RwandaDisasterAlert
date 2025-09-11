@@ -161,15 +161,6 @@ const Sidebar = ({
 
     const adminNavigation = [
       {
-
-        name: 'User Management',
-        id: 'management',
-        path: '/user/management',
-        icon: Users,
-        description: 'Manage system users',
-        roles: ['admin', 'operator']
-      },
-      {
         name: 'System Settings',
         id: 'settings',
         path: '/admin/settings',

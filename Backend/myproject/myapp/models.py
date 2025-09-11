@@ -53,16 +53,18 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField(unique=True, db_index=True)
-
     role = models.CharField(max_length=20, choices=Roles.choices, default=Roles.CITIZEN)
     phone = models.CharField(max_length=30, blank=True)
 
     # Signup/profile extras
     PREFERRED_LANG_CHOICES = (("rw", "Kinyarwanda"), ("en", "English"), ("fr", "French"))
     preferred_language = models.CharField(max_length=5, choices=PREFERRED_LANG_CHOICES, default="rw")
+    
+    # Consider making this a ForeignKey to a District model for better data integrity
     district = models.CharField(max_length=80, blank=True)
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
-
+    email_verified_at = models.DateTimeField(null=True, blank=True)  # Add email verification
+    
     is_approved = models.BooleanField(default=True)
 
     # Auditing
@@ -80,6 +82,8 @@ class User(AbstractUser):
         indexes = [
             models.Index(fields=["email"]),
             models.Index(fields=["role"]),
+            models.Index(fields=["district"]),  # Add district index for filtering
+            models.Index(fields=["is_approved"]),
         ]
 
     def __str__(self):
@@ -88,8 +92,10 @@ class User(AbstractUser):
     def mark_seen(self):
         self.last_seen = timezone.now()
         self.save(update_fields=["last_seen"])
-
-
+        
+    @property
+    def is_email_verified(self):
+        return self.email_verified_at is not None
 # =============================================================================
 # Enums
 # =============================================================================

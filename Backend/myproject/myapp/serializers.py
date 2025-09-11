@@ -49,18 +49,43 @@ class RegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return value
+    
+    def validate_phone(self, value):
+        """Validate Rwandan phone number format"""
+        import re
+        if value:
+            # Rwanda phone numbers: +250XXXXXXXXX or 07XXXXXXXX format
+            pattern = r'^(\+250|0)[7]\d{8}$'
+            if not re.match(pattern, value):
+                raise serializers.ValidationError(
+                    "Phone number must be in format: +25078XXXXXXX or 078XXXXXXX"
+                )
+        return value
+
+    def validate_district(self, value):
+        """Validate district against Rwanda's 30 districts"""
+        RWANDA_DISTRICTS = [
+            'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo', 'Gicumbi',
+            'Gisagara', 'Huye', 'Kamonyi', 'Karongi', 'Kayonza', 'Kicukiro',
+            'Kirehe', 'Muhanga', 'Musanze', 'Ngoma', 'Ngororero', 'Nyabihu',
+            'Nyagatare', 'Nyamagabe', 'Nyamasheke', 'Nyanza', 'Nyarugenge',
+            'Nyaruguru', 'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana'
+        ]
+        if value and value not in RWANDA_DISTRICTS:
+            raise serializers.ValidationError(f"Invalid district. Must be one of: {', '.join(RWANDA_DISTRICTS)}")
+        return value
 
     def validate(self, attrs):
-        # passwords
+        # Password validation
         if attrs.get("password") != attrs.get("password2"):
             raise serializers.ValidationError({"password2": "Passwords do not match."})
         password_validation.validate_password(attrs.get("password"))
 
-        # terms
+        # Terms validation
         if not attrs.get("accepted_terms"):
             raise serializers.ValidationError({"accepted_terms": "You must accept the Terms & Conditions."})
 
-        # preferred_language sanity (optional: DRF will validate via model choices too)
+        # Language validation
         if attrs.get("preferred_language") not in {"rw", "en", "fr"}:
             raise serializers.ValidationError({"preferred_language": "Use one of: rw, en, fr."})
 
@@ -71,11 +96,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("accepted_terms", None)
         password = validated_data.pop("password")
 
-        # Force safe default for public signups
-        user = User.objects.create_user(role=User.Roles.CITIZEN, **validated_data)
+        # Create user with approval required for sensitive roles
+        user = User.objects.create_user(
+            role=User.Roles.CITIZEN,
+            is_approved=True,  # Citizens auto-approved, others need manual approval
+            **validated_data
+        )
         user.terms_accepted_at = timezone.now()
         user.set_password(password)
         user.save(update_fields=["password", "terms_accepted_at"])
+        
+        # Send welcome email (implement separately)
+        # self.send_welcome_email(user)
+        
         return user
 
 
