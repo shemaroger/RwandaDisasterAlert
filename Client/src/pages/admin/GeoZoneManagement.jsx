@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import apiService from '../services/api';
+import apiService from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   FiSearch, FiPlus, FiEdit, FiX, FiDownload, FiRefreshCw,
   FiMapPin, FiMap, FiAlertCircle, FiInfo, FiGlobe,

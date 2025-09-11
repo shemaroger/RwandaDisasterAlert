@@ -23,6 +23,9 @@ import SafetyCheckin from './pages/safety/SafetyCheckin';
 import EmergencyContacts from './pages/safety/EmergencyContacts';
 import EmergencyGuide from './pages/safety/EmergencyGuide';
 
+import GeoZoneManagement from './pages/admin/GeoZoneManagement';
+import LocationManagement from './pages/admin/LocationManagement';
+
 // Other pages
 import NotFound from './pages/NotFound';
 import Unauthorized from './pages/Unauthorized';
@@ -35,9 +38,9 @@ function UserManagementWrapper() {
   return <UserManagement user={user} onLogout={logout} />;
 }
 
-// Dashboard redirect component based on user role
+// Dashboard redirect component based on user_type
 function DashboardRedirect() {
-  const { user, loading } = useAuth();
+  const { user, loading, getRedirectPath } = useAuth();
   
   if (loading) {
     return (
@@ -54,17 +57,9 @@ function DashboardRedirect() {
     return <Navigate to="/login" replace />;
   }
   
-  // Redirect based on user role
-  switch (user.role) {
-    case 'admin':
-      return <Navigate to="/admin/dashboard" replace />;
-    case 'operator':
-      return <Navigate to="/operator/dashboard" replace />;
-    case 'citizen':
-      return <Navigate to="/citizen/dashboard" replace />;
-    default:
-      return <Navigate to="/login" replace />;
-  }
+  // Use the getRedirectPath function from AuthContext
+  const redirectPath = getRedirectPath(user.user_type);
+  return <Navigate to={redirectPath} replace />;
 }
 
 function AppRoutes() {
@@ -76,7 +71,9 @@ function AppRoutes() {
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <DashboardRedirect />
+            <Layout>
+              <DashboardRedirect />
+            </Layout>
           </ProtectedRoute>
         } 
       />
@@ -93,11 +90,11 @@ function AppRoutes() {
       <Route path="/emergency-guide" element={<EmergencyGuide />} />
       <Route path="/emergency-contacts" element={<EmergencyContacts />} />
 
-      {/* User Management Route - Fixed with proper protection */}
+      {/* User Management Routes - Updated for RwandaDisasterAlert */}
       <Route 
-        path="/user/management" 
+        path="/users" 
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
               <UserManagementWrapper />
             </Layout>
@@ -105,11 +102,10 @@ function AppRoutes() {
         } 
       />
 
-      {/* Alternative User Management Route */}
       <Route 
         path="/admin/users" 
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
               <UserManagementWrapper />
             </Layout>
@@ -121,7 +117,7 @@ function AppRoutes() {
       <Route
         path="/citizen/dashboard"
         element={
-          <ProtectedRoute requiredRole="citizen">
+          <ProtectedRoute requiredUserType="citizen">
             <Layout>
               <CitizenDashboard />
             </Layout>
@@ -132,7 +128,7 @@ function AppRoutes() {
       <Route
         path="/citizen/safety/checkin"
         element={
-          <ProtectedRoute requiredRole="citizen">
+          <ProtectedRoute requiredUserType="citizen">
             <Layout>
               <SafetyCheckin />
             </Layout>
@@ -144,7 +140,7 @@ function AppRoutes() {
       <Route
         path="/operator/dashboard"
         element={
-          <ProtectedRoute requiredRole="operator">
+          <ProtectedRoute requiredUserType="operator">
             <Layout>
               <OperatorDashboard />
             </Layout>
@@ -156,7 +152,7 @@ function AppRoutes() {
       <Route
         path="/admin/dashboard"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
               <AdminDashboard />
             </Layout>
@@ -198,329 +194,161 @@ function AppRoutes() {
         }
       />
 
-      {/* ==================== MULTI-ROLE ROUTES ==================== */}
-      {/* These routes are accessible to both operators and admins */}
+      {/* ==================== RWANDADISASTERALERT SPECIFIC ROUTES ==================== */}
       
-      {/* Alert Management Routes */}
-      {/* 
+      {/* Alert Management Routes - Admin and Authority */}
       <Route
         path="/alerts"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
             <Layout>
-              <AlertManagement />
+              <div>Alert Management Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/alerts/new"
+        path="/alerts/create"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
             <Layout>
-              <CreateAlert />
+              <div>Create Alert Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
-      <Route
-        path="/alerts/:id"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <AlertDetails />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Incident Management Routes */}
-      {/* 
+      {/* Incident Management Routes - All user types can view, Admin/Authority/Operator can manage */}
       <Route
         path="/incidents"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute>
             <Layout>
-              <IncidentManagement />
+              <div>Incident Management Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/incidents/new"
+        path="/incidents/my-reports"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <Layout>
+              <div>My Incident Reports Coming Soon</div>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Location Management Routes - Admin and Authority */}
+
+<Route
+  path="/locations"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <LocationManagement  />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+
+
+      {/* Emergency Contacts Routes - All users can view */}
+      <Route
+        path="/emergency-contacts"
         element={
           <ProtectedRoute>
             <Layout>
-              <CreateIncident />
+              <EmergencyContacts />
             </Layout>
           </ProtectedRoute>
         }
       />
 
+      {/* Safety Guides Routes - All users can view */}
       <Route
-        path="/incidents/:id"
+        path="/safety-guides"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute>
             <Layout>
-              <IncidentDetails />
+              <div>Safety Guides Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
-      */}
 
-      {/* Monitoring Routes */}
-      {/* 
+      {/* Alert Delivery Routes - Admin, Authority, Operator */}
       <Route
-        path="/monitoring"
+        path="/deliveries"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority", "operator"]}>
             <Layout>
-              <LiveMonitoring />
+              <div>Alert Delivery Management Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
-      <Route
-        path="/monitoring/live"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <LiveMonitoring />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/monitoring/weather"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <WeatherMonitoring />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Geography Management Routes */}
-      {/* 
-      <Route
-        path="/geozones"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <GeoZoneManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/geozones/new"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <CreateGeoZone />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/geozones/:id"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ZoneDetails />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Subscriber Management Routes */}
-      {/* 
-      <Route
-        path="/subscribers"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <SubscriberManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/subscribers/:id"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <SubscriberDetails />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/devices"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <DeviceManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Shelter Management Routes */}
-      {/* 
-      <Route
-        path="/shelters"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ShelterManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/shelters/new"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <CreateShelter />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/shelters/:id"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ShelterDetails />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/shelters/capacity"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ShelterCapacity />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Communication Management Routes */}
-      {/* 
-      <Route
-        path="/channels"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ChannelConfiguration />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/templates"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <MessageTemplates />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/delivery-reports"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <DeliveryReports />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Analytics Routes */}
-      {/* 
+      {/* Analytics Routes - Admin, Authority, Operator */}
       <Route
         path="/analytics"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority", "operator"]}>
             <Layout>
-              <AnalyticsDashboard />
+              <div>Analytics Dashboard Coming Soon</div>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Notification Templates Routes - Admin and Authority */}
+      <Route
+        path="/notification-templates"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
+            <Layout>
+              <div>Notification Templates Coming Soon</div>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Alert Response Routes - Citizens */}
+      <Route
+        path="/alerts/my-responses"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <Layout>
+              <div>My Alert Responses Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/analytics/performance"
+        path="/alerts/respond"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserType="citizen">
             <Layout>
-              <PerformanceReports />
+              <SafetyCheckin />
             </Layout>
           </ProtectedRoute>
         }
       />
-
-      <Route
-        path="/analytics/response"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ResponseMetrics />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/analytics/alerts"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <AlertAnalytics />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
 
       {/* ==================== ADMIN-ONLY SYSTEM ROUTES ==================== */}
       
       {/* System Settings Routes */}
-      {/* 
       <Route
         path="/admin/settings"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
-              <SystemSettings />
+              <div>System Settings Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
@@ -529,203 +357,56 @@ function AppRoutes() {
       <Route
         path="/settings"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
-              <SystemSettings />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Audit & Logging Routes */}
-      {/* 
-      <Route
-        path="/admin/audit"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <AuditLogs />
+              <div>System Settings Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
+      {/* System Health Routes */}
       <Route
-        path="/audit-logs"
+        path="/system/health"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
-              <AuditLogs />
+              <div>System Health Monitoring Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
-      */}
-
-      {/* Integration Management Routes */}
-      {/* 
-      <Route
-        path="/admin/integrations"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <IntegrationSetup />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/integrations"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <IntegrationSetup />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/providers"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <ProviderManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/providers"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <ProviderManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* System Status Routes */}
-      {/* 
-      <Route
-        path="/admin/system-status"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <SystemStatus />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/system-status"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <SystemStatus />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
 
       {/* ==================== PROFILE & SETTINGS ROUTES ==================== */}
-      {/* 
       <Route
         path="/profile"
         element={
           <ProtectedRoute>
             <Layout>
-              <Profile />
+              <div>User Profile Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/profile/edit"
+        path="/profile/preferences"
         element={
           <ProtectedRoute>
             <Layout>
-              <ProfileSettings />
+              <div>Notification Preferences Coming Soon</div>
             </Layout>
           </ProtectedRoute>
         }
       />
 
-      <Route
-        path="/profile/notifications"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <NotificationSettings />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* ==================== ALTERNATIVE/ALIAS ROUTES ==================== */}
+      {/* ==================== LEGACY/ALIAS ROUTES ==================== */}
       
-      {/* Alternative Emergency Routes for better UX */}
-      {/* 
-      <Route
-        path="/emergency/alerts"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <AlertManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/emergency/alerts/new"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <CreateAlert />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/emergency/incidents"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <IncidentManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/emergency/incidents/report"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CreateIncident />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
-
-      {/* Alternative Geography Routes */}
-      
+      {/* Geography Management - Legacy route support
       <Route
         path="/geography"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
             <Layout>
               <GeoZoneManagement />
             </Layout>
@@ -736,50 +417,25 @@ function AppRoutes() {
       <Route
         path="/geography/zones"
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
             <Layout>
               <GeoZoneManagement />
             </Layout>
           </ProtectedRoute>
         }
-      />
-     
+      /> */}
 
-      {/* Alternative Communication Routes */}
-      {/* 
-      <Route
-        path="/communication"
+      {/* Legacy user management route */}
+      <Route 
+        path="/user/management" 
         element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
+          <ProtectedRoute requiredUserType="admin">
             <Layout>
-              <ChannelConfiguration />
+              <UserManagementWrapper />
             </Layout>
           </ProtectedRoute>
-        }
+        } 
       />
-
-      <Route
-        path="/communication/channels"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <ChannelConfiguration />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/communication/templates"
-        element={
-          <ProtectedRoute requiredRoles={["operator", "admin"]}>
-            <Layout>
-              <MessageTemplates />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      */}
 
       {/* ==================== ERROR ROUTES ==================== */}
       

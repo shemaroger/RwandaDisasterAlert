@@ -1,322 +1,1172 @@
-from django.contrib.auth import get_user_model
-from rest_framework import status
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import IsAuthenticated, AllowAny
+# views.py
+from rest_framework import viewsets, status, permissions
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
-from django.db.models import *
-from .permissions import *
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.hashers import check_password
+from rest_framework.authtoken.models import Token
+from datetime import timedelta
 from .models import *
 from .serializers import *
 
-User = get_user_model()
 
+# ======================== AUTHENTICATION VIEWS ========================
 
 class RegisterView(APIView):
-    permission_classes = [AllowAny]
-
+    """User registration endpoint"""
+    permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()  # creates a CITIZEN
-        token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user": UserSerializer(user).data}, status=status.HTTP_201_CREATED)
-
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response({
+                'user': UserSerializer(user).data,
+                'message': 'User registered successfully'
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
-    permission_classes = [AllowAny]
-
+    """User login endpoint"""
+    permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        if not username or not password:
+            return Response({
+                'error': 'Username and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = authenticate(username=username, password=password)
+        if user:
+            # Create or get authentication token
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+                'message': 'Login successful'
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'error': 'Invalid credentials'
+        }, status=status.HTTP_401_UNAUTHORIZED)
 
-        token, _ = Token.objects.get_or_create(user=user)
-        # Optional UX: update last_seen
-        try:
-            user.mark_seen()
-        except Exception:
-            pass
 
-        return Response({"token": token.key, "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+class LogoutView(APIView):
+    """User logout endpoint"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        logout(request)
+        return Response({
+            'message': 'Logout successful'
+        }, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
-    permission_classes = [IsAuthenticated]
-
+    """Get current user profile"""
+    permission_classes = [permissions.IsAuthenticated]
+    
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
-
-    def patch(self, request):
-        serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(UserSerializer(request.user).data)
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
 
 
 class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
-
-
-# If you add an AuditLog.create helper, you can call it here.
-def audit(actor, action, entity, entity_id, meta=None):
-    from .models import AuditLog  # local import to avoid cycles
-    AuditLog.objects.create(actor=actor, action=action, entity=entity, entity_id=str(entity_id), meta=meta or {})
-
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    """Change user password"""
+    permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        try:
-            # Delete the user's token
-            request.user.auth_token.delete()
-            return Response({'message': 'Successfully logged out'}, status=200)
-        except Token.DoesNotExist:
-            return Response({'message': 'Token not found'}, status=200)
-        except Exception as e:
-            return Response({'error': str(e)}, status=400)
-# ---------------------------
-# Core ViewSets
-# ---------------------------
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        if not old_password or not new_password:
+            return Response({
+                'error': 'Both old and new passwords are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not check_password(old_password, request.user.password):
+            return Response({
+                'error': 'Invalid old password'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(new_password) < 8:
+            return Response({
+                'error': 'New password must be at least 8 characters'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        request.user.set_password(new_password)
+        request.user.save()
+        
+        return Response({
+            'message': 'Password changed successfully'
+        }, status=status.HTTP_200_OK)
+
+
+# ======================== VIEWSETS ========================
+
+class LocationViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for locations - read-only for most users"""
+    queryset = Location.objects.filter(is_active=True)
+    serializer_class = LocationSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['location_type', 'parent']
+    search_fields = ['name', 'name_rw', 'name_fr']
+    permission_classes = [permissions.AllowAny]
+    
+    @action(detail=False, methods=['get'])
+    def districts(self, request):
+        """Get all districts"""
+        districts = self.queryset.filter(location_type='district')
+        serializer = self.get_serializer(districts, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def children(self, request, pk=None):
+        """Get child locations"""
+        location = self.get_object()
+        children = self.queryset.filter(parent=location)
+        serializer = self.get_serializer(children, many=True)
+        return Response(serializer.data)
+
+
+class DisasterTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for disaster types - read-only"""
+    queryset = DisasterType.objects.filter(is_active=True)
+    serializer_class = DisasterTypeSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'name_rw', 'name_fr']
+    permission_classes = [permissions.AllowAny]
+
+
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by('-created_at')
+    """ViewSet for user management"""
+    queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminOrOperator]  # Fixed permission
-    filterset_fields = ['role', 'is_active', 'is_approved', 'district']
-    search_fields = ['email', 'first_name', 'last_name', 'phone']
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['user_type', 'district', 'is_verified']
+    search_fields = ['username', 'email', 'first_name', 'last_name']
     
-    def get_queryset(self):
-        # Operators can only see citizens, admins see all
-        if self.request.user.role == User.Roles.OPERATOR:
-            return self.queryset.filter(role=User.Roles.CITIZEN)
-        return self.queryset
-    
-class GeoZoneViewSet(viewsets.ModelViewSet):
-    queryset = GeoZone.objects.all()
-    serializer_class = GeoZoneSerializer
-    permission_classes = [IsAuthenticated & IsAdmin]  # only admins manage zones
-    filterset_fields = ["level", "code"]
-    search_fields = ["name", "code"]
-
-
-class SubscriberViewSet(viewsets.ModelViewSet):
-    queryset = Subscriber.objects.all().select_related("user")
-    serializer_class = SubscriberSerializer
-    permission_classes = [IsAuthenticated]
-
     def get_permissions(self):
-        # Citizens can create/update their own subscriber record (if linked), admins/operators can manage all.
-        if self.action in {"list", "destroy"}:
-            return [IsAdminOrOperator()]
-        return super().get_permissions()
-
-    def perform_create(self, serializer):
-        # If the requester is a citizen and has no subscriber yet, link it.
-        user = self.request.user
-        instance = serializer.save()
-        if getattr(user, "role", None) == "citizen" and user.subscriber is None:
-            instance.user = user
-            instance.save(update_fields=["user"])
-
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        elif self.action in ['retrieve', 'update', 'partial_update']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserRegistrationSerializer
+        return UserSerializer
+    
     def get_queryset(self):
-        user = self.request.user
-        if getattr(user, "role", None) in {"admin", "operator"}:
-            return super().get_queryset()
-        # citizen -> only own subscriber (if any)
-        return Subscriber.objects.filter(user=user)
-
-
-class DeviceViewSet(viewsets.ModelViewSet):
-    queryset = Device.objects.all().select_related("subscriber")
-    serializer_class = DeviceSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        if getattr(user, "role", None) in {"admin", "operator"}:
-            return super().get_queryset()
-        # citizen -> devices under their subscriber
-        if hasattr(user, "subscriber") and user.subscriber:
-            return Device.objects.filter(subscriber=user.subscriber)
-        return Device.objects.none()
-
-
-class MessageTemplateViewSet(viewsets.ModelViewSet):
-    queryset = MessageTemplate.objects.all()
-    serializer_class = MessageTemplateSerializer
-    permission_classes = [IsAuthenticated & IsAdmin]
-    search_fields = ["code", "title_rw", "title_en", "title_fr"]
-
-
-class ProviderIntegrationViewSet(viewsets.ModelViewSet):
-    queryset = ProviderIntegration.objects.all()
-    serializer_class = ProviderIntegrationSerializer
-    permission_classes = [IsAuthenticated & IsAdmin]
+        if self.request.user.is_superuser or self.request.user.user_type == 'admin':
+            return User.objects.all()
+        elif self.action in ['retrieve', 'update', 'partial_update']:
+            return User.objects.filter(id=self.request.user.id)
+        return User.objects.none()
+    
+    @action(detail=False, methods=['get', 'patch'])
+    def me(self, request):
+        """Get or update current user profile"""
+        if request.method == 'GET':
+            serializer = self.get_serializer(request.user)
+            return Response(serializer.data)
+        elif request.method == 'PATCH':
+            serializer = self.get_serializer(request.user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertViewSet(viewsets.ModelViewSet):
-    queryset = Alert.objects.all().prefetch_related("target_zones")
-    serializer_class = AlertSerializer
-    permission_classes = [IsAuthenticated & IsAdminOrOperator]
-    filterset_fields = ["status", "type", "severity"]
-    search_fields = ["title_rw", "title_en", "title_fr", "ref"]
-
-    def perform_create(self, serializer):
-        alert = serializer.save(created_by=self.request.user)
-        audit(self.request.user, "create", "Alert", alert.id, {"ref": alert.ref})
-
-    def perform_update(self, serializer):
-        alert = serializer.save()
-        audit(self.request.user, "update", "Alert", alert.id, {"status": alert.status})
-
-    # ---- custom actions ----
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdmin])
-    def approve(self, request, pk=None):
+    """ViewSet for alerts"""
+    queryset = Alert.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['disaster_type', 'severity', 'status', 'affected_locations']
+    search_fields = ['title', 'title_rw', 'title_fr', 'message']
+    ordering_fields = ['created_at', 'issued_at', 'severity', 'priority_score']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AlertCreateSerializer
+        return AlertSerializer
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        elif self.action in ['create', 'update', 'partial_update']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+    
+    def get_queryset(self):
+        queryset = Alert.objects.select_related(
+            'disaster_type', 'issued_by', 'approved_by'
+        ).prefetch_related(
+            'affected_locations', 'deliveries', 'responses'
+        )
+        
+        # Filter based on user permissions
+        if self.request.user.is_anonymous:
+            return queryset.filter(status='active', publish_web=True)
+        elif hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'citizen':
+            return queryset.filter(status__in=['active', 'expired'], publish_web=True)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """Get all active alerts"""
+        active_alerts = self.get_queryset().filter(
+            status='active',
+            issued_at__lte=timezone.now(),
+            expires_at__gte=timezone.now()
+        )
+        
+        # Filter by user location if provided
+        if request.user.is_authenticated and hasattr(request.user, 'district') and request.user.district:
+            active_alerts = active_alerts.filter(
+                Q(affected_locations=request.user.district) |
+                Q(affected_locations__isnull=True)  # Global alerts
+            )
+        
+        serializer = self.get_serializer(active_alerts, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """Activate an alert"""
         alert = self.get_object()
+        if alert.status != 'draft':
+            return Response(
+                {'error': 'Only draft alerts can be activated'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        alert.status = 'active'
+        alert.issued_at = timezone.now()
         alert.approved_by = request.user
-        alert.status = AlertStatus.SCHEDULED if alert.scheduled_at else AlertStatus.SENT if alert.send_immediately else AlertStatus.SCHEDULED
-        # if send_immediately and approved, we will send in send_now endpoint for explicitness
-        alert.save(update_fields=["approved_by", "status"])
-        audit(request.user, "approve", "Alert", alert.id)
-        return Response({"detail": "Alert approved.", "status": alert.status})
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdmin])
-    def send_now(self, request, pk=None):
-        """
-        Trigger immediate delivery (Celery task recommended).
-        """
+        alert.save()
+        
+        # TODO: Trigger SMS/push notification sending here
+        
+        serializer = self.get_serializer(alert)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def respond(self, request, pk=None):
+        """Submit response to an alert"""
         alert = self.get_object()
-        if alert.status in {AlertStatus.SENT, AlertStatus.CANCELLED}:
-            return Response({"detail": f"Cannot send alert in status {alert.status}."}, status=400)
-
-        # Mark as sending; an async task should fan-out and update counters/deliveries.
-        alert.status = AlertStatus.SENDING
-        alert.sent_at = timezone.now()
-        alert.save(update_fields=["status", "sent_at"])
-        audit(request.user, "send_now", "Alert", alert.id)
-
-        # TODO: enqueue Celery job here, e.g.:
-        # from .tasks import send_alert_task
-        # send_alert_task.delay(alert_id=alert.id)
-
-        return Response({"detail": "Alert dispatch started."}, status=202)
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdmin])
-    def cancel(self, request, pk=None):
-        alert = self.get_object()
-        if alert.status in {AlertStatus.SENT, AlertStatus.CANCELLED}:
-            return Response({"detail": f"Cannot cancel alert in status {alert.status}."}, status=400)
-        alert.status = AlertStatus.CANCELLED
-        alert.save(update_fields=["status"])
-        audit(request.user, "cancel", "Alert", alert.id)
-        return Response({"detail": "Alert cancelled."}, status=200)
+        serializer = AlertResponseSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save(alert=alert, user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertDeliveryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AlertDelivery.objects.all().select_related("alert", "subscriber")
+    """ViewSet for alert deliveries - read-only"""
+    queryset = AlertDelivery.objects.all()
     serializer_class = AlertDeliverySerializer
-    permission_classes = [IsAuthenticated & IsAdminOrOperator]
-    filterset_fields = ["alert", "subscriber", "channel", "success"]
-    search_fields = ["status_code", "provider_msg_id"]
-
-
-class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.all().select_related("subscriber", "handled_by", "zone")
-    serializer_class = IncidentSerializer
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['delivery_method', 'status', 'alert']
+    ordering = ['-created_at']
+    
     def get_queryset(self):
-        user = self.request.user
-        if getattr(user, "role", None) in {"admin", "operator"}:
-            return super().get_queryset()
-        # citizen: only incidents they created (via their subscriber)
-        if hasattr(user, "subscriber") and user.subscriber:
-            return Incident.objects.filter(subscriber=user.subscriber)
-        return Incident.objects.none()
+        if self.request.user.is_superuser or self.request.user.user_type in ['admin', 'operator']:
+            return AlertDelivery.objects.all()
+        return AlertDelivery.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        # If citizen has a subscriber, bind automatically
-        user = self.request.user
-        subscriber = getattr(user, "subscriber", None)
-        instance = serializer.save(subscriber=subscriber if subscriber else serializer.validated_data.get("subscriber"))
-        audit(user, "create", "Incident", instance.id, {"status": instance.status})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdminOrOperator])
-    def triage(self, request, pk=None):
+class IncidentReportViewSet(viewsets.ModelViewSet):
+    """ViewSet for incident reports"""
+    queryset = IncidentReport.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['report_type', 'disaster_type', 'status', 'priority', 'location']
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'priority', 'status']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return IncidentReportCreateSerializer
+        return IncidentReportSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create']:
+            return [permissions.IsAuthenticated()]
+        elif self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+    
+    def get_queryset(self):
+        queryset = IncidentReport.objects.select_related(
+            'reporter', 'disaster_type', 'location', 'assigned_to', 'verified_by'
+        )
+        
+        # Citizens can only see their own reports
+        if hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'citizen':
+            return queryset.filter(reporter=self.request.user)
+        
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def assign(self, request, pk=None):
+        """Assign incident to a user"""
         incident = self.get_object()
-        if incident.status not in {CaseStatus.NEW, CaseStatus.TRIAGED, CaseStatus.IN_PROGRESS}:
-            return Response({"detail": f"Cannot triage incident in status {incident.status}."}, status=400)
-        incident.status = CaseStatus.TRIAGED
-        incident.handled_by = request.user
-        incident.save(update_fields=["status", "handled_by"])
-        audit(request.user, "triage", "Incident", incident.id)
-        return Response({"detail": "Incident triaged."})
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdminOrOperator])
+        assigned_to_id = request.data.get('assigned_to')
+        
+        try:
+            assigned_user = User.objects.get(id=assigned_to_id)
+            incident.assigned_to = assigned_user
+            incident.status = 'under_review'
+            incident.save()
+            
+            serializer = self.get_serializer(incident)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=True, methods=['post'])
+    def verify(self, request, pk=None):
+        """Verify an incident report"""
+        incident = self.get_object()
+        incident.status = 'verified'
+        incident.verified_by = request.user
+        incident.save()
+        
+        serializer = self.get_serializer(incident)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
+        """Mark incident as resolved"""
         incident = self.get_object()
-        incident.status = CaseStatus.RESOLVED
-        incident.handled_by = request.user
-        incident.save(update_fields=["status", "handled_by"])
-        audit(request.user, "resolve", "Incident", incident.id)
-        return Response({"detail": "Incident resolved."})
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated & IsAdminOrOperator])
-    def reject(self, request, pk=None):
-        incident = self.get_object()
-        incident.status = CaseStatus.REJECTED
-        incident.handled_by = request.user
-        incident.save(update_fields=["status", "handled_by"])
-        audit(request.user, "reject", "Incident", incident.id)
-        return Response({"detail": "Incident rejected."})
+        resolution_notes = request.data.get('resolution_notes', '')
+        
+        incident.status = 'resolved'
+        incident.resolved_at = timezone.now()
+        incident.resolution_notes = resolution_notes
+        incident.save()
+        
+        serializer = self.get_serializer(incident)
+        return Response(serializer.data)
 
 
-class SafeCheckinViewSet(viewsets.ModelViewSet):
-    queryset = SafeCheckin.objects.all().select_related("alert", "subscriber")
-    serializer_class = SafeCheckinSerializer
-    permission_classes = [IsAuthenticated]
+class EmergencyContactViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for emergency contacts - read-only"""
+    queryset = EmergencyContact.objects.filter(is_active=True)
+    serializer_class = EmergencyContactSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['contact_type', 'locations']
+    search_fields = ['name', 'name_rw', 'name_fr', 'services_offered']
+    ordering = ['display_order', 'name']
+    permission_classes = [permissions.AllowAny]
+    
+    @action(detail=False, methods=['get'])
+    def by_location(self, request):
+        """Get contacts by location"""
+        location_id = request.query_params.get('location_id')
+        if location_id:
+            contacts = self.queryset.filter(locations=location_id)
+            serializer = self.get_serializer(contacts, many=True)
+            return Response(serializer.data)
+        return Response({'error': 'location_id parameter required'}, 
+                       status=status.HTTP_400_BAD_REQUEST)
 
-    def get_queryset(self):
-        user = self.request.user
-        if getattr(user, "role", None) in {"admin", "operator"}:
-            return super().get_queryset()
-        if hasattr(user, "subscriber") and user.subscriber:
-            return SafeCheckin.objects.filter(subscriber=user.subscriber)
-        return SafeCheckin.objects.none()
 
+class SafetyGuideViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for safety guides - read-only for citizens"""
+    queryset = SafetyGuide.objects.filter(is_published=True)
+    serializer_class = SafetyGuideSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['disaster_types', 'category', 'target_audience', 'is_featured']
+    search_fields = ['title', 'title_rw', 'title_fr', 'content']
+    ordering = ['display_order', 'title']
+    permission_classes = [permissions.AllowAny]
+    
+    @action(detail=False, methods=['get'])
+    def featured(self, request):
+        """Get featured safety guides"""
+        featured = self.queryset.filter(is_featured=True)
+        serializer = self.get_serializer(featured, many=True)
+        return Response(serializer.data)
+
+
+class NotificationTemplateViewSet(viewsets.ModelViewSet):
+    """ViewSet for notification templates - admin only"""
+    queryset = NotificationTemplate.objects.all()
+    serializer_class = NotificationTemplateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['disaster_type', 'severity', 'is_active']
+    search_fields = ['name', 'title_template', 'message_template']
+    
     def perform_create(self, serializer):
-        # citizen shortcut: bind to their subscriber
-        user = self.request.user
-        subscriber = getattr(user, "subscriber", None)
-        instance = serializer.save(subscriber=subscriber if subscriber else serializer.validated_data["subscriber"])
-        audit(user, "create", "SafeCheckin", instance.id)
+        serializer.save(created_by=self.request.user)
 
 
-class ShelterViewSet(viewsets.ModelViewSet):
-    queryset = Shelter.objects.all().select_related("zone")
-    serializer_class = ShelterSerializer
-    permission_classes = [IsAuthenticated & IsAdminOrOperator]
-    filterset_fields = ["zone", "is_active"]
-    search_fields = ["name", "address"]
+class AlertResponseViewSet(viewsets.ModelViewSet):
+    """ViewSet for alert responses"""
+    queryset = AlertResponse.objects.all()
+    serializer_class = AlertResponseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['response_type', 'alert']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        if self.request.user.is_superuser or self.request.user.user_type in ['admin', 'operator']:
+            return AlertResponse.objects.all()
+        return AlertResponse.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
-# Read-only audit endpoint (admins only)
-from .models import AuditLog  # noqa: E402
+# ======================== ADDITIONAL VIEWS ========================
+
+class PasswordResetView(APIView):
+    """Password reset request"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+            # TODO: Implement password reset email logic
+            return Response({'message': 'Password reset email sent'})
+        except User.DoesNotExist:
+            return Response({'message': 'Password reset email sent'})  # Don't reveal if email exists
 
 
-class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.all().select_related("actor")
-    serializer_class = AuditLogSerializer
-    permission_classes = [IsAuthenticated & IsAdmin]
-    filterset_fields = ["entity", "actor"]
-    search_fields = ["action", "entity", "entity_id"]
+class PasswordResetConfirmView(APIView):
+    """Password reset confirmation"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        
+        if not token or not new_password:
+            return Response({'error': 'Token and new password are required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # TODO: Implement token validation and password reset
+        return Response({'message': 'Password reset successful'})
+
+
+class UserProfileView(APIView):
+    """Get/Update user profile"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+    
+    def patch(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationPreferencesView(APIView):
+    """Manage notification preferences"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        return Response({
+            'push_notifications_enabled': user.push_notifications_enabled,
+            'sms_notifications_enabled': user.sms_notifications_enabled,
+            'email_notifications_enabled': user.email_notifications_enabled,
+            'preferred_language': user.preferred_language,
+        })
+    
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        
+        if 'push_notifications_enabled' in data:
+            user.push_notifications_enabled = data['push_notifications_enabled']
+        if 'sms_notifications_enabled' in data:
+            user.sms_notifications_enabled = data['sms_notifications_enabled']
+        if 'email_notifications_enabled' in data:
+            user.email_notifications_enabled = data['email_notifications_enabled']
+        if 'preferred_language' in data:
+            user.preferred_language = data['preferred_language']
+        
+        user.save()
+        return Response({'message': 'Preferences updated successfully'})
+
+
+class UpdateLocationView(APIView):
+    """Update user location"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        district_id = request.data.get('district_id')
+        
+        if latitude and longitude:
+            user.location_lat = latitude
+            user.location_lng = longitude
+        
+        if district_id:
+            try:
+                district = Location.objects.get(id=district_id, location_type='district')
+                user.district = district
+            except Location.DoesNotExist:
+                return Response({'error': 'Invalid district'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.save()
+        return Response({'message': 'Location updated successfully'})
+
+
+class DashboardView(APIView):
+    """Dashboard overview"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        
+        # Get user-specific data based on role
+        if hasattr(user, 'user_type') and user.user_type == 'citizen':
+            return self.citizen_dashboard(user)
+        elif hasattr(user, 'user_type') and user.user_type in ['admin', 'operator', 'authority']:
+            return self.admin_dashboard(user)
+        
+        return Response({'error': 'Invalid user type'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def citizen_dashboard(self, user):
+        # Active alerts for user's area
+        active_alerts = Alert.objects.filter(
+            status='active',
+            issued_at__lte=timezone.now(),
+            expires_at__gte=timezone.now()
+        )
+        
+        if hasattr(user, 'district') and user.district:
+            active_alerts = active_alerts.filter(
+                Q(affected_locations=user.district) | Q(affected_locations__isnull=True)
+            )
+        
+        # User's incident reports
+        my_reports = IncidentReport.objects.filter(reporter=user).order_by('-created_at')[:5]
+        
+        # User's alert responses
+        my_responses = AlertResponse.objects.filter(user=user).order_by('-created_at')[:5]
+        
+        return Response({
+            'active_alerts_count': active_alerts.count(),
+            'my_reports_count': my_reports.count(),
+            'my_responses_count': my_responses.count(),
+            'recent_reports': [{'id': str(r.id), 'title': r.title, 'status': r.status} for r in my_reports],
+        })
+    
+    def admin_dashboard(self, user):
+        # System-wide statistics
+        total_users = User.objects.filter(user_type='citizen').count()
+        active_alerts = Alert.objects.filter(status='active').count()
+        pending_incidents = IncidentReport.objects.filter(status='submitted').count()
+        
+        # Recent activity
+        recent_alerts = Alert.objects.order_by('-created_at')[:5]
+        recent_incidents = IncidentReport.objects.order_by('-created_at')[:5]
+        
+        return Response({
+            'total_users': total_users,
+            'active_alerts': active_alerts,
+            'pending_incidents': pending_incidents,
+            'recent_alerts': [{'id': str(a.id), 'title': a.title, 'severity': a.severity} for a in recent_alerts],
+            'recent_incidents': [{'id': str(i.id), 'title': i.title, 'status': i.status} for i in recent_incidents],
+        })
+
+
+class NearbyAlertsView(APIView):
+    """Get alerts near user's location"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        if not (hasattr(user, 'location_lat') and user.location_lat and user.location_lng):
+            return Response({'error': 'User location not set'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get radius from query params (default 50km)
+        radius_km = float(request.query_params.get('radius', 50))
+        
+        alerts = Alert.objects.filter(
+            status='active',
+            center_lat__isnull=False,
+            center_lng__isnull=False
+        )
+        
+        # Filter by distance (simple calculation for now)
+        nearby_alerts = []
+        for alert in alerts:
+            if alert.center_lat and alert.center_lng:
+                # Simple distance calculation (should use PostGIS in production)
+                lat_diff = abs(float(user.location_lat) - float(alert.center_lat))
+                lng_diff = abs(float(user.location_lng) - float(alert.center_lng))
+                # Rough distance check (1 degree ≈ 111km)
+                if lat_diff < (radius_km / 111) and lng_diff < (radius_km / 111):
+                    nearby_alerts.append(alert)
+        
+        serializer = AlertSerializer(nearby_alerts, many=True)
+        return Response(serializer.data)
+
+
+class PublicActiveAlertsView(APIView):
+    """Public endpoint for active alerts"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        alerts = Alert.objects.filter(
+            status='active',
+            publish_web=True,
+            issued_at__lte=timezone.now(),
+            expires_at__gte=timezone.now()
+        ).order_by('-issued_at')
+        
+        serializer = AlertSerializer(alerts, many=True)
+        return Response(serializer.data)
+
+
+class SystemHealthView(APIView):
+    """System health check"""
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        from django.db import connection
+        
+        # Check database
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            db_status = "healthy"
+        except Exception as e:
+            db_status = f"error: {str(e)}"
+        
+        return Response({
+            'status': 'healthy' if db_status == 'healthy' else 'unhealthy',
+            'database': db_status,
+            'timestamp': timezone.now().isoformat(),
+        })
+
+
+class TwilioSMSStatusWebhookView(APIView):
+    """Webhook for Twilio SMS delivery status"""
+    permission_classes = [permissions.AllowAny]  # Twilio webhook
+    
+    def post(self, request):
+        # Verify webhook signature in production
+        data = request.data
+        
+        message_sid = data.get('MessageSid')
+        status = data.get('MessageStatus')
+        
+        if message_sid and status:
+            try:
+                # You'll need to store Twilio SID in AlertDelivery model
+                delivery = AlertDelivery.objects.get(
+                    error_message__contains=message_sid  # Temporary solution
+                )
+                
+                # Map Twilio status to our status
+                status_mapping = {
+                    'queued': 'pending',
+                    'sent': 'sent',
+                    'delivered': 'delivered',
+                    'failed': 'failed',
+                    'undelivered': 'failed',
+                }
+                
+                if status in status_mapping:
+                    delivery.status = status_mapping[status]
+                    if status == 'delivered':
+                        delivery.delivered_at = timezone.now()
+                    delivery.save()
+                
+                return Response({'status': 'ok'})
+            except AlertDelivery.DoesNotExist:
+                pass
+        
+        return Response({'status': 'ignored'})
+
+
+# ======================== PLACEHOLDER VIEWS ========================
+
+class DashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'stats': 'placeholder'})
+
+class RecentAlertsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'alerts': []})
+
+class RecentIncidentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'incidents': []})
+
+class MyAlertResponsesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'responses': []})
+
+class BulkSendAlertView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    def post(self, request):
+        return Response({'message': 'Bulk alert sent'})
+
+class AlertDeliveryStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request, alert_id):
+        return Response({'status': 'placeholder'})
+
+class MyIncidentReportsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'reports': []})
+
+class AssignedIncidentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'incidents': []})
+
+class PriorityIncidentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        return Response({'incidents': []})
+
+class NearbyEmergencyContactsView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        return Response({'contacts': []})
+
+class SafetyGuidesByDisasterView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        return Response({'guides': []})
+
+class LocationSearchView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        query = request.query_params.get('q', '')
+        if not query:
+            return Response({'error': 'Query parameter "q" is required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        locations = Location.objects.filter(
+            Q(name__icontains=query) |
+            Q(name_rw__icontains=query) |
+            Q(name_fr__icontains=query),
+            is_active=True
+        )[:20]  # Limit to 20 results
+        
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data)
+
+
+class LocationHierarchyView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Get complete location hierarchy"""
+        provinces = Location.objects.filter(location_type='province', is_active=True)
+        hierarchy = []
+        
+        for province in provinces:
+            province_data = LocationSerializer(province).data
+            districts = Location.objects.filter(parent=province, is_active=True)
+            province_data['districts'] = []
+            
+            for district in districts:
+                district_data = LocationSerializer(district).data
+                sectors = Location.objects.filter(parent=district, is_active=True)
+                district_data['sectors'] = LocationSerializer(sectors, many=True).data
+                province_data['districts'].append(district_data)
+            
+            hierarchy.append(province_data)
+        
+        return Response({'hierarchy': hierarchy})
+
+
+class SendTestNotificationView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request):
+        recipient_id = request.data.get('recipient_id')
+        message = request.data.get('message', 'Test notification from RwandaDisasterAlert')
+        
+        if not recipient_id:
+            return Response({'error': 'recipient_id is required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            recipient = User.objects.get(id=recipient_id)
+            # TODO: Implement actual notification sending logic
+            # This would integrate with Twilio, Firebase, etc.
+            
+            return Response({
+                'message': f'Test notification sent to {recipient.username}',
+                'recipient': recipient.username,
+                'content': message
+            })
+        except User.DoesNotExist:
+            return Response({'error': 'Recipient not found'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+
+
+class NotificationDeliveryReportsView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        # Get delivery reports for the last 30 days
+        start_date = timezone.now() - timedelta(days=30)
+        
+        deliveries = AlertDelivery.objects.filter(
+            created_at__gte=start_date
+        ).values('delivery_method', 'status').annotate(
+            count=Count('id')
+        )
+        
+        # Group by delivery method and status
+        reports = {}
+        for delivery in deliveries:
+            method = delivery['delivery_method']
+            status = delivery['status']
+            count = delivery['count']
+            
+            if method not in reports:
+                reports[method] = {}
+            reports[method][status] = count
+        
+        return Response({
+            'period': '30 days',
+            'reports': reports,
+            'total_deliveries': AlertDelivery.objects.filter(created_at__gte=start_date).count()
+        })
+
+
+class SystemMetricsView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        # Get system metrics
+        total_users = User.objects.count()
+        active_users = User.objects.filter(last_login__gte=timezone.now() - timedelta(days=30)).count()
+        total_alerts = Alert.objects.count()
+        active_alerts = Alert.objects.filter(status='active').count()
+        total_incidents = IncidentReport.objects.count()
+        pending_incidents = IncidentReport.objects.filter(status='submitted').count()
+        
+        # Alert metrics by severity
+        alert_severity_stats = Alert.objects.values('severity').annotate(
+            count=Count('id')
+        )
+        
+        # Incident metrics by type
+        incident_type_stats = IncidentReport.objects.values('report_type').annotate(
+            count=Count('id')
+        )
+        
+        return Response({
+            'users': {
+                'total': total_users,
+                'active_30_days': active_users,
+                'activity_rate': round((active_users / total_users * 100), 2) if total_users > 0 else 0
+            },
+            'alerts': {
+                'total': total_alerts,
+                'active': active_alerts,
+                'severity_breakdown': {item['severity']: item['count'] for item in alert_severity_stats}
+            },
+            'incidents': {
+                'total': total_incidents,
+                'pending': pending_incidents,
+                'type_breakdown': {item['report_type']: item['count'] for item in incident_type_stats}
+            },
+            'timestamp': timezone.now().isoformat()
+        })
+
+
+class TwilioDeliveryReportWebhookView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        """Handle Twilio delivery report webhooks"""
+        data = request.data
+        
+        # Extract relevant information from Twilio webhook
+        message_sid = data.get('MessageSid')
+        account_sid = data.get('AccountSid')
+        message_status = data.get('MessageStatus')
+        error_code = data.get('ErrorCode')
+        error_message = data.get('ErrorMessage')
+        
+        if message_sid:
+            try:
+                # Find the corresponding delivery record
+                delivery = AlertDelivery.objects.get(
+                    # You'll need to add a twilio_sid field to store this
+                    error_message__contains=message_sid
+                )
+                
+                # Update delivery status
+                status_mapping = {
+                    'delivered': 'delivered',
+                    'sent': 'sent',
+                    'failed': 'failed',
+                    'undelivered': 'failed'
+                }
+                
+                if message_status in status_mapping:
+                    delivery.status = status_mapping[message_status]
+                    
+                    if message_status == 'delivered':
+                        delivery.delivered_at = timezone.now()
+                    elif message_status in ['failed', 'undelivered']:
+                        delivery.error_message = error_message or f"Error code: {error_code}"
+                    
+                    delivery.save()
+                
+                return Response({'status': 'processed'})
+            except AlertDelivery.DoesNotExist:
+                return Response({'status': 'delivery_not_found'})
+        
+        return Response({'status': 'ignored'})
+
+
+class IncidentMediaUploadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """Handle media upload for incident reports"""
+        uploaded_file = request.FILES.get('file')
+        incident_id = request.data.get('incident_id')
+        
+        if not uploaded_file:
+            return Response({'error': 'No file provided'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/avi']
+        if uploaded_file.content_type not in allowed_types:
+            return Response({'error': 'File type not allowed'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file size (max 10MB)
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return Response({'error': 'File size too large (max 10MB)'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # TODO: Implement actual file upload logic
+        # This would typically involve saving to a cloud storage service
+        # like AWS S3, Google Cloud Storage, or local file system
+        
+        file_url = f"/media/incidents/{uploaded_file.name}"  # Placeholder
+        
+        # If incident_id is provided, update the incident record
+        if incident_id:
+            try:
+                incident = IncidentReport.objects.get(id=incident_id, reporter=request.user)
+                if incident.images is None:
+                    incident.images = []
+                incident.images.append(file_url)
+                incident.save()
+            except IncidentReport.DoesNotExist:
+                return Response({'error': 'Incident not found'}, 
+                              status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({
+            'url': file_url,
+            'filename': uploaded_file.name,
+            'size': uploaded_file.size,
+            'content_type': uploaded_file.content_type
+        })
+
+
+class SafetyGuideMediaUploadView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request):
+        """Handle media upload for safety guides"""
+        uploaded_file = request.FILES.get('file')
+        
+        if not uploaded_file:
+            return Response({'error': 'No file provided'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file type (images and documents)
+        allowed_types = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/svg+xml',
+            'application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ]
+        if uploaded_file.content_type not in allowed_types:
+            return Response({'error': 'File type not allowed'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        # TODO: Implement actual file upload logic
+        file_url = f"/media/safety-guides/{uploaded_file.name}"  # Placeholder
+        
+        return Response({
+            'url': file_url,
+            'filename': uploaded_file.name,
+            'size': uploaded_file.size,
+            'content_type': uploaded_file.content_type
+        })
+
+
+class PublicEmergencyContactsView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Public endpoint for emergency contacts"""
+        contacts = EmergencyContact.objects.filter(is_active=True).order_by('display_order', 'name')
+        
+        # Filter by location if provided
+        location_id = request.query_params.get('location')
+        if location_id:
+            contacts = contacts.filter(locations=location_id)
+        
+        # Filter by contact type if provided
+        contact_type = request.query_params.get('type')
+        if contact_type:
+            contacts = contacts.filter(contact_type=contact_type)
+        
+        serializer = EmergencyContactSerializer(contacts, many=True)
+        return Response(serializer.data)
+
+
+class PublicSafetyTipsView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Public endpoint for safety tips"""
+        guides = SafetyGuide.objects.filter(is_published=True).order_by('display_order', 'title')
+        
+        # Filter by disaster type if provided
+        disaster_type = request.query_params.get('disaster_type')
+        if disaster_type:
+            guides = guides.filter(disaster_types=disaster_type)
+        
+        # Filter by category if provided
+        category = request.query_params.get('category')
+        if category:
+            guides = guides.filter(category=category)
+        
+        # Get featured tips if requested
+        featured = request.query_params.get('featured')
+        if featured == 'true':
+            guides = guides.filter(is_featured=True)
+        
+        serializer = SafetyGuideSerializer(guides, many=True)
+        return Response(serializer.data)
+
+
+class MobileAppConfigView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Configuration for mobile app"""
+        config = {
+            'app_version': '1.0.0',
+            'min_supported_version': '1.0.0',
+            'force_update': False,
+            'maintenance_mode': False,
+            'features': {
+                'incident_reporting': True,
+                'alert_responses': True,
+                'location_tracking': True,
+                'offline_mode': True
+            },
+            'settings': {
+                'default_language': 'rw',
+                'supported_languages': ['rw', 'en', 'fr'],
+                'location_update_interval': 300,  # seconds
+                'alert_check_interval': 60,  # seconds
+                'max_image_size': 5242880,  # 5MB in bytes
+                'max_video_size': 52428800  # 50MB in bytes
+            },
+            'endpoints': {
+                'base_url': request.build_absolute_uri('/api/'),
+                'websocket_url': None,  # Add if implementing real-time features
+            },
+            'emergency_contacts': {
+                'police': '999',
+                'fire': '998',
+                'medical': '997',
+                'disaster_management': '+250788311111'  # Placeholder
+            }
+        }
+        
+        return Response(config)
+
+
+class ForceUpdateCheckView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        """Check if app force update is required"""
+        app_version = request.query_params.get('version', '1.0.0')
+        platform = request.query_params.get('platform', 'android')  # android or ios
+        
+        # Define minimum required versions
+        min_versions = {
+            'android': '1.0.0',
+            'ios': '1.0.0'
+        }
+        
+        current_versions = {
+            'android': '1.0.0',
+            'ios': '1.0.0'
+        }
+        
+        min_version = min_versions.get(platform, '1.0.0')
+        current_version = current_versions.get(platform, '1.0.0')
+        
+        # Simple version comparison (should use proper version parsing in production)
+        force_update = app_version < min_version
+        update_available = app_version < current_version
+        
+        response = {
+            'force_update': force_update,
+            'update_available': update_available,
+            'current_version': current_version,
+            'min_version': min_version,
+            'download_url': {
+                'android': 'https://play.google.com/store/apps/details?id=rw.gov.disasteralert',
+                'ios': 'https://apps.apple.com/app/rwanda-disaster-alert/id123456789'
+            }.get(platform),
+            'release_notes': 'Bug fixes and performance improvements'
+        }
+        
+        return Response(response)

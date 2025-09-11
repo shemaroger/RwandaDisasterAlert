@@ -1,50 +1,71 @@
 // pages/auth/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { AlertTriangle, Eye, EyeOff, Mail, Lock, Shield, Clock } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, User, Lock, Shield, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loading, error, clearError } = useAuth();
+  const { login, loading, error, clearError, getRedirectPath } = useAuth();
   
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
+  const [loginMethod, setLoginMethod] = useState('username'); // 'username' or 'email'
 
-  // Check for redirect message from protected routes
+  // Check for redirect message from protected routes or signup
   const fromPath = location.state?.from?.pathname;
   const redirectMessage = location.state?.message;
+  const successMessage = location.state?.message;
+  const prefillUsername = location.state?.username || location.state?.email;
 
   useEffect(() => {
     // Clear any existing errors when component mounts
     clearError();
+    
+    // Pre-fill username/email from signup redirect
+    if (prefillUsername) {
+      setFormData(prev => ({
+        ...prev,
+        username: prefillUsername
+      }));
+      // Detect if it looks like an email
+      if (prefillUsername.includes('@')) {
+        setLoginMethod('email');
+      }
+    }
     
     // Check if user was remembered
     const rememberedUser = localStorage.getItem('remember_user');
     if (rememberedUser === 'true') {
       setRememberMe(true);
     }
-  }, [clearError]);
+  }, [clearError, prefillUsername]);
 
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.email) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+    if (!formData.username) {
+      if (loginMethod === 'email') {
+        errors.username = 'Email is required';
+      } else {
+        errors.username = 'Username is required';
+      }
+    } else if (loginMethod === 'email' && !/\S+@\S+\.\S+/.test(formData.username)) {
+      errors.username = 'Please enter a valid email address';
+    } else if (loginMethod === 'username' && formData.username.length < 3) {
+      errors.username = 'Username must be at least 3 characters';
     }
     
     if (!formData.password) {
       errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
     }
 
     setValidationErrors(errors);
@@ -57,17 +78,28 @@ const Login = () => {
     if (!validateForm()) return;
 
     try {
-      await login(formData.email, formData.password, rememberMe);
+      console.log("Attempting login with username:", formData.username);
       
-      // Redirect to intended page or dashboard based on role
+      const result = await login(formData.username, formData.password, rememberMe);
+      
+      console.log("Login successful, user type:", result.user?.user_type);
+      
+      // Get the correct redirect path based on user type
+      const userType = result.user?.user_type;
+      const redirectPath = getRedirectPath(userType);
+      
+      console.log("Redirecting to:", redirectPath);
+      
+      // Redirect to intended page or user-type specific dashboard
       if (fromPath && fromPath !== '/login') {
+        console.log("Redirecting to original path:", fromPath);
         navigate(fromPath, { replace: true });
       } else {
-        // Default redirects based on role will be handled by the app routing
-        navigate('/dashboard', { replace: true });
+        console.log("Redirecting to user-specific dashboard:", redirectPath);
+        navigate(redirectPath, { replace: true });
       }
+      
     } catch (err) {
-      // Error is handled by AuthContext and displayed via error prop
       console.error('Login failed:', err);
     }
   };
@@ -78,6 +110,15 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Auto-detect login method based on input
+    if (name === 'username') {
+      if (value.includes('@')) {
+        setLoginMethod('email');
+      } else {
+        setLoginMethod('username');
+      }
+    }
     
     // Clear validation error when user starts typing
     if (validationErrors[name]) {
@@ -97,6 +138,12 @@ const Login = () => {
     return validationErrors[fieldName] || '';
   };
 
+  const toggleLoginMethod = () => {
+    setLoginMethod(prev => prev === 'username' ? 'email' : 'username');
+    setFormData(prev => ({ ...prev, username: '' }));
+    setValidationErrors({});
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
@@ -114,8 +161,19 @@ const Login = () => {
           </p>
         </div>
 
+        {/* Success Message (from signup) */}
+        {successMessage && successMessage.includes('created successfully') && (
+          <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg mb-6 flex items-start">
+            <CheckCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Registration Successful</p>
+              <p className="text-sm mt-1">{successMessage}</p>
+            </div>
+          </div>
+        )}
+
         {/* Redirect Message */}
-        {redirectMessage && (
+        {redirectMessage && !successMessage && (
           <div className="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg mb-6 flex items-start">
             <Shield className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
             <div>
@@ -136,36 +194,68 @@ const Login = () => {
           </div>
         )}
 
+        {/* Login Method Toggle */}
+        <div className="mb-6">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setLoginMethod('username')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                loginMethod === 'username' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Username
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMethod('email')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                loginMethod === 'email' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Email
+            </button>
+          </div>
+        </div>
+
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Field */}
+          {/* Username/Email Field */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Email Address
+              {loginMethod === 'email' ? 'Email Address' : 'Username'}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
+                <User className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type={loginMethod === 'email' ? 'email' : 'text'}
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
                 className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors ${
-                  getFieldError('email') 
+                  getFieldError('username') 
                     ? 'border-red-300 bg-red-50' 
                     : 'border-gray-300 bg-gray-50'
                 }`}
-                placeholder="Enter your email address"
-                autoComplete="email"
+                placeholder={
+                  loginMethod === 'email' 
+                    ? 'Enter your email address' 
+                    : 'Enter your username'
+                }
+                autoComplete={loginMethod === 'email' ? 'email' : 'username'}
                 required
               />
             </div>
-            {getFieldError('email') && (
+            {getFieldError('username') && (
               <p className="text-red-600 text-sm mt-1 flex items-center">
                 <AlertTriangle className="w-4 h-4 mr-1" />
-                {getFieldError('email')}
+                {getFieldError('username')}
               </p>
             )}
           </div>
@@ -228,7 +318,7 @@ const Login = () => {
               </label>
             </div>
             <Link 
-              to="/forgot-password" 
+              to="/auth/password-reset" 
               className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
             >
               Forgot password?
@@ -274,15 +364,30 @@ const Login = () => {
           </Link>
         </div>
 
-        {/* Account Pending Notice */}
+        {/* User Type Info */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-start">
+            <Shield className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-800">Account Access Levels</h4>
+              <div className="text-xs text-blue-700 mt-1 space-y-1">
+                <p>• <strong>Citizen:</strong> Receive alerts, report incidents, access safety guides</p>
+                <p>• <strong>Operator:</strong> Manage incidents, verify reports, and coordinate responses</p>
+                <p>• <strong>Authority:</strong> Create alerts, manage emergency operations, and oversee districts</p>
+                <p>• <strong>Administrator:</strong> Full system access, user management, and system configuration</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Account Verification Notice */}
         <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
           <div className="flex items-start">
             <Clock className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
             <div>
-              <h4 className="text-sm font-medium text-yellow-800">Account Approval Process</h4>
+              <h4 className="text-sm font-medium text-yellow-800">Account Verification</h4>
               <p className="text-xs text-yellow-700 mt-1">
-                New accounts require approval by MINEMA administrators before full access is granted. 
-                This ensures system security for emergency operations.
+                New accounts may require verification by MINEMA administrators. Citizens have immediate access to alerts and reporting, while operator and authority roles require approval for enhanced system access.
               </p>
             </div>
           </div>
@@ -303,7 +408,7 @@ const Login = () => {
 
         {/* System Status */}
         <div className="mt-6 flex items-center justify-center space-x-2 text-xs text-gray-500">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           <span>Emergency System Operational</span>
         </div>
 

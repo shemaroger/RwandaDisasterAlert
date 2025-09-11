@@ -1,20 +1,22 @@
 // pages/auth/Signup.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Eye, EyeOff, User, Mail, Lock, Phone, MapPin, Globe, Check, ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import apiService from '../../services/api';
 
 const Signup = () => {
   const navigate = useNavigate();
   const { register, loading, error } = useAuth();
   
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
-    password2: '',
+    password_confirm: '',
     first_name: '',
     last_name: '',
-    phone: '',
+    phone_number: '',
     preferred_language: 'rw',
     district: '',
     accepted_terms: false
@@ -26,15 +28,56 @@ const Signup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [districts, setDistricts] = useState([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(true);
 
-  // Rwanda districts
-  const rwandaDistricts = [
-    'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo', 'Gicumbi', 
-    'Gisagara', 'Huye', 'Kamonyi', 'Karongi', 'Kayonza', 'Kicukiro', 
-    'Kirehe', 'Muhanga', 'Musanze', 'Ngoma', 'Ngororero', 'Nyabihu', 
-    'Nyagatare', 'Nyamagabe', 'Nyanza', 'Nyarugenge', 'Nyaruguru', 
-    'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana'
-  ];
+  // Load districts on component mount
+  useEffect(() => {
+    const loadDistricts = async () => {
+      try {
+        const response = await apiService.getDistricts();
+        setDistricts(response.results || response);
+      } catch (error) {
+        console.error('Failed to load districts:', error);
+        // Fallback to hardcoded list if API fails
+        setDistricts([
+          { id: 'bugesera', name: 'Bugesera' },
+          { id: 'burera', name: 'Burera' },
+          { id: 'gakenke', name: 'Gakenke' },
+          { id: 'gasabo', name: 'Gasabo' },
+          { id: 'gatsibo', name: 'Gatsibo' },
+          { id: 'gicumbi', name: 'Gicumbi' },
+          { id: 'gisagara', name: 'Gisagara' },
+          { id: 'huye', name: 'Huye' },
+          { id: 'kamonyi', name: 'Kamonyi' },
+          { id: 'karongi', name: 'Karongi' },
+          { id: 'kayonza', name: 'Kayonza' },
+          { id: 'kicukiro', name: 'Kicukiro' },
+          { id: 'kirehe', name: 'Kirehe' },
+          { id: 'muhanga', name: 'Muhanga' },
+          { id: 'musanze', name: 'Musanze' },
+          { id: 'ngoma', name: 'Ngoma' },
+          { id: 'ngororero', name: 'Ngororero' },
+          { id: 'nyabihu', name: 'Nyabihu' },
+          { id: 'nyagatare', name: 'Nyagatare' },
+          { id: 'nyamagabe', name: 'Nyamagabe' },
+          { id: 'nyanza', name: 'Nyanza' },
+          { id: 'nyarugenge', name: 'Nyarugenge' },
+          { id: 'nyaruguru', name: 'Nyaruguru' },
+          { id: 'rubavu', name: 'Rubavu' },
+          { id: 'ruhango', name: 'Ruhango' },
+          { id: 'rulindo', name: 'Rulindo' },
+          { id: 'rusizi', name: 'Rusizi' },
+          { id: 'rutsiro', name: 'Rutsiro' },
+          { id: 'rwamagana', name: 'Rwamagana' }
+        ]);
+      } finally {
+        setLoadingDistricts(false);
+      }
+    };
+
+    loadDistricts();
+  }, []);
 
   const validateStep1 = () => {
     const errors = {};
@@ -50,6 +93,14 @@ const Signup = () => {
     } else if (formData.last_name.length < 2) {
       errors.last_name = 'Last name must be at least 2 characters';
     }
+
+    if (!formData.username) {
+      errors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      errors.username = 'Username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      errors.username = 'Username can only contain letters, numbers, hyphens, and underscores';
+    }
     
     if (!formData.email) {
       errors.email = 'Email is required';
@@ -57,8 +108,8 @@ const Signup = () => {
       errors.email = 'Please enter a valid email address';
     }
 
-    if (formData.phone && !/^\+?[0-9\s\-\(\)]{10,}$/.test(formData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
+    if (formData.phone_number && !/^\+?[0-9\s\-\(\)]{10,}$/.test(formData.phone_number)) {
+      errors.phone_number = 'Please enter a valid phone number (e.g., +250788123456)';
     }
 
     setValidationErrors(errors);
@@ -76,10 +127,10 @@ const Signup = () => {
       errors.password = 'Password must contain uppercase, lowercase, and number';
     }
     
-    if (!formData.password2) {
-      errors.password2 = 'Please confirm your password';
-    } else if (formData.password !== formData.password2) {
-      errors.password2 = 'Passwords do not match';
+    if (!formData.password_confirm) {
+      errors.password_confirm = 'Please confirm your password';
+    } else if (formData.password !== formData.password_confirm) {
+      errors.password_confirm = 'Passwords do not match';
     }
 
     if (!formData.accepted_terms) {
@@ -103,13 +154,28 @@ const Signup = () => {
     if (!validateStep2()) return;
 
     try {
-      const result = await register(formData);
+      // Prepare data for API (match the backend model fields)
+      const registrationData = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        password_confirm: formData.password_confirm,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone_number: formData.phone_number || null,
+        preferred_language: formData.preferred_language,
+        district: formData.district || null
+      };
+
+      const result = await register(registrationData);
       
       // Set success data
+      const selectedDistrict = districts.find(d => d.id === formData.district);
       setSuccessData({
         name: `${formData.first_name} ${formData.last_name}`,
+        username: formData.username,
         email: formData.email,
-        district: formData.district || 'Not specified',
+        district: selectedDistrict ? selectedDistrict.name : 'Not specified',
         language: formData.preferred_language === 'rw' ? 'Kinyarwanda' : 
                  formData.preferred_language === 'en' ? 'English' : 'Français'
       });
@@ -121,7 +187,7 @@ const Signup = () => {
         navigate('/login', { 
           state: { 
             message: 'Account created successfully! Please sign in to continue.',
-            email: formData.email 
+            username: formData.username 
           }
         });
       }, 5000);
@@ -188,7 +254,7 @@ const Signup = () => {
           </div>
 
           {/* Success Title */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to the Network!</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to RwandaDisasterAlert!</h1>
           <p className="text-lg text-gray-600 mb-6">
             Your account has been created successfully
           </p>
@@ -203,6 +269,10 @@ const Signup = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Name:</span>
                 <span className="font-medium text-gray-900">{successData?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Username:</span>
+                <span className="font-medium text-gray-900">{successData?.username}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Email:</span>
@@ -226,10 +296,11 @@ const Signup = () => {
               <div>
                 <h4 className="text-sm font-medium text-blue-800">What's Next?</h4>
                 <ul className="text-xs text-blue-700 mt-2 space-y-1">
-                  <li>• You'll receive emergency alerts for your district</li>
-                  <li>• Check your email for account verification (if required)</li>
-                  <li>• Sign in to access safety features and settings</li>
+                  <li>• Receive emergency alerts for your district</li>
+                  <li>• Report incidents and safety concerns</li>
+                  <li>• Access safety guides and emergency contacts</li>
                   <li>• Download our mobile app for instant notifications</li>
+                  <li>• Customize your notification preferences</li>
                 </ul>
               </div>
             </div>
@@ -241,7 +312,7 @@ const Signup = () => {
               onClick={() => navigate('/login', { 
                 state: { 
                   message: 'Account created successfully! Please sign in to continue.',
-                  email: formData.email 
+                  username: formData.username 
                 }
               })}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg flex items-center justify-center"
@@ -281,12 +352,12 @@ const Signup = () => {
           <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
             <AlertTriangle className="text-green-600 w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Join the Network</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Join RwandaDisasterAlert</h1>
           <p className="text-gray-600">
-            Create your RwandaDisasterAlert account
+            Create your emergency management account
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            Stay informed, stay safe
+            Stay informed, stay safe, stay connected
           </p>
         </div>
 
@@ -391,6 +462,37 @@ const Signup = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Username
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors ${
+                      getFieldError('username') 
+                        ? 'border-red-300 bg-red-50' 
+                        : 'border-gray-300 bg-gray-50'
+                    }`}
+                    placeholder="Choose a username"
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+                {getFieldError('username') && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    {getFieldError('username')}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Email Address
                 </label>
                 <div className="relative">
@@ -430,23 +532,26 @@ const Signup = () => {
                   </div>
                   <input
                     type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    name="phone_number"
+                    value={formData.phone_number}
                     onChange={handleChange}
                     className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors ${
-                      getFieldError('phone') 
+                      getFieldError('phone_number') 
                         ? 'border-red-300 bg-red-50' 
                         : 'border-gray-300 bg-gray-50'
                     }`}
-                    placeholder="+250 XXX XXX XXX"
+                    placeholder="+250 788 123 456"
                   />
                 </div>
-                {getFieldError('phone') && (
+                {getFieldError('phone_number') && (
                   <p className="text-red-600 text-sm mt-1 flex items-center">
                     <AlertTriangle className="w-4 h-4 mr-1" />
-                    {getFieldError('phone')}
+                    {getFieldError('phone_number')}
                   </p>
                 )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Include your phone number to receive SMS alerts
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -483,11 +588,16 @@ const Signup = () => {
                       name="district"
                       value={formData.district}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      disabled={loadingDistricts}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors disabled:opacity-50"
                     >
-                      <option value="">Select District</option>
-                      {rwandaDistricts.map(district => (
-                        <option key={district} value={district}>{district}</option>
+                      <option value="">
+                        {loadingDistricts ? 'Loading districts...' : 'Select District'}
+                      </option>
+                      {districts.map(district => (
+                        <option key={district.id || district.name} value={district.id || district.name}>
+                          {district.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -565,11 +675,11 @@ const Signup = () => {
                   </div>
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
-                    name="password2"
-                    value={formData.password2}
+                    name="password_confirm"
+                    value={formData.password_confirm}
                     onChange={handleChange}
                     className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors ${
-                      getFieldError('password2') 
+                      getFieldError('password_confirm') 
                         ? 'border-red-300 bg-red-50' 
                         : 'border-gray-300 bg-gray-50'
                     }`}
@@ -589,10 +699,10 @@ const Signup = () => {
                     )}
                   </button>
                 </div>
-                {getFieldError('password2') && (
+                {getFieldError('password_confirm') && (
                   <p className="text-red-600 text-sm mt-1 flex items-center">
                     <AlertTriangle className="w-4 h-4 mr-1" />
-                    {getFieldError('password2')}
+                    {getFieldError('password_confirm')}
                   </p>
                 )}
               </div>
@@ -635,7 +745,7 @@ const Signup = () => {
                       <p className="text-xs text-blue-700 mt-1">
                         By creating an account, you'll receive emergency alerts and safety notifications. 
                         Your information will be used solely for emergency management purposes as outlined 
-                        in our privacy policy.
+                        in our privacy policy. You can manage your notification preferences after registration.
                       </p>
                     </div>
                   </div>

@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
           // Try to get user profile with existing token
           try {
             const userData = await apiService.getProfile();
-            console.log('Auth init - user loaded:', userData?.role, userData?.email);
+            console.log('Auth init - user loaded:', userData?.user_type, userData?.username);
             setUser(userData);
             setError('');
           } catch (err) {
@@ -94,8 +94,8 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Login function
-  const login = async (email, password, rememberMe = false) => {
+  // Login function - updated for RwandaDisasterAlert API
+  const login = async (username, password, rememberMe = false) => {
     try {
       setLoading(true);
       setError('');
@@ -103,13 +103,18 @@ export const AuthProvider = ({ children }) => {
       // Clear any existing data first
       clearAllStorage();
 
-      const response = await apiService.login(email, password);
+      const response = await apiService.login(username, password);
       
-      if (response.token && response.user) {
-        apiService.setToken(response.token);
+      // RwandaDisasterAlert API returns user data directly
+      if (response.user) {
+        // Set token if provided, otherwise check if it was set by apiService
+        if (response.token) {
+          apiService.setToken(response.token);
+        }
+        
         setUser(response.user);
         
-        console.log('Login successful - user:', response.user.role, response.user.email);
+        console.log('Login successful - user:', response.user.user_type, response.user.username);
         
         // Handle remember me functionality
         if (rememberMe) {
@@ -120,18 +125,22 @@ export const AuthProvider = ({ children }) => {
 
         return response;
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error('Invalid response from server - no user data received');
       }
     } catch (err) {
       let errorMessage = 'Login failed. Please try again.';
       
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          errorMessage = 'Invalid email or password.';
+          errorMessage = 'Invalid username/email or password.';
         } else if (err.status === 403) {
           errorMessage = 'Account not approved or disabled.';
         } else if (err.data?.detail) {
           errorMessage = err.data.detail;
+        } else if (err.data?.non_field_errors) {
+          errorMessage = Array.isArray(err.data.non_field_errors) 
+            ? err.data.non_field_errors.join(' ')
+            : err.data.non_field_errors;
         } else if (err.message) {
           errorMessage = err.message;
         }
@@ -147,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Register function
+  // Register function - updated for RwandaDisasterAlert API
   const register = async (userData) => {
     try {
       setLoading(true);
@@ -158,15 +167,18 @@ export const AuthProvider = ({ children }) => {
 
       const response = await apiService.register(userData);
       
-      if (response.token && response.user) {
-        apiService.setToken(response.token);
+      // RwandaDisasterAlert registration might return user data immediately or require login
+      if (response.user) {
+        if (response.token) {
+          apiService.setToken(response.token);
+        }
         setUser(response.user);
-        
-        console.log('Registration successful - user:', response.user.role, response.user.email);
-        
+        console.log('Registration successful - user:', response.user.user_type, response.user.username);
         return response;
       } else {
-        throw new Error('Invalid response from server');
+        // Registration successful but no immediate login (common for approval-required systems)
+        console.log('Registration successful - user needs to login');
+        return response;
       }
     } catch (err) {
       let errorMessage = 'Registration failed. Please try again.';
@@ -182,7 +194,7 @@ export const AuthProvider = ({ children }) => {
               validationErrors.push(messages);
             }
           });
-          errorMessage = validationErrors.join(' ');
+          errorMessage = validationErrors.length > 0 ? validationErrors.join(' ') : 'Invalid registration data.';
         } else if (err.data?.detail) {
           errorMessage = err.data.detail;
         } else if (err.message) {
@@ -200,24 +212,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Helper function to get redirect path based on role
-  const getRedirectPath = (role) => {
-    switch (role) {
+  // Helper function to get redirect path based on user_type (updated for RwandaDisasterAlert)
+  const getRedirectPath = (userType) => {
+    switch (userType) {
       case 'admin':
         return '/admin/dashboard';
       case 'operator':
         return '/operator/dashboard';
+      case 'authority':
+        return '/authority/dashboard';
       case 'citizen':
-        return '/citizen/dashboard';
+        return '/dashboard'; // Citizens use the general dashboard
       default:
-        return '/login';
+        return '/dashboard';
     }
   };
 
-  // Logout function - now properly handles backend logout and complete cleanup
+  // Logout function
   const logout = async () => {
     try {
-      console.log('Logout initiated for user:', user?.email);
+      console.log('Logout initiated for user:', user?.username);
       
       // Call backend logout to invalidate session
       if (apiService.getToken()) {
@@ -266,7 +280,7 @@ export const AuthProvider = ({ children }) => {
       setError('');
       const updatedUser = await apiService.updateProfile(profileData);
       setUser(updatedUser);
-      console.log('Profile updated for user:', updatedUser.email);
+      console.log('Profile updated for user:', updatedUser.username);
       return updatedUser;
     } catch (err) {
       let errorMessage = 'Profile update failed';
@@ -277,6 +291,69 @@ export const AuthProvider = ({ children }) => {
         } else if (err.message) {
           errorMessage = err.message;
         }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Update notification preferences
+  const updateNotificationPreferences = async (preferences) => {
+    try {
+      setError('');
+      const response = await apiService.updateNotificationPreferences(preferences);
+      
+      // Update user state with new preferences
+      if (user) {
+        setUser(prev => ({ 
+          ...prev, 
+          push_notifications_enabled: preferences.push_notifications_enabled ?? prev.push_notifications_enabled,
+          sms_notifications_enabled: preferences.sms_notifications_enabled ?? prev.sms_notifications_enabled,
+          email_notifications_enabled: preferences.email_notifications_enabled ?? prev.email_notifications_enabled,
+          preferred_language: preferences.preferred_language ?? prev.preferred_language,
+        }));
+      }
+      
+      return response;
+    } catch (err) {
+      let errorMessage = 'Failed to update notification preferences';
+      
+      if (err instanceof ApiError && err.data?.detail) {
+        errorMessage = err.data.detail;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Update user location
+  const updateLocation = async (latitude, longitude, districtId) => {
+    try {
+      setError('');
+      const response = await apiService.updateLocation(latitude, longitude, districtId);
+      
+      // Update user state with new location
+      if (user) {
+        setUser(prev => ({ 
+          ...prev, 
+          location_lat: latitude,
+          location_lng: longitude,
+          district: districtId
+        }));
+      }
+      
+      return response;
+    } catch (err) {
+      let errorMessage = 'Failed to update location';
+      
+      if (err instanceof ApiError && err.data?.detail) {
+        errorMessage = err.data.detail;
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -316,16 +393,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user has specific role
-  const hasRole = (role) => {
+  // Check if user has specific user_type (updated for RwandaDisasterAlert)
+  const hasUserType = (userType) => {
     if (!user) return false;
-    return user.role === role;
+    return user.user_type === userType;
   };
 
-  // Check if user has any of the specified roles
-  const hasAnyRole = (roles) => {
+  // Check if user has any of the specified user types
+  const hasAnyUserType = (userTypes) => {
     if (!user) return false;
-    return roles.includes(user.role);
+    return userTypes.includes(user.user_type);
   };
 
   // Check if user is authenticated
@@ -335,17 +412,37 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is admin
   const isAdmin = () => {
-    return hasRole('admin');
+    return hasUserType('admin');
   };
 
   // Check if user is operator
   const isOperator = () => {
-    return hasRole('operator');
+    return hasUserType('operator');
+  };
+
+  // Check if user is authority
+  const isAuthority = () => {
+    return hasUserType('authority');
   };
 
   // Check if user is citizen
   const isCitizen = () => {
-    return hasRole('citizen');
+    return hasUserType('citizen');
+  };
+
+  // Check if user is verified
+  const isVerified = () => {
+    return user?.is_verified === true;
+  };
+
+  // Check if user can manage alerts (admin or authority)
+  const canManageAlerts = () => {
+    return hasAnyUserType(['admin', 'authority']);
+  };
+
+  // Check if user can manage incidents (admin, authority, or operator)
+  const canManageIncidents = () => {
+    return hasAnyUserType(['admin', 'authority', 'operator']);
   };
 
   // Clear error function
@@ -369,6 +466,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Legacy role functions for backward compatibility
+  const hasRole = (role) => {
+    console.warn('hasRole is deprecated, use hasUserType instead');
+    return hasUserType(role);
+  };
+
+  const hasAnyRole = (roles) => {
+    console.warn('hasAnyRole is deprecated, use hasAnyUserType instead');
+    return hasAnyUserType(roles);
+  };
+
   // Context value
   const value = {
     // State
@@ -383,16 +491,28 @@ export const AuthProvider = ({ children }) => {
     logout,
     logoutImmediate,
     updateProfile,
+    updateNotificationPreferences,
+    updateLocation,
     changePassword,
     refreshUser,
     
-    // Utility functions
-    hasRole,
-    hasAnyRole,
+    // User type checking functions (RwandaDisasterAlert specific)
+    hasUserType,
+    hasAnyUserType,
     isAuthenticated,
     isAdmin,
     isOperator,
+    isAuthority,
     isCitizen,
+    isVerified,
+    canManageAlerts,
+    canManageIncidents,
+    
+    // Legacy functions for backward compatibility
+    hasRole,
+    hasAnyRole,
+    
+    // Utility functions
     clearError,
     getRedirectPath,
     clearAllStorage,

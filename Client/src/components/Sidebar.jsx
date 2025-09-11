@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, Bell, Users, Shield, MapPin, FileText, Settings, 
   Radio, Eye, BarChart3, Clock, Globe, MessageSquare, Home,
-  X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2
+  X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,114 +48,117 @@ const Sidebar = ({
     if (path.includes('/dashboard')) return 'dashboard';
     if (path.includes('/alerts')) return 'alerts';
     if (path.includes('/incidents')) return 'incidents';
-    if (path.includes('/distribution')) return 'distribution';
-    if (path.includes('/geozones')) return 'geozones';
-    if (path.includes('/subscribers')) return 'subscribers';
-    if (path.includes('/shelters')) return 'shelters';
-    if (path.includes('/monitoring')) return 'monitoring';
+    if (path.includes('/locations')) return 'locations';
+    if (path.includes('/emergency-contacts')) return 'emergency-contacts';
+    if (path.includes('/safety-guides')) return 'safety-guides';
+    if (path.includes('/users')) return 'users';
+    if (path.includes('/deliveries')) return 'deliveries';
     if (path.includes('/analytics')) return 'analytics';
-    if (path.includes('/channels')) return 'channels';
     if (path.includes('/settings')) return 'settings';
     if (path.includes('/audit')) return 'audit';
-    if (path.includes('/integrations')) return 'integrations';
-    if(path.includes('/user/management')) return 'management';
+    if (path.includes('/templates')) return 'templates';
+    if (path.includes('/profile')) return 'profile';
     return 'dashboard';
   };
 
-  // Navigation structure based on user role
+  // Navigation structure based on user type
   const getNavigationItems = () => {
     const baseNavigation = [
       {
         name: 'Dashboard',
         id: 'dashboard',
-        path: `/${user?.role || 'citizen'}/dashboard`,
+        path: '/dashboard',
         icon: Home,
         description: 'Overview and statistics',
-        roles: ['admin', 'operator', 'citizen']
-      },
+        userTypes: ['admin', 'operator', 'authority', 'citizen']
+      }
+    ];
+
+    const alertNavigation = [
       {
         name: 'Emergency Alerts',
         id: 'alerts',
         path: '/alerts',
         icon: AlertTriangle,
         description: 'Create and manage alerts',
-        badge: user?.role === 'admin' ? 'Admin' : null,
-        roles: ['admin', 'operator']
-      },
+        badge: user?.user_type === 'admin' ? 'Admin' : null,
+        userTypes: ['admin', 'authority', 'operator']
+      }
+    ];
+
+    const incidentNavigation = [
       {
         name: 'Incident Reports',
         id: 'incidents',
         path: '/incidents',
         icon: FileText,
-        description: 'Citizen reports and cases',
-        roles: ['admin', 'operator', 'citizen']
-      },
-      {
-        name: 'Alert Distribution',
-        id: 'distribution',
-        path: '/distribution',
-        icon: Radio,
-        description: 'SMS, Push, Email delivery',
-        roles: ['admin', 'operator']
-      },
-      {
-        name: 'Geographic Zones',
-        id: 'geozones',
-        path: '/geozones',
-        icon: MapPin,
-        description: 'Districts and targeting',
-        roles: ['admin', 'operator']
-      },
-      {
-        name: 'User Management',
-        id: 'management',
-        path: '/user/management',
-        icon: Users,
-        description: 'Manage system users',
-        roles: ['admin', 'operator']
-      },
-      {
-        name: 'Citizens & Subscribers',
-        id: 'subscribers',
-        path: '/subscribers',
-        icon: Users,
-        description: 'User management',
-        roles: ['admin', 'operator']
-      },
-      {
-        name: 'Emergency Shelters',
-        id: 'shelters',
-        path: '/shelters',
-        icon: Shield,
-        description: 'Safe areas and capacity',
-        roles: ['admin', 'operator', 'citizen']
-      },
-      {
-        name: 'Live Monitoring',
-        id: 'monitoring',
-        path: '/monitoring',
-        icon: Eye,
-        description: 'Real-time event tracking',
-        roles: ['admin', 'operator']
+        description: 'Report and manage incidents',
+        userTypes: ['admin', 'authority', 'operator', 'citizen']
       }
     ];
 
-    const operatorNavigation = [
+    const emergencyNavigation = [
+      {
+        name: 'Emergency Contacts',
+        id: 'emergency-contacts',
+        path: '/emergency-contacts',
+        icon: Phone,
+        description: 'Emergency services directory',
+        userTypes: ['admin', 'authority', 'operator', 'citizen']
+      },
+      {
+        name: 'Safety Guides',
+        id: 'safety-guides',
+        path: '/safety-guides',
+        icon: BookOpen,
+        description: 'Preparedness information',
+        userTypes: ['admin', 'authority', 'operator', 'citizen']
+      }
+    ];
+
+    const managementNavigation = [
+      {
+        name: 'User Management',
+        id: 'users',
+        path: '/users',
+        icon: Users,
+        description: 'Manage system users',
+        userTypes: ['admin']
+      },
+      {
+        name: 'Location Management',
+        id: 'locations',
+        path: '/locations',
+        icon: MapPin,
+        description: 'Rwanda districts and sectors',
+        userTypes: ['admin', 'authority']
+      },
+      {
+        name: 'Alert Delivery',
+        id: 'deliveries',
+        path: '/deliveries',
+        icon: Radio,
+        description: 'SMS, Push, Email delivery',
+        userTypes: ['admin', 'authority', 'operator']
+      }
+    ];
+
+    const analyticsNavigation = [
       {
         name: 'Analytics & Reports',
         id: 'analytics',
         path: '/analytics',
         icon: BarChart3,
         description: 'Performance metrics',
-        roles: ['admin', 'operator']
+        userTypes: ['admin', 'authority', 'operator']
       },
       {
-        name: 'Communication Channels',
-        id: 'channels',
-        path: '/channels',
+        name: 'Message Templates',
+        id: 'templates',
+        path: '/notification-templates',
         icon: MessageSquare,
-        description: 'SMS, Email, Push setup',
-        roles: ['admin', 'operator']
+        description: 'Notification templates',
+        userTypes: ['admin', 'authority']
       }
     ];
 
@@ -166,93 +169,93 @@ const Sidebar = ({
         path: '/admin/settings',
         icon: Settings,
         description: 'System configuration',
-        roles: ['admin']
+        userTypes: ['admin']
       },
       {
-        name: 'Audit Logs',
-        id: 'audit',
-        path: '/admin/audit',
-        icon: Clock,
-        description: 'System activity logs',
-        roles: ['admin']
-      },
-      {
-        name: 'Integration Setup',
-        id: 'integrations',
-        path: '/admin/integrations',
-        icon: Globe,
-        description: 'Third-party services',
-        roles: ['admin']
+        name: 'System Health',
+        id: 'health',
+        path: '/system/health',
+        icon: Activity,
+        description: 'System status monitoring',
+        userTypes: ['admin']
       }
     ];
 
     // Citizen-specific navigation
     const citizenNavigation = [
       {
-        name: 'Safety Check-in',
-        id: 'checkin',
-        path: '/citizen/checkin',
-        icon: Activity,
-        description: 'Report your safety status',
-        roles: ['citizen']
+        name: 'My Reports',
+        id: 'my-reports',
+        path: '/incidents/my-reports',
+        icon: FileText,
+        description: 'Your incident reports',
+        userTypes: ['citizen']
       },
       {
-        name: 'Emergency Contacts',
-        id: 'contacts',
-        path: '/citizen/contacts',
-        icon: Phone,
-        description: 'Important phone numbers',
-        roles: ['citizen']
+        name: 'My Alert Responses',
+        id: 'my-responses',
+        path: '/alerts/my-responses',
+        icon: Bell,
+        description: 'Your alert responses',
+        userTypes: ['citizen']
       },
       {
         name: 'Profile & Settings',
         id: 'profile',
-        path: '/citizen/profile',
+        path: '/profile',
         icon: Settings,
         description: 'Update your information',
-        roles: ['citizen']
+        userTypes: ['citizen']
       }
     ];
 
     let navigation = [...baseNavigation];
 
-    if (user?.role === 'operator' || user?.role === 'admin') {
-      navigation = [...navigation, ...operatorNavigation];
+    // Add sections based on user type
+    if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
+      navigation = [...navigation, ...alertNavigation];
     }
 
-    if (user?.role === 'admin') {
+    navigation = [...navigation, ...incidentNavigation, ...emergencyNavigation];
+
+    if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
+      navigation = [...navigation, ...managementNavigation, ...analyticsNavigation];
+    }
+
+    if (user?.user_type === 'admin') {
       navigation = [...navigation, ...adminNavigation];
     }
 
-    if (user?.role === 'citizen') {
+    if (user?.user_type === 'citizen') {
       navigation = [...navigation, ...citizenNavigation];
     }
 
-    // Filter navigation based on user role
-    return navigation.filter(item => item.roles.includes(user?.role || 'citizen'));
+    // Filter navigation based on user type
+    return navigation.filter(item => item.userTypes.includes(user?.user_type || 'citizen'));
   };
 
+  // Updated quick actions for RwandaDisasterAlert
   const quickActions = [
     { 
-      name: 'Emergency Broadcast', 
+      name: 'Emergency Alert', 
       action: 'emergency', 
       color: 'bg-red-600 hover:bg-red-700',
       icon: AlertTriangle,
-      description: 'Send immediate alert'
+      description: 'Send immediate emergency alert'
     },
     { 
-      name: 'Weather Alert', 
+      name: 'Weather Warning', 
       action: 'weather', 
       color: 'bg-yellow-600 hover:bg-yellow-700',
       icon: Activity,
-      description: 'Weather conditions'
+      description: 'Weather-related alert'
     },
     { 
       name: 'Health Advisory', 
       action: 'health', 
       color: 'bg-blue-600 hover:bg-blue-700',
-      icon: Zap,
-      description: 'Health emergency'
+      icon: Heart,
+      description: 'Health emergency or advisory'
     }
   ];
 
@@ -280,7 +283,7 @@ const Sidebar = ({
             <div className="bg-red-600 p-1.5 rounded-md">
               <AlertTriangle className="h-5 w-5 text-white" />
             </div>
-            <span className="font-semibold text-gray-900">Menu</span>
+            <span className="font-semibold text-gray-900">RwandaDisasterAlert</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -291,8 +294,8 @@ const Sidebar = ({
         </div>
 
         <div className="flex flex-col h-full">
-          {/* Quick Actions */}
-          {(user?.role === 'admin' || user?.role === 'operator') && (
+          {/* Quick Actions for Admin and Authority */}
+          {(user?.user_type === 'admin' || user?.user_type === 'authority') && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Quick Actions
@@ -314,7 +317,7 @@ const Sidebar = ({
           )}
 
           {/* Emergency Contacts for Citizens */}
-          {user?.role === 'citizen' && (
+          {user?.user_type === 'citizen' && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Emergency Contacts
@@ -335,6 +338,22 @@ const Sidebar = ({
                   <span className="font-medium">MINEMA Operations</span>
                 </a>
               </div>
+            </div>
+          )}
+
+          {/* Safety Check-in for Citizens */}
+          {user?.user_type === 'citizen' && (
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Safety Status
+              </h3>
+              <button
+                onClick={() => handleNavigation('/alerts/respond')}
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-sm py-2.5 px-3 rounded-md transition-colors flex items-center space-x-2"
+              >
+                <Activity className="h-4 w-4" />
+                <span className="font-medium">Report I'm Safe</span>
+              </button>
             </div>
           )}
 
@@ -401,14 +420,14 @@ const Sidebar = ({
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Email Service</span>
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                  <span className="text-yellow-600 text-xs">Slow</span>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-green-600 text-xs">Operational</span>
                 </div>
               </div>
-              {user?.role === 'citizen' && (
+              {user?.user_type === 'citizen' && user?.district && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Your District</span>
-                  <span className="text-gray-900 text-xs font-medium">{user?.district || 'Not Set'}</span>
+                  <span className="text-gray-900 text-xs font-medium">{user.district}</span>
                 </div>
               )}
             </div>
@@ -418,12 +437,14 @@ const Sidebar = ({
           <div className="p-4 border-t border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                {user?.role === 'admin' ? (
+                {user?.user_type === 'admin' ? (
                   <Shield className="h-4 w-4 text-red-600" />
-                ) : user?.role === 'operator' ? (
+                ) : user?.user_type === 'authority' ? (
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                ) : user?.user_type === 'operator' ? (
                   <Users className="h-4 w-4 text-red-600" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <Heart className="h-4 w-4 text-red-600" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -431,18 +452,23 @@ const Sidebar = ({
                   {user?.first_name} {user?.last_name}
                 </p>
                 <p className="text-xs text-gray-500 truncate capitalize">
-                  {user?.role} {user?.district && `• ${user.district}`}
+                  {user?.user_type === 'admin' ? 'Administrator' :
+                   user?.user_type === 'authority' ? 'Authority' :
+                   user?.user_type === 'operator' ? 'Operator' : 'Citizen'}
+                  {user?.district && ` • ${user.district}`}
                 </p>
               </div>
             </div>
             
-            {/* Last seen / status for operators and admins */}
-            {(user?.role === 'admin' || user?.role === 'operator') && (
+            {/* Verification status */}
+            {user?.is_verified !== undefined && (
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-gray-500">Status:</span>
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-600">On Duty</span>
+                  <div className={`w-2 h-2 rounded-full ${user.is_verified ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                  <span className={user.is_verified ? 'text-green-600' : 'text-yellow-600'}>
+                    {user.is_verified ? 'Verified' : 'Pending'}
+                  </span>
                 </div>
               </div>
             )}

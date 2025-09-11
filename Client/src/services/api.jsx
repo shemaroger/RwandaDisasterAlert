@@ -49,8 +49,6 @@ class ApiService {
     const config = {
       method: options.method || 'GET',
       headers: this.getHeaders(includeAuth),
-      // Include credentials only if you actually rely on cookies (safe to omit for DRF token auth)
-      // credentials: 'include',
     };
 
     // Body handling
@@ -67,8 +65,6 @@ class ApiService {
       // Token expired/invalid
       if (response.status === 401 && this.getToken()) {
         this.setToken(null);
-        // optional redirect; keep if desired:
-        // window.location.href = '/login?message=Session expired. Please sign in again.';
         throw new ApiError('Unauthorized', 401, null);
       }
 
@@ -84,7 +80,6 @@ class ApiService {
         try {
           if (isJson) {
             errorData = await response.json();
-            // Prefer DRF-style fields
             message =
               errorData?.detail ||
               errorData?.message ||
@@ -114,15 +109,14 @@ class ApiService {
       body: userData,
       includeAuth: false,
     });
-    // If backend returns token on register, store it
     if (data?.token) this.setToken(data.token);
     return data;
   }
 
-  async login(email, password) {
+  async login(username, password) {
     const data = await this.request('/auth/login/', {
       method: 'POST',
-      body: { email, password },
+      body: { username, password },
       includeAuth: false,
     });
     if (data?.token) this.setToken(data.token);
@@ -150,11 +144,43 @@ class ApiService {
   }
 
   async updateProfile(profileData) {
-    return this.request('/auth/me/', { method: 'PATCH', body: profileData });
+    return this.request('/profile/', { method: 'PATCH', body: profileData });
   }
 
   async changePassword(passwordData) {
     return this.request('/auth/change-password/', { method: 'POST', body: passwordData });
+  }
+
+  async resetPassword(email) {
+    return this.request('/auth/password-reset/', {
+      method: 'POST',
+      body: { email },
+      includeAuth: false,
+    });
+  }
+
+  async confirmPasswordReset(token, password) {
+    return this.request('/auth/password-reset-confirm/', {
+      method: 'POST',
+      body: { token, password },
+      includeAuth: false,
+    });
+  }
+
+  // -------- User Profile & Preferences --------
+  async getNotificationPreferences() {
+    return this.request('/profile/preferences/');
+  }
+
+  async updateNotificationPreferences(preferences) {
+    return this.request('/profile/preferences/', { method: 'PATCH', body: preferences });
+  }
+
+  async updateLocation(latitude, longitude, district_id) {
+    return this.request('/profile/location/', {
+      method: 'POST',
+      body: { latitude, longitude, district_id },
+    });
   }
 
   // -------- Users --------
@@ -179,139 +205,41 @@ class ApiService {
     return this.request(`/users/${id}/`, { method: 'DELETE' });
   }
 
-  async approveUser(userId) {
-    return this.request(`/users/${userId}/approve/`, { method: 'POST' });
-  }
-
-  async deactivateUser(userId) {
-    return this.request(`/users/${userId}/deactivate/`, { method: 'POST' });
-  }
-
-  async activateUser(userId) {
-    return this.updateUser(userId, { is_active: true });
-  }
-
-  async changeUserRole(userId, newRole) {
-    return this.request(`/users/${userId}/set_role/`, {
-      method: 'POST',
-      body: { role: newRole },
-    });
-  }
-
-  async setUserPassword(userId, newPassword) {
-    return this.request(`/users/${userId}/set_password/`, {
-      method: 'POST',
-      body: { new_password: newPassword },
-    });
-  }
-
-  async bulkApproveUsers(userIds = []) {
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new Error('No users selected for bulk approve');
-    }
-    return Promise.all(userIds.map((id) => this.approveUser(id)));
-  }
-
-  async bulkActivateUsers(userIds = [], isActive = true) {
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new Error('No users selected for bulk activate/deactivate');
-    }
-    return Promise.all(userIds.map((id) => this.updateUser(id, { is_active: isActive })));
-  }
-
-  async bulkRoleChange(userIds = [], targetRole) {
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new Error('No users selected for bulk role change');
-    }
-    if (!['admin', 'operator', 'citizen'].includes(targetRole)) {
-      throw new Error('Invalid role specified');
-    }
-    return Promise.all(userIds.map((id) => this.changeUserRole(id, targetRole)));
-  }
-
-  validateRoleChange(_currentUserRole, _targetUserRole, newRole) {
-    const validRoles = ['admin', 'operator', 'citizen'];
-    if (!validRoles.includes(newRole)) throw new Error('Invalid role specified');
-    return true;
-  }
-
-  validateBulkOperation(_currentUserRole, operation, userIds) {
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new Error('No users selected for bulk operation');
-    }
-    const validOperations = ['role_change', 'approve', 'activate', 'deactivate'];
-    if (!validOperations.includes(operation)) throw new Error('Invalid bulk operation');
-    return true;
-  }
-
-  canUserPerformAction() {
-    // any authenticated user can act (as per your policy)
-    return this.isAuthenticated();
-  }
-
-  async exportUsers(format = 'csv', filters = {}) {
-    const params = new URLSearchParams({ ...filters, export_format: format }).toString();
-    const res = await fetch(`${API_BASE_URL}/users/export/?${params}`, {
-      headers: this.getHeaders(),
-    });
-    if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
-    return await res.blob();
-  }
-
-  async getUserAuditLog(userId, params = {}) {
-    const query = new URLSearchParams({ entity: 'User', entity_id: userId, ...params }).toString();
-    return this.request(`/audit-logs/?${query}`);
-  }
-
-  async getSystemAuditLog(params = {}) {
+  // -------- Locations (Rwanda Administrative Boundaries) --------
+  async getLocations(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/audit-logs/?${query}`);
+    return this.request(`/locations/${query ? `?${query}` : ''}`);
   }
 
-  // -------- GeoZones --------
-  async getGeoZones(params = {}) {
+  async getLocation(id) {
+    return this.request(`/locations/${id}/`);
+  }
+
+  async getDistricts() {
+    return this.request('/locations/districts/');
+  }
+
+  async getLocationChildren(id) {
+    return this.request(`/locations/${id}/children/`);
+  }
+
+  async searchLocations(query) {
+    const params = new URLSearchParams({ q: query }).toString();
+    return this.request(`/locations/search/?${params}`);
+  }
+
+  async getLocationHierarchy() {
+    return this.request('/locations/hierarchy/');
+  }
+
+  // -------- Disaster Types --------
+  async getDisasterTypes(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/geozones/${query ? `?${query}` : ''}`);
+    return this.request(`/disaster-types/${query ? `?${query}` : ''}`);
   }
 
-  async createGeoZone(zoneData) {
-    return this.request('/geozones/', { method: 'POST', body: zoneData });
-  }
-
-  async updateGeoZone(id, zoneData) {
-    return this.request(`/geozones/${id}/`, { method: 'PATCH', body: zoneData });
-  }
-
-  async deleteGeoZone(id) {
-    return this.request(`/geozones/${id}/`, { method: 'DELETE' });
-  }
-
-  // -------- Subscribers --------
-  async getSubscribers(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/subscribers/${query ? `?${query}` : ''}`);
-  }
-
-  async createSubscriber(subscriberData) {
-    return this.request('/subscribers/', { method: 'POST', body: subscriberData });
-  }
-
-  async updateSubscriber(id, subscriberData) {
-    return this.request(`/subscribers/${id}/`, { method: 'PATCH', body: subscriberData });
-  }
-
-  // -------- Devices --------
-  async getDevices(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/devices/${query ? `?${query}` : ''}`);
-  }
-
-  async registerDevice(deviceData) {
-    return this.request('/devices/', { method: 'POST', body: deviceData });
-  }
-
-  async updateDevice(id, deviceData) {
-    return this.request(`/devices/${id}/`, { method: 'PATCH', body: deviceData });
+  async getDisasterType(id) {
+    return this.request(`/disaster-types/${id}/`);
   }
 
   // -------- Alerts --------
@@ -332,22 +260,61 @@ class ApiService {
     return this.request(`/alerts/${id}/`, { method: 'PATCH', body: alertData });
   }
 
-  async approveAlert(id) {
-    return this.request(`/alerts/${id}/approve/`, { method: 'POST' });
+  async deleteAlert(id) {
+    return this.request(`/alerts/${id}/`, { method: 'DELETE' });
   }
 
-  async sendAlert(id) {
-    return this.request(`/alerts/${id}/send_now/`, { method: 'POST' });
+  async getActiveAlerts() {
+    return this.request('/alerts/active/');
   }
 
-  async cancelAlert(id) {
-    return this.request(`/alerts/${id}/cancel/`, { method: 'POST' });
+  async activateAlert(id) {
+    return this.request(`/alerts/${id}/activate/`, { method: 'POST' });
+  }
+
+  async respondToAlert(id, responseData) {
+    return this.request(`/alerts/${id}/respond/`, { method: 'POST', body: responseData });
+  }
+
+  async getNearbyAlerts(radius = 50) {
+    const params = new URLSearchParams({ radius }).toString();
+    return this.request(`/alerts/nearby/?${params}`);
+  }
+
+  async getMyAlertResponses() {
+    return this.request('/alerts/my-responses/');
+  }
+
+  async bulkSendAlert(alertData) {
+    return this.request('/alerts/bulk-send/', { method: 'POST', body: alertData });
+  }
+
+  async getAlertDeliveryStatus(alertId) {
+    return this.request(`/alerts/${alertId}/delivery-status/`);
+  }
+
+  async getPublicActiveAlerts() {
+    return this.request('/public/active-alerts/', { includeAuth: false });
   }
 
   // -------- Alert Deliveries --------
   async getAlertDeliveries(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
+    return this.request(`/deliveries/${query ? `?${query}` : ''}`);
+  }
+
+  async getDeliveryReports() {
+    return this.request('/notifications/delivery-reports/');
+  }
+
+  // -------- Alert Responses --------
+  async getAlertResponses(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/alert-responses/${query ? `?${query}` : ''}`);
+  }
+
+  async createAlertResponse(responseData) {
+    return this.request('/alert-responses/', { method: 'POST', body: responseData });
   }
 
   // -------- Incidents --------
@@ -364,7 +331,18 @@ class ApiService {
     const formData = new FormData();
     Object.keys(incidentData || {}).forEach((key) => {
       const val = incidentData[key];
-      if (val !== null && val !== undefined) formData.append(key, val);
+      if (val !== null && val !== undefined) {
+        if (key === 'images' || key === 'videos') {
+          // Handle file arrays
+          if (Array.isArray(val)) {
+            val.forEach((file, index) => {
+              formData.append(`${key}[${index}]`, file);
+            });
+          }
+        } else {
+          formData.append(key, val);
+        }
+      }
     });
     return this.request('/incidents/', { method: 'POST', body: formData });
   }
@@ -373,92 +351,277 @@ class ApiService {
     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: incidentData });
   }
 
-  async triageIncident(id) {
-    return this.request(`/incidents/${id}/triage/`, { method: 'POST' });
+  async deleteIncident(id) {
+    return this.request(`/incidents/${id}/`, { method: 'DELETE' });
   }
 
-  async resolveIncident(id) {
-    return this.request(`/incidents/${id}/resolve/`, { method: 'POST' });
+  async assignIncident(id, assignedToId) {
+    return this.request(`/incidents/${id}/assign/`, {
+      method: 'POST',
+      body: { assigned_to: assignedToId },
+    });
   }
 
-  async rejectIncident(id) {
-    return this.request(`/incidents/${id}/reject/`, { method: 'POST' });
+  async verifyIncident(id) {
+    return this.request(`/incidents/${id}/verify/`, { method: 'POST' });
   }
 
-  // -------- Check-ins --------
-  async getCheckins(params = {}) {
+  async resolveIncident(id, resolutionNotes = '') {
+    return this.request(`/incidents/${id}/resolve/`, {
+      method: 'POST',
+      body: { resolution_notes: resolutionNotes },
+    });
+  }
+
+  async getMyIncidentReports() {
+    return this.request('/incidents/my-reports/');
+  }
+
+  async getAssignedIncidents() {
+    return this.request('/incidents/assigned-to-me/');
+  }
+
+  async getPriorityIncidents() {
+    return this.request('/incidents/priority/');
+  }
+
+  // -------- Emergency Contacts --------
+  async getEmergencyContacts(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/checkins/${query ? `?${query}` : ''}`);
+    return this.request(`/emergency-contacts/${query ? `?${query}` : ''}`);
   }
 
-  async createCheckin(checkinData) {
-    return this.request('/checkins/', { method: 'POST', body: checkinData });
+  async getEmergencyContact(id) {
+    return this.request(`/emergency-contacts/${id}/`);
   }
 
-  // -------- Shelters --------
-  async getShelters(params = {}) {
+  async getEmergencyContactsByLocation(locationId) {
+    return this.request(`/emergency-contacts/by_location/?location_id=${locationId}`);
+  }
+
+  async getNearbyEmergencyContacts(latitude, longitude) {
+    const params = new URLSearchParams({ latitude, longitude }).toString();
+    return this.request(`/emergency-contacts/nearby/?${params}`);
+  }
+
+  async getPublicEmergencyContacts(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/shelters/${query ? `?${query}` : ''}`);
+    return this.request(`/public/emergency-contacts/${query ? `?${query}` : ''}`, {
+      includeAuth: false,
+    });
   }
 
-  async createShelter(shelterData) {
-    return this.request('/shelters/', { method: 'POST', body: shelterData });
-  }
-
-  async updateShelter(id, shelterData) {
-    return this.request(`/shelters/${id}/`, { method: 'PATCH', body: shelterData });
-  }
-
-  async deleteShelter(id) {
-    return this.request(`/shelters/${id}/`, { method: 'DELETE' });
-  }
-
-  // -------- Message Templates --------
-  async getMessageTemplates(params = {}) {
+  // -------- Safety Guides --------
+  async getSafetyGuides(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/message-templates/${query ? `?${query}` : ''}`);
+    return this.request(`/safety-guides/${query ? `?${query}` : ''}`);
   }
 
-  async createMessageTemplate(templateData) {
-    return this.request('/message-templates/', { method: 'POST', body: templateData });
+  async getSafetyGuide(id) {
+    return this.request(`/safety-guides/${id}/`);
   }
 
-  async updateMessageTemplate(id, templateData) {
-    return this.request(`/message-templates/${id}/`, { method: 'PATCH', body: templateData });
+  async getFeaturedSafetyGuides() {
+    return this.request('/safety-guides/featured/');
   }
 
-  async deleteMessageTemplate(id) {
-    return this.request(`/message-templates/${id}/`, { method: 'DELETE' });
+  async getSafetyGuidesByDisaster(disasterTypeId) {
+    const params = new URLSearchParams({ disaster_type: disasterTypeId }).toString();
+    return this.request(`/safety-guides/by-disaster/?${params}`);
   }
 
-  // -------- Provider Integrations --------
-  async getProviderIntegrations() {
-    return this.request('/provider-integrations/');
-  }
-
-  async createProviderIntegration(providerData) {
-    return this.request('/provider-integrations/', { method: 'POST', body: providerData });
-  }
-
-  async updateProviderIntegration(id, providerData) {
-    return this.request(`/provider-integrations/${id}/`, { method: 'PATCH', body: providerData });
-  }
-
-  // -------- Audit Logs --------
-  async getAuditLogs(params = {}) {
+  async getPublicSafetyTips(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request(`/audit-logs/${query ? `?${query}` : ''}`);
+    return this.request(`/public/safety-tips/${query ? `?${query}` : ''}`, {
+      includeAuth: false,
+    });
   }
 
-  // -------- Health --------
+  // -------- Notification Templates --------
+  async getNotificationTemplates(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/notification-templates/${query ? `?${query}` : ''}`);
+  }
+
+  async getNotificationTemplate(id) {
+    return this.request(`/notification-templates/${id}/`);
+  }
+
+  async createNotificationTemplate(templateData) {
+    return this.request('/notification-templates/', { method: 'POST', body: templateData });
+  }
+
+  async updateNotificationTemplate(id, templateData) {
+    return this.request(`/notification-templates/${id}/`, { method: 'PATCH', body: templateData });
+  }
+
+  async deleteNotificationTemplate(id) {
+    return this.request(`/notification-templates/${id}/`, { method: 'DELETE' });
+  }
+
+  // -------- Dashboard --------
+  async getDashboard() {
+    return this.request('/dashboard/');
+  }
+
+  async getDashboardStats() {
+    return this.request('/dashboard/stats/');
+  }
+
+  async getRecentAlerts() {
+    return this.request('/dashboard/recent-alerts/');
+  }
+
+  async getRecentIncidents() {
+    return this.request('/dashboard/recent-incidents/');
+  }
+
+  // -------- Notifications --------
+  async sendTestNotification(recipientId, message) {
+    return this.request('/notifications/send-test/', {
+      method: 'POST',
+      body: { recipient_id: recipientId, message },
+    });
+  }
+
+  // -------- System & Monitoring --------
+  async getSystemHealth() {
+    return this.request('/system/health/');
+  }
+
+  async getSystemMetrics() {
+    return this.request('/system/metrics/');
+  }
+
   async healthCheck() {
     try {
-      const res = await fetch(`${API_BASE_URL}/health/`, { method: 'GET', headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/system/health/`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
       return res.ok;
     } catch (e) {
       console.error('Health check failed:', e);
       return false;
     }
+  }
+
+  // -------- File Uploads --------
+  async uploadIncidentMedia(file, incidentId = null) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (incidentId) formData.append('incident_id', incidentId);
+
+    return this.request('/upload/incident-media/', { method: 'POST', body: formData });
+  }
+
+  async uploadSafetyGuideMedia(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.request('/upload/safety-guide-media/', { method: 'POST', body: formData });
+  }
+
+  // -------- Mobile App Support --------
+  async getMobileAppConfig() {
+    return this.request('/mobile/app-config/', { includeAuth: false });
+  }
+
+  async checkForceUpdate(version, platform = 'android') {
+    const params = new URLSearchParams({ version, platform }).toString();
+    return this.request(`/mobile/force-update-check/?${params}`, { includeAuth: false });
+  }
+
+  // -------- Utility Methods --------
+  validateRoleChange(currentUserRole, targetUserRole, newRole) {
+    const validRoles = ['admin', 'operator', 'authority', 'citizen'];
+    if (!validRoles.includes(newRole)) throw new Error('Invalid role specified');
+    return true;
+  }
+
+  validateBulkOperation(currentUserRole, operation, userIds) {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw new Error('No users selected for bulk operation');
+    }
+    const validOperations = ['role_change', 'approve', 'activate', 'deactivate'];
+    if (!validOperations.includes(operation)) throw new Error('Invalid bulk operation');
+    return true;
+  }
+
+  canUserPerformAction() {
+    return this.isAuthenticated();
+  }
+
+  // -------- Export Functions --------
+  async exportUsers(format = 'csv', filters = {}) {
+    const params = new URLSearchParams({ ...filters, export_format: format }).toString();
+    const res = await fetch(`${API_BASE_URL}/users/export/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+    return await res.blob();
+  }
+
+  async exportAlerts(format = 'csv', filters = {}) {
+    const params = new URLSearchParams({ ...filters, export_format: format }).toString();
+    const res = await fetch(`${API_BASE_URL}/alerts/export/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+    return await res.blob();
+  }
+
+  async exportIncidents(format = 'csv', filters = {}) {
+    const params = new URLSearchParams({ ...filters, export_format: format }).toString();
+    const res = await fetch(`${API_BASE_URL}/incidents/export/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+    return await res.blob();
+  }
+
+  // -------- Legacy Compatibility (for gradual migration) --------
+  async getGeoZones(params = {}) {
+    // Map to new locations endpoint
+    return this.getLocations(params);
+  }
+
+  async getSubscribers(params = {}) {
+    // Map to users with citizen type
+    return this.getUsers({ ...params, user_type: 'citizen' });
+  }
+
+  async getDevices(params = {}) {
+    // Devices are now handled through user device tokens
+    console.warn('getDevices is deprecated. Use user notification preferences instead.');
+    return { results: [] };
+  }
+
+  async getCheckins(params = {}) {
+    // Map to alert responses
+    return this.getAlertResponses(params);
+  }
+
+  async getShelters(params = {}) {
+    // Map to emergency contacts
+    return this.getEmergencyContacts({ ...params, contact_type: 'shelter' });
+  }
+
+  async getMessageTemplates(params = {}) {
+    // Map to notification templates
+    return this.getNotificationTemplates(params);
+  }
+
+  async getProviderIntegrations() {
+    // Provider integrations are now handled through system configuration
+    console.warn('getProviderIntegrations is deprecated. Use system configuration instead.');
+    return { results: [] };
+  }
+
+  async getAuditLogs(params = {}) {
+    // Audit logs can be implemented later if needed
+    console.warn('getAuditLogs is not yet implemented in the new system.');
+    return { results: [] };
   }
 }
 

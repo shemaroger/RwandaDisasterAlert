@@ -6,13 +6,13 @@ import { AlertTriangle, Shield, Clock } from 'lucide-react';
 
 const ProtectedRoute = ({ 
   children, 
-  requiredRole = null, 
-  requiredRoles = [],
-  requireApproval = true,
+  requiredUserType = null, 
+  requiredUserTypes = [],
+  requireVerification = false,
   fallbackPath = '/login',
   showUnauthorized = true
 }) => {
-  const { user, loading, isAuthenticated, hasRole, hasAnyRole, isInitialized } = useAuth();
+  const { user, loading, isAuthenticated, hasUserType, hasAnyUserType, isInitialized } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while initializing auth
@@ -42,25 +42,26 @@ const ProtectedRoute = ({
     );
   }
 
-  // Check if user account is approved (if required)
-  if (requireApproval && user && !user.is_approved) {
+  // Check if user account is verified (if required)
+  if (requireVerification && user && !user.is_verified) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <Clock className="text-yellow-600 w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Account Pending Approval</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Account Verification Required</h2>
           <p className="text-gray-600 mb-6">
             Your account is currently being reviewed by MINEMA administrators. 
-            You will receive access once your account has been approved.
+            Citizens have immediate access to essential features, while operator and authority 
+            roles require verification for enhanced system access.
           </p>
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
             >
-              Check Status
+              Check Verification Status
             </button>
             <button
               onClick={() => {
@@ -83,36 +84,36 @@ const ProtectedRoute = ({
     );
   }
 
-  // Check specific role requirement
-  if (requiredRole && !hasRole(requiredRole)) {
+  // Check specific user type requirement
+  if (requiredUserType && !hasUserType(requiredUserType)) {
     if (showUnauthorized) {
-      return <UnauthorizedAccess requiredRole={requiredRole} userRole={user?.role} />;
+      return <UnauthorizedAccess requiredUserType={requiredUserType} userType={user?.user_type} />;
     }
     return (
       <Navigate 
         to="/unauthorized" 
         state={{ 
           from: location,
-          requiredRole,
-          userRole: user?.role
+          requiredUserType,
+          userType: user?.user_type
         }} 
         replace 
       />
     );
   }
 
-  // Check multiple roles requirement
-  if (requiredRoles.length > 0 && !hasAnyRole(requiredRoles)) {
+  // Check multiple user types requirement
+  if (requiredUserTypes.length > 0 && !hasAnyUserType(requiredUserTypes)) {
     if (showUnauthorized) {
-      return <UnauthorizedAccess requiredRoles={requiredRoles} userRole={user?.role} />;
+      return <UnauthorizedAccess requiredUserTypes={requiredUserTypes} userType={user?.user_type} />;
     }
     return (
       <Navigate 
         to="/unauthorized" 
         state={{ 
           from: location,
-          requiredRoles,
-          userRole: user?.role
+          requiredUserTypes,
+          userType: user?.user_type
         }} 
         replace 
       />
@@ -124,12 +125,12 @@ const ProtectedRoute = ({
 };
 
 // Unauthorized Access Component
-const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
+const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) => {
   const { logout } = useAuth();
 
   const handleGoToDashboard = () => {
-    // Redirect based on user role
-    switch (userRole) {
+    // Redirect based on user type
+    switch (userType) {
       case 'admin':
         window.location.href = '/admin/dashboard';
         break;
@@ -137,10 +138,10 @@ const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
         window.location.href = '/operator/dashboard';
         break;
       case 'citizen':
-        window.location.href = '/citizen/dashboard';
+        window.location.href = '/dashboard';
         break;
       default:
-        window.location.href = '/';
+        window.location.href = '/dashboard';
     }
   };
 
@@ -148,25 +149,27 @@ const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
     logout();
   };
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
+  const getUserTypeDisplayName = (userType) => {
+    switch (userType) {
       case 'admin':
         return 'Administrator';
       case 'operator':
         return 'Emergency Operator';
+      case 'authority':
+        return 'Emergency Authority';
       case 'citizen':
         return 'Citizen';
       default:
-        return role;
+        return userType || 'Unknown';
     }
   };
 
-  const getRequiredRolesText = () => {
-    if (requiredRole) {
-      return getRoleDisplayName(requiredRole);
+  const getRequiredUserTypesText = () => {
+    if (requiredUserType) {
+      return getUserTypeDisplayName(requiredUserType);
     }
-    if (requiredRoles && requiredRoles.length > 0) {
-      return requiredRoles.map(getRoleDisplayName).join(' or ');
+    if (requiredUserTypes && requiredUserTypes.length > 0) {
+      return requiredUserTypes.map(getUserTypeDisplayName).join(' or ');
     }
     return 'authorized personnel';
   };
@@ -181,11 +184,11 @@ const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
         <h2 className="text-xl font-bold text-gray-900 mb-4">Access Restricted</h2>
         
         <p className="text-gray-600 mb-2">
-          This page is restricted to <strong>{getRequiredRolesText()}</strong> only.
+          This page is restricted to <strong>{getRequiredUserTypesText()}</strong> only.
         </p>
         
         <p className="text-sm text-gray-500 mb-6">
-          Your current role: <span className="font-medium capitalize">{getRoleDisplayName(userRole)}</span>
+          Your current access level: <span className="font-medium capitalize">{getUserTypeDisplayName(userType)}</span>
         </p>
 
         <div className="space-y-3">
@@ -228,56 +231,121 @@ const UnauthorizedAccess = ({ requiredRole, requiredRoles, userRole }) => {
   );
 };
 
-// Higher-order component for role-based access
-export const withRoleAccess = (WrappedComponent, requiredRole) => {
-  return function RoleProtectedComponent(props) {
+// Higher-order component for user type-based access
+export const withUserTypeAccess = (WrappedComponent, requiredUserType) => {
+  return function UserTypeProtectedComponent(props) {
     return (
-      <ProtectedRoute requiredRole={requiredRole}>
+      <ProtectedRoute requiredUserType={requiredUserType}>
         <WrappedComponent {...props} />
       </ProtectedRoute>
     );
   };
 };
 
-// Higher-order component for multiple roles access
-export const withMultiRoleAccess = (WrappedComponent, requiredRoles) => {
-  return function MultiRoleProtectedComponent(props) {
+// Higher-order component for multiple user types access
+export const withMultiUserTypeAccess = (WrappedComponent, requiredUserTypes) => {
+  return function MultiUserTypeProtectedComponent(props) {
     return (
-      <ProtectedRoute requiredRoles={requiredRoles}>
+      <ProtectedRoute requiredUserTypes={requiredUserTypes}>
         <WrappedComponent {...props} />
       </ProtectedRoute>
     );
   };
+};
+
+// Legacy HOCs for backward compatibility
+export const withRoleAccess = (WrappedComponent, requiredRole) => {
+  console.warn('withRoleAccess is deprecated, use withUserTypeAccess instead');
+  return withUserTypeAccess(WrappedComponent, requiredRole);
+};
+
+export const withMultiRoleAccess = (WrappedComponent, requiredRoles) => {
+  console.warn('withMultiRoleAccess is deprecated, use withMultiUserTypeAccess instead');
+  return withMultiUserTypeAccess(WrappedComponent, requiredRoles);
 };
 
 // Hook for checking permissions in components
 export const usePermissions = () => {
-  const { user, hasRole, hasAnyRole, isAdmin, isOperator, isCitizen } = useAuth();
+  const { 
+    user, 
+    hasUserType, 
+    hasAnyUserType, 
+    isAdmin, 
+    isOperator, 
+    isAuthority, 
+    isCitizen,
+    canManageAlerts,
+    canManageIncidents 
+  } = useAuth();
 
-  const canAccessAlerts = () => hasAnyRole(['admin', 'operator']);
-  const canManageUsers = () => hasRole('admin');
-  const canManageIncidents = () => hasAnyRole(['admin', 'operator']);
-  const canViewAnalytics = () => hasAnyRole(['admin', 'operator']);
-  const canManageSystem = () => hasRole('admin');
+  // Updated permission functions for RwandaDisasterAlert
+  const canAccessAlerts = () => hasAnyUserType(['admin', 'authority', 'operator']);
+  const canCreateAlerts = () => hasAnyUserType(['admin', 'authority']);
+  const canManageUsers = () => hasUserType('admin');
+  const canManageSystem = () => hasUserType('admin');
+  const canViewAnalytics = () => hasAnyUserType(['admin', 'authority', 'operator']);
   const canReportIncidents = () => true; // All authenticated users
-  const canAccessShelters = () => true; // All authenticated users can view shelters
-  const canManageShelters = () => hasAnyRole(['admin', 'operator']);
+  const canAccessEmergencyContacts = () => true; // All authenticated users
+  const canManageEmergencyContacts = () => hasAnyUserType(['admin', 'authority']);
+  const canAccessSafetyGuides = () => true; // All authenticated users
+  const canManageSafetyGuides = () => hasAnyUserType(['admin', 'authority']);
+  const canVerifyIncidents = () => hasAnyUserType(['admin', 'authority', 'operator']);
+  const canAssignIncidents = () => hasAnyUserType(['admin', 'authority', 'operator']);
+  const canManageNotificationTemplates = () => hasAnyUserType(['admin', 'authority']);
+  const canAccessDashboard = () => true; // All authenticated users have some dashboard
+  const canViewDeliveryReports = () => hasAnyUserType(['admin', 'authority', 'operator']);
+  const canSendTestNotifications = () => hasAnyUserType(['admin', 'authority']);
+
+  // Location and district management
+  const canManageLocations = () => hasUserType('admin');
+  const canViewLocations = () => true; // All users can view locations
+  
+  // User verification and approval
+  const canVerifyUsers = () => hasUserType('admin');
+  const canApproveAccounts = () => hasUserType('admin');
 
   return {
     user,
     isAdmin,
     isOperator,
+    isAuthority,
     isCitizen,
+    
+    // Core permissions
     canAccessAlerts,
+    canCreateAlerts,
+    canManageAlerts,
     canManageUsers,
     canManageIncidents,
+    canVerifyIncidents,
+    canAssignIncidents,
     canViewAnalytics,
     canManageSystem,
     canReportIncidents,
-    canAccessShelters,
-    canManageShelters,
-    hasRole,
-    hasAnyRole
+    canAccessEmergencyContacts,
+    canManageEmergencyContacts,
+    canAccessSafetyGuides,
+    canManageSafetyGuides,
+    canManageNotificationTemplates,
+    canAccessDashboard,
+    canViewDeliveryReports,
+    canSendTestNotifications,
+    
+    // Location permissions
+    canManageLocations,
+    canViewLocations,
+    
+    // User management permissions
+    canVerifyUsers,
+    canApproveAccounts,
+    
+    // Core functions
+    hasUserType,
+    hasAnyUserType,
+    
+    // Legacy functions for backward compatibility
+    hasRole: hasUserType,
+    hasAnyRole: hasAnyUserType
   };
 };
 

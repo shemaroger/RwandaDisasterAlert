@@ -1,308 +1,262 @@
-from django.contrib.auth import authenticate, get_user_model, password_validation
-from django.utils import timezone
+# serializers.py
 from rest_framework import serializers
-from .models import *
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from .models import (
+    User, Location, DisasterType, Alert, AlertDelivery, IncidentReport,
+    EmergencyContact, SafetyGuide, AlertResponse, NotificationTemplate
+)
 
 User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = (
-            "id",
-            "email",
-            "first_name",
-            "last_name",
-            "phone",
-            "preferred_language",
-            "district",
-            "role",
-            "is_approved",
-            "created_at",
-            "last_seen",
-        )
-        read_only_fields = ("role", "is_approved", "created_at", "last_seen")
-
-
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
-    password2 = serializers.CharField(write_only=True, style={"input_type": "password"})
-    accepted_terms = serializers.BooleanField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "email",
-            "password",
-            "password2",
-            "first_name",
-            "last_name",
-            "phone",
-            "preferred_language",
-            "district",
-            "accepted_terms",
-        )
-
-    def validate_email(self, value):
-        value = value.lower().strip()
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("An account with this email already exists.")
-        return value
+class LocationSerializer(serializers.ModelSerializer):
+    parent_name = serializers.CharField(source='parent.name', read_only=True)
+    children = serializers.SerializerMethodField()
     
-    def validate_phone(self, value):
-        """Validate Rwandan phone number format"""
-        import re
-        if value:
-            # Rwanda phone numbers: +250XXXXXXXXX or 07XXXXXXXX format
-            pattern = r'^(\+250|0)[7]\d{8}$'
-            if not re.match(pattern, value):
-                raise serializers.ValidationError(
-                    "Phone number must be in format: +25078XXXXXXX or 078XXXXXXX"
-                )
-        return value
-
-    def validate_district(self, value):
-        """Validate district against Rwanda's 30 districts"""
-        RWANDA_DISTRICTS = [
-            'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo', 'Gicumbi',
-            'Gisagara', 'Huye', 'Kamonyi', 'Karongi', 'Kayonza', 'Kicukiro',
-            'Kirehe', 'Muhanga', 'Musanze', 'Ngoma', 'Ngororero', 'Nyabihu',
-            'Nyagatare', 'Nyamagabe', 'Nyamasheke', 'Nyanza', 'Nyarugenge',
-            'Nyaruguru', 'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana'
+    class Meta:
+        model = Location
+        fields = [
+            'id', 'name', 'name_rw', 'name_fr', 'location_type', 'parent', 
+            'parent_name', 'boundary_coordinates', 'center_lat', 'center_lng',
+            'population', 'is_active', 'children', 'created_at'
         ]
-        if value and value not in RWANDA_DISTRICTS:
-            raise serializers.ValidationError(f"Invalid district. Must be one of: {', '.join(RWANDA_DISTRICTS)}")
-        return value
-
-    def validate(self, attrs):
-        # Password validation
-        if attrs.get("password") != attrs.get("password2"):
-            raise serializers.ValidationError({"password2": "Passwords do not match."})
-        password_validation.validate_password(attrs.get("password"))
-
-        # Terms validation
-        if not attrs.get("accepted_terms"):
-            raise serializers.ValidationError({"accepted_terms": "You must accept the Terms & Conditions."})
-
-        # Language validation
-        if attrs.get("preferred_language") not in {"rw", "en", "fr"}:
-            raise serializers.ValidationError({"preferred_language": "Use one of: rw, en, fr."})
-
-        return attrs
-
-    def create(self, validated_data):
-        validated_data.pop("password2", None)
-        validated_data.pop("accepted_terms", None)
-        password = validated_data.pop("password")
-
-        # Create user with approval required for sensitive roles
-        user = User.objects.create_user(
-            role=User.Roles.CITIZEN,
-            is_approved=True,  # Citizens auto-approved, others need manual approval
-            **validated_data
-        )
-        user.terms_accepted_at = timezone.now()
-        user.set_password(password)
-        user.save(update_fields=["password", "terms_accepted_at"])
-        
-        # Send welcome email (implement separately)
-        # self.send_welcome_email(user)
-        
-        return user
+    
+    def get_children(self, obj):
+        if hasattr(obj, 'location_set'):
+            children = obj.location_set.filter(is_active=True)
+            return LocationSerializer(children, many=True, context=self.context).data
+        return []
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(style={"input_type": "password"})
-
-    def validate(self, data):
-        email = data.get("email", "").lower().strip()
-        password = data.get("password")
-        if not email or not password:
-            raise serializers.ValidationError("Email and password are required.")
-
-        user = authenticate(username=email, password=password)
-        if not user:
-            raise serializers.ValidationError("Invalid email or password.")
-        if not getattr(user, "is_approved", True):
-            raise serializers.ValidationError("Account not approved yet.")
-        if not user.is_active:
-            raise serializers.ValidationError("User account is disabled.")
-
-        data["user"] = user
-        return data
+class DisasterTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisasterType
+        fields = [
+            'id', 'name', 'name_rw', 'name_fr', 'description', 'description_rw',
+            'description_fr', 'icon', 'color_code', 'is_active', 'created_at'
+        ]
 
 
-class ProfileUpdateSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "phone", "preferred_language", "district")
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+            'user_type', 'phone_number', 'preferred_language', 'location_lat',
+            'location_lng', 'district', 'district_name', 'push_notifications_enabled',
+            'sms_notifications_enabled', 'email_notifications_enabled', 
+            'is_verified', 'created_at', 'updated_at'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(write_only=True, style={"input_type": "password"})
-    new_password = serializers.CharField(write_only=True, style={"input_type": "password"})
-    new_password2 = serializers.CharField(write_only=True, style={"input_type": "password"})
-
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'password', 'password_confirm', 'first_name',
+            'last_name', 'phone_number', 'preferred_language', 'district'
+        ]
+    
     def validate(self, attrs):
-        user = self.context["request"].user
-        if not user.check_password(attrs["old_password"]):
-            raise serializers.ValidationError({"old_password": "Old password is incorrect."})
-        if attrs["new_password"] != attrs["new_password2"]:
-            raise serializers.ValidationError({"new_password2": "Passwords do not match."})
-        password_validation.validate_password(attrs["new_password"], user)
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError("Passwords don't match")
         return attrs
-
-    def save(self, **kwargs):
-        user = self.context["request"].user
-        user.set_password(self.validated_data["new_password"])
-        user.save(update_fields=["password"])
-        return user
-
-# ---------------------------
-# Helpers / Validations
-# ---------------------------
-
-def validate_channels(channels: list[str]) -> list[str]:
-    allowed = {c for c, _ in Channel.choices}
-    if not isinstance(channels, list):
-        raise serializers.ValidationError("channels must be a list, e.g., ['sms','push'].")
-    unknown = [c for c in channels if c not in allowed]
-    if unknown:
-        raise serializers.ValidationError(f"Unknown channels: {unknown}. Allowed: {sorted(allowed)}")
-    return channels
-
-
-# ---------------------------
-# Core Serializers
-# ---------------------------
-
-class GeoZoneSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GeoZone
-        fields = "__all__"
-
-
-class SubscriberSerializer(serializers.ModelSerializer):
-    user_email = serializers.EmailField(source="user.email", read_only=True)
-
-    class Meta:
-        model = Subscriber
-        fields = (
-            "id", "phone", "email", "preferred_language",
-            "allow_sms", "allow_push", "allow_email",
-            "last_known_lat", "last_known_lng",
-            "user", "user_email", "created_at"
-        )
-        read_only_fields = ("user", "created_at")
-
-
-class DeviceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Device
-        fields = ("id", "subscriber", "platform", "push_token", "app_version", "is_active", "registered_at")
-        read_only_fields = ("registered_at",)
-
-
-class MessageTemplateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MessageTemplate
-        fields = "__all__"
-
-
-class ProviderIntegrationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProviderIntegration
-        fields = "__all__"
-
-
-class AlertSerializer(serializers.ModelSerializer):
-    created_by_email = serializers.EmailField(source="created_by.email", read_only=True)
-    approved_by_email = serializers.EmailField(source="approved_by.email", read_only=True)
-    target_zones = serializers.PrimaryKeyRelatedField(queryset=GeoZone.objects.all(), many=True, required=False)
-
-    class Meta:
-        model = Alert
-        fields = (
-            "id", "ref", "type", "severity", "status",
-            "title_rw", "message_rw", "title_en", "message_en", "title_fr", "message_fr",
-            "target_zones", "channels",
-            "send_immediately", "scheduled_at", "effective_at", "expires_at",
-            "total_targeted", "total_delivered", "total_failed",
-            "created_by", "created_by_email", "approved_by", "approved_by_email",
-            "created_at", "sent_at",
-        )
-        read_only_fields = (
-            "status", "total_targeted", "total_delivered", "total_failed",
-            "created_by", "approved_by", "created_at", "sent_at",
-        )
-
-    def validate_channels(self, value):
-        return validate_channels(value)
-
+    
     def create(self, validated_data):
-        zones = validated_data.pop("target_zones", [])
-        alert = super().create(validated_data)
-        if zones:
-            alert.target_zones.set(zones)
-        return alert
-
-    def update(self, instance, validated_data):
-        zones = validated_data.pop("target_zones", None)
-        alert = super().update(instance, validated_data)
-        if zones is not None:
-            alert.target_zones.set(zones)
-        return alert
+        validated_data.pop('password_confirm')
+        password = validated_data.pop('password')
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 
 class AlertDeliverySerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    
     class Meta:
         model = AlertDelivery
-        fields = ("id", "alert", "subscriber", "channel", "success", "status_code", "provider_msg_id", "error_message", "attempted_at")
-        read_only_fields = fields
+        fields = [
+            'id', 'alert', 'user', 'user_name', 'delivery_method', 'status',
+            'sent_at', 'delivered_at', 'read_at', 'error_message', 'created_at'
+        ]
 
 
-class IncidentSerializer(serializers.ModelSerializer):
-    handled_by_email = serializers.EmailField(source="handled_by.email", read_only=True)
-    subscriber_phone = serializers.CharField(source="subscriber.phone", read_only=True)
-
+class AlertResponseSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    
     class Meta:
-        model = Incident
-        fields = (
-            "id", "subscriber", "subscriber_phone", "incident_type",
-            "title", "description", "lat", "lng", "zone", "photo",
-            "status", "handled_by", "handled_by_email",
-            "created_at", "updated_at",
-        )
-        read_only_fields = ("created_at", "updated_at")
+        model = AlertResponse
+        fields = [
+            'id', 'alert', 'user', 'user_name', 'response_type', 'message',
+            'latitude', 'longitude', 'created_at'
+        ]
 
 
-class SafeCheckinSerializer(serializers.ModelSerializer):
+class AlertSerializer(serializers.ModelSerializer):
+    disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
+    issued_by_name = serializers.CharField(source='issued_by.username', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.username', read_only=True)
+    affected_locations_data = LocationSerializer(source='affected_locations', many=True, read_only=True)
+    deliveries = AlertDeliverySerializer(many=True, read_only=True)
+    responses = AlertResponseSerializer(many=True, read_only=True)
+    delivery_stats = serializers.SerializerMethodField()
+    response_stats = serializers.SerializerMethodField()
+    
     class Meta:
-        model = SafeCheckin
-        fields = ("id", "alert", "subscriber", "status", "note", "created_at")
-        read_only_fields = ("created_at",)
-
-    def validate_status(self, value):
-        allowed = {c for c, _ in CheckinStatus.choices}
-        if value not in allowed:
-            raise serializers.ValidationError(f"Invalid status. Allowed: {sorted(allowed)}")
-        return value
-
-
-class ShelterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Shelter
-        fields = "__all__"
-
-
-class AuditLogSerializer(serializers.ModelSerializer):
-    actor_email = serializers.EmailField(source="actor.email", read_only=True)
-
-    class Meta:
-        model = AuditLog  # type: ignore  # imported implicitly by .models
-        fields = ("id", "actor", "actor_email", "action", "entity", "entity_id", "meta", "created_at")
-        read_only_fields = fields
-
+        model = Alert
+        fields = [
+            'id', 'title', 'title_rw', 'title_fr', 'message', 'message_rw',
+            'message_fr', 'disaster_type', 'disaster_type_name', 'severity', 
+            'status', 'affected_locations', 'affected_locations_data',
+            'geofence_coordinates', 'radius_km', 'center_lat', 'center_lng',
+            'issued_at', 'expires_at', 'issued_by', 'issued_by_name',
+            'approved_by', 'approved_by_name', 'send_sms', 'send_push',
+            'send_email', 'publish_web', 'instructions', 'instructions_rw',
+            'instructions_fr', 'contact_info', 'resources_urls',
+            'estimated_affected_population', 'priority_score', 'deliveries',
+            'responses', 'delivery_stats', 'response_stats', 'created_at',
+            'updated_at'
+        ]
+    
+    def get_delivery_stats(self, obj):
+        deliveries = obj.deliveries.all()
+        total = deliveries.count()
+        if total == 0:
+            return {}
         
+        stats = {
+            'total': total,
+            'sent': deliveries.filter(status='sent').count(),
+            'delivered': deliveries.filter(status='delivered').count(),
+            'failed': deliveries.filter(status='failed').count(),
+            'read': deliveries.filter(status='read').count(),
+        }
+        stats['delivery_rate'] = round((stats['delivered'] / total) * 100, 2) if total > 0 else 0
+        return stats
+    
+    def get_response_stats(self, obj):
+        responses = obj.responses.all()
+        total = responses.count()
+        if total == 0:
+            return {}
+        
+        return {
+            'total': total,
+            'acknowledged': responses.filter(response_type='acknowledged').count(),
+            'safe': responses.filter(response_type='safe').count(),
+            'need_help': responses.filter(response_type='need_help').count(),
+            'evacuated': responses.filter(response_type='evacuated').count(),
+            'feedback': responses.filter(response_type='feedback').count(),
+        }
+
+
+class AlertCreateSerializer(serializers.ModelSerializer):
+    """Simplified serializer for creating alerts"""
+    class Meta:
+        model = Alert
+        fields = [
+            'title', 'title_rw', 'title_fr', 'message', 'message_rw',
+            'message_fr', 'disaster_type', 'severity', 'affected_locations',
+            'geofence_coordinates', 'radius_km', 'center_lat', 'center_lng',
+            'expires_at', 'send_sms', 'send_push', 'send_email', 'publish_web',
+            'instructions', 'instructions_rw', 'instructions_fr', 'contact_info',
+            'resources_urls', 'estimated_affected_population', 'priority_score'
+        ]
+    
+    def create(self, validated_data):
+        validated_data['issued_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class IncidentReportSerializer(serializers.ModelSerializer):
+    reporter_name = serializers.CharField(source='reporter.username', read_only=True)
+    disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
+    location_name = serializers.CharField(source='location.name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
+    verified_by_name = serializers.CharField(source='verified_by.username', read_only=True)
+    
+    class Meta:
+        model = IncidentReport
+        fields = [
+            'id', 'reporter', 'reporter_name', 'report_type', 'disaster_type',
+            'disaster_type_name', 'title', 'description', 'location',
+            'location_name', 'latitude', 'longitude', 'address', 'status',
+            'priority', 'assigned_to', 'assigned_to_name', 'verified_by',
+            'verified_by_name', 'images', 'videos', 'casualties',
+            'property_damage', 'immediate_needs', 'resolved_at',
+            'resolution_notes', 'created_at', 'updated_at'
+        ]
+
+
+class IncidentReportCreateSerializer(serializers.ModelSerializer):
+    """Simplified serializer for citizens to create incident reports"""
+    class Meta:
+        model = IncidentReport
+        fields = [
+            'report_type', 'disaster_type', 'title', 'description', 'location',
+            'latitude', 'longitude', 'address', 'images', 'videos', 'casualties',
+            'property_damage', 'immediate_needs'
+        ]
+    
+    def create(self, validated_data):
+        validated_data['reporter'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class EmergencyContactSerializer(serializers.ModelSerializer):
+    locations_data = LocationSerializer(source='locations', many=True, read_only=True)
+    
+    class Meta:
+        model = EmergencyContact
+        fields = [
+            'id', 'name', 'name_rw', 'name_fr', 'contact_type', 'phone_number',
+            'email', 'website', 'locations', 'locations_data', 'address',
+            'latitude', 'longitude', 'services_offered', 'availability',
+            'languages_supported', 'is_active', 'display_order', 'created_at',
+            'updated_at'
+        ]
+
+
+class SafetyGuideSerializer(serializers.ModelSerializer):
+    disaster_types_data = DisasterTypeSerializer(source='disaster_types', many=True, read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = SafetyGuide
+        fields = [
+            'id', 'title', 'title_rw', 'title_fr', 'content', 'content_rw',
+            'content_fr', 'disaster_types', 'disaster_types_data', 'category',
+            'featured_image', 'attachments', 'target_audience', 'is_featured',
+            'is_published', 'display_order', 'created_by', 'created_by_name',
+            'created_at', 'updated_at'
+        ]
+
+
+class NotificationTemplateSerializer(serializers.ModelSerializer):
+    disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = NotificationTemplate
+        fields = [
+            'id', 'name', 'disaster_type', 'disaster_type_name', 'severity',
+            'title_template', 'title_template_rw', 'title_template_fr',
+            'message_template', 'message_template_rw', 'message_template_fr',
+            'sms_template', 'sms_template_rw', 'sms_template_fr',
+            'available_variables', 'is_active', 'created_by', 'created_by_name',
+            'created_at', 'updated_at'
+        ]
