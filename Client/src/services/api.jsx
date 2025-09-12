@@ -231,15 +231,38 @@ class ApiService {
     return this.request(`/locations/${id}/`, { method: 'DELETE' });
   }
 
-  // -------- Disaster Types --------
-  async getDisasterTypes(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/disaster-types/${query ? `?${query}` : ''}`);
-  }
 
-  async getDisasterType(id) {
-    return this.request(`/disaster-types/${id}/`);
-  }
+ // -------- Disaster Types --------
+async getDisasterTypes(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/disaster-types/${query ? `?${query}` : ''}`);
+}
+
+async getDisasterType(id) {
+  return this.request(`/disaster-types/${id}/`);
+}
+
+async createDisasterType(data) {
+  return this.request('/disaster-types/', { method: 'POST', body: data });
+}
+
+async updateDisasterType(id, data) {
+  return this.request(`/disaster-types/${id}/`, { method: 'PATCH', body: data });
+}
+
+async deleteDisasterType(id, { hard = false } = {}) {
+  const suffix = hard ? '?hard=true' : '';
+  return this.request(`/disaster-types/${id}/${suffix}`, { method: 'DELETE' });
+}
+
+async activateDisasterType(id) {
+  return this.request(`/disaster-types/${id}/activate/`, { method: 'POST' });
+}
+
+async deactivateDisasterType(id) {
+  return this.request(`/disaster-types/${id}/deactivate/`, { method: 'POST' });
+}
+
 
   // -------- Alerts --------
   async getAlerts(params = {}) {

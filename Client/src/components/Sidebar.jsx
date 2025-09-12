@@ -27,26 +27,24 @@ const Sidebar = ({
 
   const handleNavigation = (path) => {
     navigate(path);
-    // Close sidebar on mobile after navigation
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
-    }
+    if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
   const handleQuickAction = (actionType) => {
     if (onQuickAction) {
       onQuickAction(actionType);
     } else {
-      // Default quick action behavior - navigate to alerts page
-      navigate('/alerts/create', { state: { alertType: actionType } });
+      navigate('/admin/alerts', { state: { alertType: actionType } });
     }
   };
 
-  // Get current page from URL
+  // ---- ACTIVE PAGE DETECTION ----
   const getCurrentPage = () => {
     const path = location.pathname;
     if (path.includes('/dashboard')) return 'dashboard';
-    if (path.includes('/alerts')) return 'alerts';
+    if (path.includes('/admin/alerts') || path.includes('/alerts')) return 'alerts';
+    if (path.includes('/incidents/citizen/reports')) return 'report-incident';   // NEW
+    if (path.includes('/incidents/my-reports')) return 'my-reports';
     if (path.includes('/incidents')) return 'incidents';
     if (path.includes('/locations')) return 'locations';
     if (path.includes('/emergency-contacts')) return 'emergency-contacts';
@@ -54,14 +52,15 @@ const Sidebar = ({
     if (path.includes('/users')) return 'users';
     if (path.includes('/deliveries')) return 'deliveries';
     if (path.includes('/analytics')) return 'analytics';
-    if (path.includes('/settings')) return 'settings';
+    if (path.includes('/settings') || path.includes('/admin/settings')) return 'settings';
     if (path.includes('/audit')) return 'audit';
-    if (path.includes('/templates')) return 'templates';
+    if (path.includes('/templates') || path.includes('/notification-templates')) return 'templates';
     if (path.includes('/profile')) return 'profile';
+    if (path.includes('/admin/disaster-types')) return 'disaster-types';
     return 'dashboard';
   };
 
-  // Navigation structure based on user type
+  // ---- NAV ITEMS ----
   const getNavigationItems = () => {
     const baseNavigation = [
       {
@@ -78,7 +77,7 @@ const Sidebar = ({
       {
         name: 'Emergency Alerts',
         id: 'alerts',
-        path: '/alerts',
+        path: '/admin/alerts', // admin hub
         icon: AlertTriangle,
         description: 'Create and manage alerts',
         badge: user?.user_type === 'admin' ? 'Admin' : null,
@@ -87,6 +86,7 @@ const Sidebar = ({
     ];
 
     const incidentNavigation = [
+      // Admin/ops can see management hub
       {
         name: 'Incident Reports',
         id: 'incidents',
@@ -142,7 +142,7 @@ const Sidebar = ({
         userTypes: ['admin', 'authority', 'operator']
       }
     ];
-
+    
     const analyticsNavigation = [
       {
         name: 'Analytics & Reports',
@@ -172,6 +172,14 @@ const Sidebar = ({
         userTypes: ['admin']
       },
       {
+        name: 'Disaster Types',
+        id: 'disaster-types',
+        path: '/admin/disaster-types',
+        icon: Zap,
+        description: 'Manage disaster categories',
+        userTypes: ['admin', 'authority']
+      },
+      {
         name: 'System Health',
         id: 'health',
         path: '/system/health',
@@ -181,8 +189,16 @@ const Sidebar = ({
       }
     ];
 
-    // Citizen-specific navigation
+    // Citizen-specific: add Report Incident + My Reports
     const citizenNavigation = [
+      {
+        name: 'Report Incident',
+        id: 'report-incident',
+        path: '/incidents/citizen/reports',   // NEW link matches your route
+        icon: AlertTriangle,
+        description: 'Submit a new incident',
+        userTypes: ['citizen']
+      },
       {
         name: 'My Reports',
         id: 'my-reports',
@@ -211,7 +227,6 @@ const Sidebar = ({
 
     let navigation = [...baseNavigation];
 
-    // Add sections based on user type
     if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
       navigation = [...navigation, ...alertNavigation];
     }
@@ -230,11 +245,9 @@ const Sidebar = ({
       navigation = [...navigation, ...citizenNavigation];
     }
 
-    // Filter navigation based on user type
     return navigation.filter(item => item.userTypes.includes(user?.user_type || 'citizen'));
   };
 
-  // Updated quick actions for RwandaDisasterAlert
   const quickActions = [
     { 
       name: 'Emergency Alert', 
@@ -264,7 +277,6 @@ const Sidebar = ({
 
   return (
     <>
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-gray-600 bg-opacity-75 z-30 lg:hidden"
@@ -272,12 +284,10 @@ const Sidebar = ({
         />
       )}
 
-      {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-40 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 border-r border-gray-200 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         
-        {/* Close button for mobile */}
         <div className="flex items-center justify-between p-4 lg:hidden border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <div className="bg-red-600 p-1.5 rounded-md">
@@ -294,7 +304,6 @@ const Sidebar = ({
         </div>
 
         <div className="flex flex-col h-full">
-          {/* Quick Actions for Admin and Authority */}
           {(user?.user_type === 'admin' || user?.user_type === 'authority') && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -316,7 +325,6 @@ const Sidebar = ({
             </div>
           )}
 
-          {/* Emergency Contacts for Citizens */}
           {user?.user_type === 'citizen' && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -341,7 +349,6 @@ const Sidebar = ({
             </div>
           )}
 
-          {/* Safety Check-in for Citizens */}
           {user?.user_type === 'citizen' && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -357,14 +364,12 @@ const Sidebar = ({
             </div>
           )}
 
-          {/* Main Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
               Navigation
             </h3>
             {navigationItems.map((item) => {
               const isActive = currentPage === item.id;
-              
               return (
                 <div key={item.id}>
                   <button
@@ -397,7 +402,6 @@ const Sidebar = ({
             })}
           </nav>
 
-          {/* System Status */}
           <div className="p-4 border-t border-gray-200">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
               System Status
@@ -433,7 +437,6 @@ const Sidebar = ({
             </div>
           </div>
 
-          {/* User Info Footer */}
           <div className="p-4 border-t border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -459,8 +462,6 @@ const Sidebar = ({
                 </p>
               </div>
             </div>
-            
-            {/* Verification status */}
             {user?.is_verified !== undefined && (
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-gray-500">Status:</span>

@@ -183,13 +183,45 @@ class LocationViewSet(viewsets.ModelViewSet):
         return Response({"hierarchy": data})
 
 
-class DisasterTypeViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for disaster types - read-only"""
-    queryset = DisasterType.objects.filter(is_active=True)
+class DisasterTypeViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for disaster types.
+    - Public can list/retrieve
+    - Admin can create/update/delete
+    - `?is_active=true/false` filter
+    - search by name fields
+    """
+    queryset = DisasterType.objects.all().order_by('name')
     serializer_class = DisasterTypeSerializer
-    filter_backends = [SearchFilter]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['is_active']
     search_fields = ['name', 'name_rw', 'name_fr']
-    permission_classes = [permissions.AllowAny]
+    ordering_fields = ['name', 'created_at']
+
+    # Soft-delete (flip is_active to False) while still supporting hard delete if you want
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        hard = request.query_params.get('hard', 'false').lower() == 'true'
+        if hard:
+            return super().destroy(request, *args, **kwargs)
+        instance.is_active = False
+        instance.save(update_fields=['is_active'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticatedOrReadOnly])
+    def activate(self, request, pk=None):
+        obj = self.get_object()
+        obj.is_active = True
+        obj.save(update_fields=['is_active'])
+        return Response(self.get_serializer(obj).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticatedOrReadOnly])
+    def deactivate(self, request, pk=None):
+        obj = self.get_object()
+        obj.is_active = False
+        obj.save(update_fields=['is_active'])
+        return Response(self.get_serializer(obj).data)
 
 
 class UserViewSet(viewsets.ModelViewSet):

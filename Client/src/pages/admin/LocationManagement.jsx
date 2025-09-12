@@ -1,4 +1,4 @@
-// src/pages/admin/LocationManagement.jsx (or .tsx)
+// src/pages/admin/LocationManagement.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   MapPin, Plus, Search, Filter, Download, RefreshCw, Edit, Trash2, Eye,
@@ -9,24 +9,50 @@ import {
 import { toast } from 'react-toastify';
 import apiService from '../../services/api';
 
-// NOTE: Do NOT import Leaflet CSS here to avoid Vite path issues.
-// Load it once in src/main.jsx:   import 'leaflet/dist/leaflet.css'
+// NOTE: Make sure Leaflet CSS is imported once in your app entry:
+// import 'leaflet/dist/leaflet.css'
 
-// Map libs
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Rectangle,
+  useMap,
+  useMapEvents,
+} from 'react-leaflet';
 import L from 'leaflet';
 
-/* ===================== MapCoordinatePicker ===================== */
+/* ===================== Rwanda-only Map ===================== */
+
+// Rwanda bounding box (tight)
+const RWANDA_BOUNDS = L.latLngBounds(
+  L.latLng(-2.85, 28.85), // SW
+  L.latLng(-1.00, 31.50)  // NE
+);
+const RWANDA_CENTER = RWANDA_BOUNDS.getCenter();
+
+// Default Leaflet marker icon (works with Vite)
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
 
-function ClickHandler({ onPick, disabled }) {
+function RwandaInitializer() {
+  const map = useMap();
+  useEffect(() => {
+    map.fitBounds(RWANDA_BOUNDS, { padding: [20, 20] });
+    // ensure tiles render after modal opens
+    setTimeout(() => map.invalidateSize(), 150);
+  }, [map]);
+  return null;
+}
+
+function ClickToPick({ onPick, disabled }) {
   useMapEvents({
     click(e) {
       if (!disabled) onPick(e.latlng.lat, e.latlng.lng);
@@ -35,35 +61,80 @@ function ClickHandler({ onPick, disabled }) {
   return null;
 }
 
-function MapCoordinatePicker({
+// Simple “dim outside Rwanda” mask using rectangles
+function OutsideMask() {
+  const world = useMemo(
+    () => L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180)),
+    []
+  );
+  const parts = useMemo(() => {
+    const wb = world; const rb = RWANDA_BOUNDS;
+    return [
+      L.latLngBounds(L.latLng(wb.getSouth(), wb.getWest()), L.latLng(wb.getNorth(), rb.getWest())), // left
+      L.latLngBounds(L.latLng(wb.getSouth(), rb.getEast()), L.latLng(wb.getNorth(), wb.getEast())), // right
+      L.latLngBounds(L.latLng(rb.getNorth(), rb.getWest()), L.latLng(wb.getNorth(), rb.getEast())), // top
+      L.latLngBounds(L.latLng(wb.getSouth(), rb.getWest()), L.latLng(rb.getSouth(), rb.getEast())), // bottom
+    ];
+  }, []);
+  return (
+    <>
+      {parts.map((b, i) => (
+        <Rectangle
+          key={i}
+          bounds={b}
+          pathOptions={{ color: '#000', weight: 0, fillOpacity: 0.25, fillColor: '#000' }}
+          interactive={false}
+        />
+      ))}
+    </>
+  );
+}
+
+function RwandaOnlyMap({
   value,
   onChange,
-  height = 320,
-  defaultCenter = { lat: -1.9441, lng: 30.0619 }, // Kigali
-  defaultZoom = 7,
   readOnly = false,
+  height = 420,
+  showMask = true,
 }) {
-  const hasPoint = typeof value?.lat === 'number' && typeof value?.lng === 'number';
-  const center = hasPoint ? { lat: value.lat, lng: value.lng } : defaultCenter;
+  const hasPoint =
+    typeof value?.lat === 'number' &&
+    typeof value?.lng === 'number' &&
+    !Number.isNaN(value.lat) &&
+    !Number.isNaN(value.lng);
+
+  const [center] = useState(
+    hasPoint ? [value.lat, value.lng] : [RWANDA_CENTER.lat, RWANDA_CENTER.lng]
+  );
+  const [zoom] = useState(hasPoint ? 12 : 8);
 
   return (
-    <div className="rounded-lg overflow-hidden border border-gray-200">
+    <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height }}>
       <MapContainer
-        center={[center.lat, center.lng]}
-        zoom={hasPoint ? 10 : defaultZoom}
+        center={center}
+        zoom={zoom}
+        minZoom={7}
+        maxZoom={18}
         scrollWheelZoom
-        style={{ height }}
+        zoomControl
+        style={{ height: '100%', width: '100%' }}
+        maxBounds={RWANDA_BOUNDS.pad(0.02)}
+        maxBoundsViscosity={1.0}
+        worldCopyJump={false}
       >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          noWrap
+          bounds={RWANDA_BOUNDS}
+          maxZoom={19}
         />
 
+        <RwandaInitializer />
+        {showMask && <OutsideMask />}
+
         {!readOnly && (
-          <ClickHandler
-            disabled={readOnly}
-            onPick={(lat, lng) => onChange({ lat, lng })}
-          />
+          <ClickToPick onPick={(lat, lng) => onChange?.({ lat, lng })} />
         )}
 
         {hasPoint && (
@@ -71,13 +142,16 @@ function MapCoordinatePicker({
             position={[value.lat, value.lng]}
             icon={markerIcon}
             draggable={!readOnly}
-            eventHandlers={{
-              dragend: (e) => {
-                const m = e.target;
-                const { lat, lng } = m.getLatLng();
-                onChange({ lat, lng });
-              },
-            }}
+            eventHandlers={
+              !readOnly
+                ? {
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng();
+                      onChange?.({ lat, lng });
+                    },
+                  }
+                : {}
+            }
           />
         )}
       </MapContainer>
@@ -119,7 +193,10 @@ const formatPopulation = (population) => {
 
 const useDebounce = (value, delay) => {
   const [debounced, setDebounced] = useState(value);
-  useEffect(() => { const t = setTimeout(() => setDebounced(value), delay); return () => clearTimeout(t); }, [value, delay]);
+  useEffect(() => { 
+    const t = setTimeout(() => setDebounced(value), delay); 
+    return () => clearTimeout(t); 
+  }, [value, delay]);
   return debounced;
 };
 
@@ -131,7 +208,7 @@ const useLocationManagement = () => {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({ search: '', location_type: '', parent: '', has_coordinates: '' });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1 });
-  const didInitRef = useRef(false); // avoid double fetch in React StrictMode
+  const didInitRef = useRef(false);
 
   const fetchLocations = useCallback(async (page = 1) => {
     try {
@@ -171,7 +248,13 @@ const useLocationManagement = () => {
 
   const createLocation = useCallback(async (locationData) => {
     try {
-      await apiService.createLocation(locationData);
+      // Ensure apiService has these methods; otherwise POST to /locations/ here.
+      if (!apiService.createLocation) {
+        // fallback
+        await apiService.request('/locations/', { method: 'POST', body: locationData });
+      } else {
+        await apiService.createLocation(locationData);
+      }
       toast.success('Location created successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
@@ -185,7 +268,11 @@ const useLocationManagement = () => {
 
   const updateLocation = useCallback(async (locationId, updates) => {
     try {
-      await apiService.updateLocation(locationId, updates);
+      if (!apiService.updateLocation) {
+        await apiService.request(`/locations/${locationId}/`, { method: 'PATCH', body: updates });
+      } else {
+        await apiService.updateLocation(locationId, updates);
+      }
       toast.success('Location updated successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
@@ -199,7 +286,11 @@ const useLocationManagement = () => {
 
   const deleteLocation = useCallback(async (locationId) => {
     try {
-      await apiService.deleteLocation(locationId);
+      if (!apiService.deleteLocation) {
+        await apiService.request(`/locations/${locationId}/`, { method: 'DELETE' });
+      } else {
+        await apiService.deleteLocation(locationId);
+      }
       toast.success('Location deleted successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
@@ -218,7 +309,10 @@ const useLocationManagement = () => {
     fetchHierarchy();
   }, [fetchLocations, fetchHierarchy]);
 
-  return { locations, hierarchyData, loading, error, filters, setFilters, pagination, setPagination, fetchLocations, createLocation, updateLocation, deleteLocation };
+  return { 
+    locations, hierarchyData, loading, error, filters, setFilters, pagination, setPagination, 
+    fetchLocations, createLocation, updateLocation, deleteLocation 
+  };
 };
 
 /* ===================== Presentational Components ===================== */
@@ -504,7 +598,7 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
     }
     setErrors({});
     setShowMap(false);
-  }, [location, mode]);
+  }, [location, mode, isOpen]);
 
   const setCoords = (lat, lng) => {
     setFormData(prev => ({
@@ -564,7 +658,11 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
 
   if (!isOpen) return null;
 
-  const getModalTitle = () => mode === 'edit' ? 'Edit Location' : mode === 'add_child' ? `Add Child Location to ${location?.name}` : 'Create New Location';
+  const getModalTitle = () => {
+    if (mode === 'edit') return 'Edit Location';
+    if (mode === 'add_child') return `Add Child Location to ${location?.name}`;
+    return 'Create New Location';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -652,26 +750,35 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
 
             <div className="md:col-span-2">
               <button
-                type="button" onClick={() => setShowMap(s => !s)}
-                className="inline-flex items-center px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                type="button" 
+                onClick={() => setShowMap(s => !s)}
+                className="inline-flex items-center px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 <MapPin className="w-4 h-4 mr-2" />
-                {showMap ? 'Hide map selector' : 'Pick coordinates on map'}
+                {showMap ? 'Hide map selector' : 'Pick coordinates on Rwanda map'}
               </button>
             </div>
 
             {showMap && (
               <div className="md:col-span-2">
-                <MapCoordinatePicker
+                <label className="block text-sm font-medium text-gray-700 mb-2">Map (Rwanda only)</label>
+                <RwandaOnlyMap
                   value={{
-                    lat: typeof formData.center_lat === 'number' ? formData.center_lat : (formData.center_lat === '' ? undefined : Number(formData.center_lat)),
-                    lng: typeof formData.center_lng === 'number' ? formData.center_lng : (formData.center_lng === '' ? undefined : Number(formData.center_lng)),
+                    lat: typeof formData.center_lat === 'number'
+                      ? formData.center_lat
+                      : (formData.center_lat === '' ? undefined : Number(formData.center_lat)),
+                    lng: typeof formData.center_lng === 'number'
+                      ? formData.center_lng
+                      : (formData.center_lng === '' ? undefined : Number(formData.center_lng)),
                   }}
                   onChange={({ lat, lng }) => setCoords(lat, lng)}
-                  defaultCenter={{ lat: -1.95, lng: 30.06 }}
-                  defaultZoom={8}
+                  readOnly={false}
+                  height={420}
+                  showMask
                 />
-                <p className="text-xs text-gray-500 mt-2">Click to drop a marker, or drag it to fine-tune. Fields update automatically.</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Click on the map to drop a marker (drag to adjust). Fields update automatically.
+                </p>
               </div>
             )}
 
@@ -695,7 +802,7 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
             </label>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button type="button" onClick={onClose}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
@@ -731,11 +838,12 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
   const hasCoords =
     location.center_lat !== null && location.center_lng !== null &&
     location.center_lat !== '' && location.center_lng !== '' &&
-    typeof location.center_lat !== 'undefined' && typeof location.center_lng !== 'undefined';
+    typeof location.center_lat !== 'undefined' && typeof location.center_lng !== 'undefined' &&
+    !isNaN(Number(location.center_lat)) && !isNaN(Number(location.center_lng));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -744,7 +852,9 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">{location.name}</h2>
-                <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${typeConfig.color}`}>{typeConfig.label}</span>
+                <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${typeConfig.color}`}>
+                  {typeConfig.label}
+                </span>
               </div>
             </div>
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
@@ -799,21 +909,30 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
                     <p className="text-gray-900 mt-1">{Number(location.center_lng).toFixed(6)}</p>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">Map</label>
-                    <MapCoordinatePicker
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Map (Rwanda)</label>
+                    <RwandaOnlyMap
                       value={{ lat: Number(location.center_lat), lng: Number(location.center_lng) }}
                       onChange={() => {}}
                       readOnly
-                      height={260}
-                      defaultZoom={12}
+                      height={360}
+                      showMask
                     />
-                    <div className="mt-2">
+                    <div className="mt-2 flex items-center space-x-4">
                       <a
                         href={`https://maps.google.com/?q=${location.center_lat},${location.center_lng}`}
                         target="_blank" rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
+                        <Globe className="w-4 h-4 mr-1" />
                         View on Google Maps
+                      </a>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${location.center_lat}&mlon=${location.center_lng}&zoom=15`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center text-green-600 hover:text-green-800 text-sm font-medium"
+                      >
+                        <MapIcon className="w-4 h-4 mr-1" />
+                        View on OpenStreetMap
                       </a>
                     </div>
                   </div>
@@ -821,7 +940,7 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
               ) : (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-500">Coordinates</label>
-                  <p className="text-gray-500 mt-1">No coordinates set</p>
+                  <p className="text-gray-500 mt-1 italic">No coordinates set for this location</p>
                 </div>
               )}
               {location.population && (
@@ -853,8 +972,14 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
             </div>
           </div>
         </div>
+
         <div className="px-6 py-4 border-t border-gray-200">
-          <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors">Close</button>
+          <button 
+            onClick={onClose} 
+            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

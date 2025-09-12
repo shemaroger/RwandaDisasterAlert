@@ -23,8 +23,16 @@ import SafetyCheckin from './pages/safety/SafetyCheckin';
 import EmergencyContacts from './pages/safety/EmergencyContacts';
 import EmergencyGuide from './pages/safety/EmergencyGuide';
 
-import GeoZoneManagement from './pages/admin/GeoZoneManagement';
+
 import LocationManagement from './pages/admin/LocationManagement';
+import DisasterTypes from './pages/admin/DisasterTypes';
+import AlertsManagement from './pages/admin/AlertsManagement';
+import { CreateAlert } from './pages/admin/CreateAlert';
+import { EditAlert } from './pages/admin/EditAlert';
+import IncidentsManagement from './pages/citizen/IncidentsManagement';
+import ReportIncident from './pages/citizen/ReportIncident';
+
+
 
 // Other pages
 import NotFound from './pages/NotFound';
@@ -112,6 +120,50 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/admin/disaster-types" 
+        element={
+          <ProtectedRoute >
+            <Layout>
+              <DisasterTypes />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+    path="/admin/alerts"
+    element={
+      <ProtectedRoute>
+        <Layout>
+          <AlertsManagement />
+        </Layout>
+      </ProtectedRoute>
+    }
+  />
+
+  {/* Create new alert page */}
+  <Route
+    path="/admin/alerts/create"
+    element={
+      <ProtectedRoute>
+        <Layout>
+          <CreateAlert />
+        </Layout>
+      </ProtectedRoute>
+    }
+  />
+
+  {/* Edit existing alert page */}
+  <Route
+    path="/admin/alerts/edit/:id"
+    element={
+      <ProtectedRoute>
+        <Layout>
+          <EditAlert />
+        </Layout>
+      </ProtectedRoute>
+    }
+  />
 
       {/* ==================== CITIZEN ROUTES ==================== */}
       <Route
@@ -221,26 +273,26 @@ function AppRoutes() {
 
       {/* Incident Management Routes - All user types can view, Admin/Authority/Operator can manage */}
       <Route
-        path="/incidents"
+      path="/incidents"
         element={
-          <ProtectedRoute>
+           <ProtectedRoute>
             <Layout>
-              <div>Incident Management Coming Soon</div>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+        <IncidentsManagement />
+          </Layout>
+         </ProtectedRoute>
+              }
+                />
 
       <Route
-        path="/incidents/my-reports"
-        element={
-          <ProtectedRoute requiredUserType="citizen">
-            <Layout>
-              <div>My Incident Reports Coming Soon</div>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+  path="/incidents/citizen/reports"
+  element={
+    <ProtectedRoute requiredUserType="citizen">
+      <Layout>
+        <ReportIncident />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
       {/* Location Management Routes - Admin and Authority */}
 
@@ -400,30 +452,7 @@ function AppRoutes() {
         }
       />
 
-      {/* ==================== LEGACY/ALIAS ROUTES ==================== */}
       
-      {/* Geography Management - Legacy route support
-      <Route
-        path="/geography"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <Layout>
-              <GeoZoneManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/geography/zones"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <Layout>
-              <GeoZoneManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      /> */}
 
       {/* Legacy user management route */}
       <Route 

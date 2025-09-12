@@ -2,11 +2,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from .models import (
-    User, Location, DisasterType, Alert, AlertDelivery, IncidentReport,
-    EmergencyContact, SafetyGuide, AlertResponse, NotificationTemplate
-)
-
+import re
+from .models import *
 User = get_user_model()
 
 
@@ -29,13 +26,27 @@ class LocationSerializer(serializers.ModelSerializer):
         return []
 
 
+HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}){1,2}$")
+
 class DisasterTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DisasterType
         fields = [
-            'id', 'name', 'name_rw', 'name_fr', 'description', 'description_rw',
-            'description_fr', 'icon', 'color_code', 'is_active', 'created_at'
+            'id', 'name', 'name_rw', 'name_fr',
+            'description', 'description_rw', 'description_fr',
+            'icon', 'color_code', 'is_active', 'created_at'
         ]
+        read_only_fields = ['id', 'created_at']
+
+    def validate_color_code(self, value):
+        if value and not HEX_RE.match(value):
+            raise serializers.ValidationError("Color must be a hex like #FF0000 or #F00.")
+        return value
+
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Name is required.")
+        return value.strip()
 
 
 class UserSerializer(serializers.ModelSerializer):
