@@ -205,7 +205,7 @@ class ApiService {
     return this.request(`/users/${id}/`, { method: 'DELETE' });
   }
 
-  // -------- Locations (Rwanda Administrative Boundaries) --------
+    // -------- Locations (Rwanda Administrative Boundaries) --------
   async getLocations(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/locations/${query ? `?${query}` : ''}`);
@@ -215,21 +215,20 @@ class ApiService {
     return this.request(`/locations/${id}/`);
   }
 
-  async getDistricts() {
-    return this.request('/locations/districts/');
+  // ✅ ADD THESE:
+  async createLocation(payload) {
+    // payload example:
+    // { name, name_rw, name_fr, location_type, parent, center_lat, center_lng, population, is_active }
+    return this.request('/locations/', { method: 'POST', body: payload });
   }
 
-  async getLocationChildren(id) {
-    return this.request(`/locations/${id}/children/`);
+  async updateLocation(id, payload) {
+    // Partial update by default
+    return this.request(`/locations/${id}/`, { method: 'PATCH', body: payload });
   }
 
-  async searchLocations(query) {
-    const params = new URLSearchParams({ q: query }).toString();
-    return this.request(`/locations/search/?${params}`);
-  }
-
-  async getLocationHierarchy() {
-    return this.request('/locations/hierarchy/');
+  async deleteLocation(id) {
+    return this.request(`/locations/${id}/`, { method: 'DELETE' });
   }
 
   // -------- Disaster Types --------

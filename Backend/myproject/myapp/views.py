@@ -113,29 +113,74 @@ class ChangePasswordView(APIView):
 
 # ======================== VIEWSETS ========================
 
-class LocationViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for locations - read-only for most users"""
-    queryset = Location.objects.filter(is_active=True)
+class LocationViewSet(viewsets.ModelViewSet):
+    """
+    Full CRUD for locations.
+    - Anyone can read (list/retrieve and the custom endpoints).
+    - Only authenticated staff can create/update/delete.
+    """
+    queryset = Location.objects.all().select_related('parent')
     serializer_class = LocationSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['location_type', 'parent']
+    filterset_fields = ['location_type', 'parent', 'is_active']
     search_fields = ['name', 'name_rw', 'name_fr']
-    permission_classes = [permissions.AllowAny]
-    
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Optional: filter only active by default for read operations
+        if self.action in ('list', 'retrieve', 'children', 'districts', 'hierarchy'):
+            qs = qs.filter(is_active=True)
+        # Optional "has_coordinates" filter (?has_coordinates=true/false)
+        has_coords = self.request.query_params.get('has_coordinates')
+        if has_coords in ('true', 'false'):
+            want = has_coords == 'true'
+            if want:
+                qs = qs.exclude(center_lat__isnull=True).exclude(center_lng__isnull=True)
+            else:
+                qs = qs.filter(center_lat__isnull=True) | qs.filter(center_lng__isnull=True)
+        return qs
+
     @action(detail=False, methods=['get'])
     def districts(self, request):
-        """Get all districts"""
-        districts = self.queryset.filter(location_type='district')
-        serializer = self.get_serializer(districts, many=True)
-        return Response(serializer.data)
-    
+        districts = self.get_queryset().filter(location_type='district')
+        data = self.get_serializer(districts, many=True).data
+        return Response(data)
+
     @action(detail=True, methods=['get'])
     def children(self, request, pk=None):
-        """Get child locations"""
         location = self.get_object()
-        children = self.queryset.filter(parent=location)
-        serializer = self.get_serializer(children, many=True)
-        return Response(serializer.data)
+        children = self.get_queryset().filter(parent=location)
+        data = self.get_serializer(children, many=True).data
+        return Response(data)
+
+    @action(detail=False, methods=['get'])
+    def hierarchy(self, request):
+        """
+        Returns a nested tree starting from provinces.
+        Adjust the root type if you prefer to start from country.
+        """
+        def serialize_node(loc):
+            kids = list(self.get_queryset().filter(parent=loc))
+            return {
+                "id": loc.id,
+                "name": loc.name,
+                "name_rw": loc.name_rw,
+                "name_fr": loc.name_fr,
+                "location_type": loc.location_type,
+                "parent": loc.parent_id,
+                "parent_name": loc.parent.name if loc.parent else None,
+                "center_lat": loc.center_lat,
+                "center_lng": loc.center_lng,
+                "population": loc.population,
+                "is_active": loc.is_active,
+                "created_at": getattr(loc, "created_at", None),
+                "children": [serialize_node(c) for c in kids],
+            }
+
+        roots = self.get_queryset().filter(location_type='province')
+        data = [serialize_node(p) for p in roots]
+        return Response({"hierarchy": data})
 
 
 class DisasterTypeViewSet(viewsets.ReadOnlyModelViewSet):

@@ -1,74 +1,137 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/pages/admin/LocationManagement.jsx (or .tsx)
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   MapPin, Plus, Search, Filter, Download, RefreshCw, Edit, Trash2, Eye,
-  ChevronDown, ChevronUp, X, Save, AlertTriangle, Check, Clock,
-  Map, Globe, Users, BarChart3, TreePine, Building2, Home,
-  ChevronRight, Layers, Target, Navigation, Settings
+  ChevronDown, ChevronUp, X, Save, AlertTriangle, Clock,
+  Map as MapIcon, Globe, Users, TreePine, Building2, Home,
+  ChevronRight, Layers, Target, Navigation
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiService from '../../services/api';
 
-// ========== Constants ==========
+// NOTE: Do NOT import Leaflet CSS here to avoid Vite path issues.
+// Load it once in src/main.jsx:   import 'leaflet/dist/leaflet.css'
+
+// Map libs
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+
+/* ===================== MapCoordinatePicker ===================== */
+const markerIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  shadowSize: [41, 41],
+});
+
+function ClickHandler({ onPick, disabled }) {
+  useMapEvents({
+    click(e) {
+      if (!disabled) onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function MapCoordinatePicker({
+  value,
+  onChange,
+  height = 320,
+  defaultCenter = { lat: -1.9441, lng: 30.0619 }, // Kigali
+  defaultZoom = 7,
+  readOnly = false,
+}) {
+  const hasPoint = typeof value?.lat === 'number' && typeof value?.lng === 'number';
+  const center = hasPoint ? { lat: value.lat, lng: value.lng } : defaultCenter;
+
+  return (
+    <div className="rounded-lg overflow-hidden border border-gray-200">
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={hasPoint ? 10 : defaultZoom}
+        scrollWheelZoom
+        style={{ height }}
+      >
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {!readOnly && (
+          <ClickHandler
+            disabled={readOnly}
+            onPick={(lat, lng) => onChange({ lat, lng })}
+          />
+        )}
+
+        {hasPoint && (
+          <Marker
+            position={[value.lat, value.lng]}
+            icon={markerIcon}
+            draggable={!readOnly}
+            eventHandlers={{
+              dragend: (e) => {
+                const m = e.target;
+                const { lat, lng } = m.getLatLng();
+                onChange({ lat, lng });
+              },
+            }}
+          />
+        )}
+      </MapContainer>
+    </div>
+  );
+}
+
+/* ===================== Constants ===================== */
 const LOCATION_TYPES = [
   { value: 'country', label: 'Country', icon: Globe, color: 'bg-purple-50 text-purple-700 border-purple-200', level: 0 },
-  { value: 'province', label: 'Province', icon: Map, color: 'bg-blue-50 text-blue-700 border-blue-200', level: 1 },
+  { value: 'province', label: 'Province', icon: MapIcon, color: 'bg-blue-50 text-blue-700 border-blue-200', level: 1 },
   { value: 'district', label: 'District', icon: Building2, color: 'bg-green-50 text-green-700 border-green-200', level: 2 },
   { value: 'sector', label: 'Sector', icon: Layers, color: 'bg-yellow-50 text-yellow-700 border-yellow-200', level: 3 },
   { value: 'cell', label: 'Cell', icon: Target, color: 'bg-orange-50 text-orange-700 border-orange-200', level: 4 },
   { value: 'village', label: 'Village', icon: Home, color: 'bg-red-50 text-red-700 border-red-200', level: 5 }
 ];
 
-// ========== Utility Functions ==========
-const getLocationTypeConfig = (locationType) => {
-  return LOCATION_TYPES.find(type => type.value === locationType) || LOCATION_TYPES[0];
-};
+/* ===================== Utils ===================== */
+const getLocationTypeConfig = (locationType) =>
+  LOCATION_TYPES.find(t => t.value === locationType) || LOCATION_TYPES[0];
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Unknown';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
 const formatCoordinates = (lat, lng) => {
-  if (!lat || !lng) return 'Not set';
-  return `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}`;
+  if (lat === '' || lng === '' || lat === null || lng === null || typeof lat === 'undefined' || typeof lng === 'undefined') return 'Not set';
+  const nlat = Number(lat);
+  const nlng = Number(lng);
+  if (Number.isNaN(nlat) || Number.isNaN(nlng)) return 'Not set';
+  return `${nlat.toFixed(4)}, ${nlng.toFixed(4)}`;
 };
 
 const formatPopulation = (population) => {
-  if (!population) return 'Unknown';
-  return population.toLocaleString();
+  if (!population && population !== 0) return 'Unknown';
+  try { return Number(population).toLocaleString(); } catch { return String(population); }
 };
 
-// ========== Custom Hooks ==========
 const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => { const t = setTimeout(() => setDebounced(value), delay); return () => clearTimeout(t); }, [value, delay]);
+  return debounced;
 };
 
+/* ===================== Data Hook ===================== */
 const useLocationManagement = () => {
   const [locations, setLocations] = useState([]);
   const [hierarchyData, setHierarchyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    search: '',
-    location_type: '',
-    parent: '',
-    has_coordinates: ''
-  });
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pageSize: 50,
-    total: 0,
-    totalPages: 1
-  });
+  const [filters, setFilters] = useState({ search: '', location_type: '', parent: '', has_coordinates: '' });
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1 });
+  const didInitRef = useRef(false); // avoid double fetch in React StrictMode
 
   const fetchLocations = useCallback(async (page = 1) => {
     try {
@@ -76,26 +139,22 @@ const useLocationManagement = () => {
       setError(null);
       const params = {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== '')),
-        page,
-        page_size: pagination.pageSize
+        page, page_size: pagination.pageSize
       };
       const response = await apiService.getLocations(params);
-
       if (response?.results) {
         setLocations(response.results);
-        setPagination(prev => ({
-          ...prev,
-          page,
-          total: response.count,
-          totalPages: Math.ceil(response.count / pagination.pageSize)
-        }));
+        setPagination(prev => ({ ...prev, page, total: response.count, totalPages: Math.ceil(response.count / pagination.pageSize) }));
       } else if (Array.isArray(response)) {
         setLocations(response);
         setPagination(prev => ({ ...prev, page: 1, total: response.length, totalPages: 1 }));
+      } else {
+        setLocations([]);
+        setPagination(prev => ({ ...prev, page: 1, total: 0, totalPages: 1 }));
       }
     } catch (err) {
-      setError(err.message);
-      toast.error(`Failed to load locations: ${err.message}`);
+      setError(err.message || 'Failed to load locations');
+      toast.error(`Failed to load locations: ${err.message || ''}`);
     } finally {
       setLoading(false);
     }
@@ -104,7 +163,7 @@ const useLocationManagement = () => {
   const fetchHierarchy = useCallback(async () => {
     try {
       const response = await apiService.getLocationHierarchy();
-      setHierarchyData(response.hierarchy || []);
+      setHierarchyData(response?.hierarchy || []);
     } catch (err) {
       console.error('Failed to load hierarchy:', err);
     }
@@ -116,10 +175,11 @@ const useLocationManagement = () => {
       toast.success('Location created successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
-      return true;
+      return { ok: true };
     } catch (err) {
-      toast.error(`Failed to create location: ${err.message}`);
-      return false;
+      const msg = err?.message || 'Failed to create location';
+      toast.error(`Failed to create location: ${msg}`);
+      return { ok: false, error: msg };
     }
   }, [fetchLocations, fetchHierarchy, pagination.page]);
 
@@ -129,10 +189,11 @@ const useLocationManagement = () => {
       toast.success('Location updated successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
-      return true;
+      return { ok: true };
     } catch (err) {
-      toast.error(`Failed to update location: ${err.message}`);
-      return false;
+      const msg = err?.message || 'Failed to update location';
+      toast.error(`Failed to update location: ${msg}`);
+      return { ok: false, error: msg };
     }
   }, [fetchLocations, fetchHierarchy, pagination.page]);
 
@@ -142,35 +203,25 @@ const useLocationManagement = () => {
       toast.success('Location deleted successfully');
       await fetchLocations(pagination.page);
       await fetchHierarchy();
-      return true;
+      return { ok: true };
     } catch (err) {
-      toast.error(`Failed to delete location: ${err.message}`);
-      return false;
+      const msg = err?.message || 'Failed to delete location';
+      toast.error(`Failed to delete location: ${msg}`);
+      return { ok: false, error: msg };
     }
   }, [fetchLocations, fetchHierarchy, pagination.page]);
 
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     fetchLocations();
     fetchHierarchy();
   }, [fetchLocations, fetchHierarchy]);
 
-  return {
-    locations,
-    hierarchyData,
-    loading,
-    error,
-    filters,
-    setFilters,
-    pagination,
-    setPagination,
-    fetchLocations,
-    createLocation,
-    updateLocation,
-    deleteLocation
-  };
+  return { locations, hierarchyData, loading, error, filters, setFilters, pagination, setPagination, fetchLocations, createLocation, updateLocation, deleteLocation };
 };
 
-// ========== Reusable Components ==========
+/* ===================== Presentational Components ===================== */
 const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
     <div className="flex items-center justify-between">
@@ -196,7 +247,7 @@ const HierarchyNode = ({ location, level = 0, onEdit, onView, onAddChild }) => {
     <div className="space-y-2">
       <div className={`flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors ${level === 0 ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-200'}`} style={{ marginLeft: `${level * 20}px` }}>
         {hasChildren && (
-          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 hover:bg-gray-100 rounded" aria-label="Toggle children">
             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         )}
@@ -215,7 +266,7 @@ const HierarchyNode = ({ location, level = 0, onEdit, onView, onAddChild }) => {
                 <span>{formatPopulation(location.population)}</span>
               </div>
             )}
-            {(location.center_lat && location.center_lng) && (
+            {(location.center_lat !== null && location.center_lng !== null && location.center_lat !== '' && location.center_lng !== '') && (
               <div className="flex items-center space-x-1">
                 <Navigation className="w-3 h-3" />
                 <span>{formatCoordinates(location.center_lat, location.center_lng)}</span>
@@ -291,7 +342,7 @@ const LocationCard = ({ location, onEdit, onView, onDelete, onAddChild }) => {
             <span>Population: {formatPopulation(location.population)}</span>
           </div>
         )}
-        {(location.center_lat && location.center_lng) && (
+        {(location.center_lat !== '' && location.center_lng !== '' && location.center_lat !== null && location.center_lng !== null) && (
           <div className="flex items-center text-sm text-gray-600">
             <Navigation className="w-4 h-4 mr-2" />
             <span>Coordinates: {formatCoordinates(location.center_lat, location.center_lng)}</span>
@@ -313,7 +364,10 @@ const LocationCard = ({ location, onEdit, onView, onDelete, onAddChild }) => {
               <Plus className="w-4 h-4" />
             </button>
           )}
-          <button onClick={() => { if (window.confirm(`Delete "${location.name}"? This action cannot be undone.`)) onDelete(location.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Location">
+          <button
+            onClick={() => { if (window.confirm(`Delete "${location.name}"? This action cannot be undone.`)) onDelete(location.id); }}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Location"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -339,7 +393,7 @@ const FilterPanel = ({ filters, onFilterChange, onClearFilters, showFilters, onT
             {hasActiveFilters && (
               <button onClick={onClearFilters} className="text-sm text-green-600 hover:text-green-800 font-medium transition-colors">Clear All</button>
             )}
-            <button onClick={onToggleFilters} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <button onClick={onToggleFilters} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Toggle filters">
               {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
@@ -406,20 +460,17 @@ const FilterPanel = ({ filters, onFilterChange, onClearFilters, showFilters, onT
   );
 };
 
+/* ===================== Modals ===================== */
 const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mode = 'create' }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    name_rw: '',
-    name_fr: '',
-    location_type: 'district',
-    parent: '',
-    center_lat: '',
-    center_lng: '',
-    population: '',
-    is_active: true
+    name: '', name_rw: '', name_fr: '',
+    location_type: 'district', parent: '',
+    center_lat: '', center_lng: '',
+    population: '', is_active: true
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     if (location && mode === 'edit') {
@@ -429,31 +480,39 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
         name_fr: location.name_fr || '',
         location_type: location.location_type || 'district',
         parent: location.parent || '',
-        center_lat: location.center_lat || '',
-        center_lng: location.center_lng || '',
-        population: location.population || '',
+        center_lat: location.center_lat ?? '',
+        center_lng: location.center_lng ?? '',
+        population: location.population ?? '',
         is_active: location.is_active !== undefined ? location.is_active : true
       });
     } else if (location && mode === 'add_child') {
       const childType = LOCATION_TYPES.find(t => t.level === getLocationTypeConfig(location.location_type).level + 1);
       setFormData({
-        name: '',
-        name_rw: '',
-        name_fr: '',
+        name: '', name_rw: '', name_fr: '',
         location_type: childType ? childType.value : 'village',
         parent: location.id,
-        center_lat: '',
-        center_lng: '',
-        population: '',
-        is_active: true
+        center_lat: '', center_lng: '',
+        population: '', is_active: true
       });
     } else {
       setFormData({
-        name: '', name_rw: '', name_fr: '', location_type: 'district',
-        parent: '', center_lat: '', center_lng: '', population: '', is_active: true
+        name: '', name_rw: '', name_fr: '',
+        location_type: 'district', parent: '',
+        center_lat: '', center_lng: '',
+        population: '', is_active: true
       });
     }
+    setErrors({});
+    setShowMap(false);
   }, [location, mode]);
+
+  const setCoords = (lat, lng) => {
+    setFormData(prev => ({
+      ...prev,
+      center_lat: typeof lat === 'number' ? Number(lat.toFixed(6)) : '',
+      center_lng: typeof lng === 'number' ? Number(lng.toFixed(6)) : '',
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -463,14 +522,29 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
     }
     try {
       setLoading(true);
-      await onSubmit(formData);
-      onClose();
-      setFormData({
-        name: '', name_rw: '', name_fr: '', location_type: 'district',
-        parent: '', center_lat: '', center_lng: '', population: '', is_active: true
-      });
+      const payload = {
+        ...formData,
+        center_lat: formData.center_lat === '' ? null : Number(formData.center_lat),
+        center_lng: formData.center_lng === '' ? null : Number(formData.center_lng),
+        population: formData.population === '' ? null : Number(formData.population),
+      };
+      const result = await onSubmit(payload);
+      const ok = result === true || result?.ok === true;
+      if (ok) {
+        onClose();
+        setFormData({
+          name: '', name_rw: '', name_fr: '',
+          location_type: 'district', parent: '',
+          center_lat: '', center_lng: '',
+          population: '', is_active: true
+        });
+      } else {
+        const msg = result?.error || 'Failed to save. Please fix the errors and try again.';
+        setErrors(prev => ({ ...prev, form: msg }));
+      }
     } catch (err) {
       console.error('Error submitting form:', err);
+      setErrors(prev => ({ ...prev, form: err?.message || 'Unexpected error' }));
     } finally {
       setLoading(false);
     }
@@ -478,24 +552,19 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+    let v = type === 'checkbox' ? checked : value;
+    if (name === 'center_lat' || name === 'center_lng' || name === 'population') {
+      v = v === '' ? '' : Number(v);
+      if (Number.isNaN(v)) v = '';
     }
+    setFormData(prev => ({ ...prev, [name]: v }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (errors.form) setErrors(prev => ({ ...prev, form: '' }));
   };
 
   if (!isOpen) return null;
 
-  const getModalTitle = () => {
-    switch (mode) {
-      case 'edit': return 'Edit Location';
-      case 'add_child': return `Add Child Location to ${location?.name}`;
-      default: return 'Create New Location';
-    }
-  };
+  const getModalTitle = () => mode === 'edit' ? 'Edit Location' : mode === 'add_child' ? `Add Child Location to ${location?.name}` : 'Create New Location';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -503,69 +572,56 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">{getModalTitle()}</h2>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {errors.form && (
+            <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+              {errors.form}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Location Name (English) *</label>
               <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
+                type="text" name="name" value={formData.name} onChange={handleChange}
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-                placeholder="Enter location name"
-                required
+                placeholder="Enter location name" required
               />
               {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name (Kinyarwanda)</label>
-              <input
-                type="text"
-                name="name_rw"
-                value={formData.name_rw}
-                onChange={handleChange}
+              <input type="text" name="name_rw" value={formData.name_rw} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Izina mu Kinyarwanda"
-              />
+                placeholder="Izina mu Kinyarwanda" />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name (French)</label>
-              <input
-                type="text"
-                name="name_fr"
-                value={formData.name_fr}
-                onChange={handleChange}
+              <input type="text" name="name_fr" value={formData.name_fr} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Nom en français"
-              />
+                placeholder="Nom en français" />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Location Type *</label>
-              <select
-                name="location_type"
-                value={formData.location_type}
-                onChange={handleChange}
+              <select name="location_type" value={formData.location_type} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                disabled={mode === 'add_child'}
-                required
+                disabled={mode === 'add_child'} required
               >
-                {LOCATION_TYPES.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
-                ))}
+                {LOCATION_TYPES.map(type => (<option key={type.value} value={type.value}>{type.label}</option>))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Parent Location</label>
-              <select
-                name="parent"
-                value={formData.parent}
-                onChange={handleChange}
+              <select name="parent" value={formData.parent} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 disabled={mode === 'add_child'}
               >
@@ -575,65 +631,77 @@ const LocationModal = ({ isOpen, onClose, onSubmit, location, parentOptions, mod
                 ))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
               <input
-                type="number"
-                step="any"
-                name="center_lat"
-                value={formData.center_lat}
-                onChange={handleChange}
+                type="number" step="any" name="center_lat" value={formData.center_lat} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 placeholder="-1.9441"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
               <input
-                type="number"
-                step="any"
-                name="center_lng"
-                value={formData.center_lng}
-                onChange={handleChange}
+                type="number" step="any" name="center_lng" value={formData.center_lng} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 placeholder="30.0619"
               />
             </div>
+
+            <div className="md:col-span-2">
+              <button
+                type="button" onClick={() => setShowMap(s => !s)}
+                className="inline-flex items-center px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                {showMap ? 'Hide map selector' : 'Pick coordinates on map'}
+              </button>
+            </div>
+
+            {showMap && (
+              <div className="md:col-span-2">
+                <MapCoordinatePicker
+                  value={{
+                    lat: typeof formData.center_lat === 'number' ? formData.center_lat : (formData.center_lat === '' ? undefined : Number(formData.center_lat)),
+                    lng: typeof formData.center_lng === 'number' ? formData.center_lng : (formData.center_lng === '' ? undefined : Number(formData.center_lng)),
+                  }}
+                  onChange={({ lat, lng }) => setCoords(lat, lng)}
+                  defaultCenter={{ lat: -1.95, lng: 30.06 }}
+                  defaultZoom={8}
+                />
+                <p className="text-xs text-gray-500 mt-2">Click to drop a marker, or drag it to fine-tune. Fields update automatically.</p>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Population</label>
               <input
-                type="number"
-                name="population"
-                value={formData.population}
-                onChange={handleChange}
+                type="number" name="population" value={formData.population} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 placeholder="Enter population count"
               />
             </div>
           </div>
+
           <div className="flex items-center">
             <label className="flex items-center">
               <input
-                type="checkbox"
-                name="is_active"
-                checked={formData.is_active}
-                onChange={handleChange}
+                type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange}
                 className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
               />
               <span className="ml-2 text-sm text-gray-700">Active Location</span>
             </label>
           </div>
+
           <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
+            <button type="button" onClick={onClose}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={loading}
+            <button type="submit" disabled={loading}
               className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors flex items-center"
             >
               {loading ? (
@@ -660,6 +728,11 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
   const typeConfig = getLocationTypeConfig(location.location_type);
   const IconComponent = typeConfig.icon;
 
+  const hasCoords =
+    location.center_lat !== null && location.center_lng !== null &&
+    location.center_lat !== '' && location.center_lng !== '' &&
+    typeof location.center_lat !== 'undefined' && typeof location.center_lng !== 'undefined';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -674,7 +747,7 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
                 <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${typeConfig.color}`}>{typeConfig.label}</span>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" aria-label="Close">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -711,18 +784,38 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
               )}
             </div>
           </div>
+
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Geographic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(location.center_lat && location.center_lng) ? (
+              {hasCoords ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Latitude</label>
-                    <p className="text-gray-900 mt-1">{parseFloat(location.center_lat).toFixed(6)}</p>
+                    <p className="text-gray-900 mt-1">{Number(location.center_lat).toFixed(6)}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Longitude</label>
-                    <p className="text-gray-900 mt-1">{parseFloat(location.center_lng).toFixed(6)}</p>
+                    <p className="text-gray-900 mt-1">{Number(location.center_lng).toFixed(6)}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Map</label>
+                    <MapCoordinatePicker
+                      value={{ lat: Number(location.center_lat), lng: Number(location.center_lng) }}
+                      onChange={() => {}}
+                      readOnly
+                      height={260}
+                      defaultZoom={12}
+                    />
+                    <div className="mt-2">
+                      <a
+                        href={`https://maps.google.com/?q=${location.center_lat},${location.center_lng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        View on Google Maps
+                      </a>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -739,28 +832,7 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
               )}
             </div>
           </div>
-          {location.children && location.children.length > 0 && (
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Child Locations ({location.children.length})</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {location.children.map(child => {
-                  const childTypeConfig = getLocationTypeConfig(child.location_type);
-                  const ChildIcon = childTypeConfig.icon;
-                  return (
-                    <div key={child.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className={`p-2 rounded-lg ${childTypeConfig.color} border`}>
-                        <ChildIcon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{child.name}</p>
-                        <p className="text-sm text-gray-500">{childTypeConfig.label}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">System Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -789,21 +861,12 @@ const ViewLocationModal = ({ isOpen, onClose, location }) => {
   );
 };
 
-// ========== Main Component ==========
-const LocationManagement = ({ user, onLogout }) => {
+/* ===================== Main Component ===================== */
+const LocationManagement = () => {
   const {
-    locations,
-    hierarchyData,
-    loading,
-    error,
-    filters,
-    setFilters,
-    pagination,
-    setPagination,
-    fetchLocations,
-    createLocation,
-    updateLocation,
-    deleteLocation
+    locations, hierarchyData, loading, error,
+    filters, setFilters, pagination, setPagination,
+    fetchLocations, createLocation, updateLocation, deleteLocation
   } = useLocationManagement();
 
   const [showFilters, setShowFilters] = useState(false);
@@ -813,8 +876,8 @@ const LocationManagement = ({ user, onLogout }) => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [modalMode, setModalMode] = useState('create');
   const [viewMode, setViewMode] = useState('hierarchy');
-  const debouncedSearch = useDebounce(filters.search, 300);
 
+  const debouncedSearch = useDebounce(filters.search, 300);
   useEffect(() => {
     if (debouncedSearch !== filters.search) {
       setFilters(prev => ({ ...prev, search: debouncedSearch }));
@@ -822,23 +885,19 @@ const LocationManagement = ({ user, onLogout }) => {
   }, [debouncedSearch, filters.search, setFilters]);
 
   const locationStats = useMemo(() => {
-    const stats = {
-      total: locations.length,
-      withCoordinates: locations.filter(l => l.center_lat && l.center_lng).length,
-      byType: {}
-    };
-    LOCATION_TYPES.forEach(type => {
-      stats.byType[type.value] = locations.filter(l => l.location_type === type.value).length;
-    });
+    const stats = { total: locations.length, withCoordinates: locations.filter(l => l.center_lat || l.center_lng).length, byType: {} };
+    LOCATION_TYPES.forEach(type => { stats.byType[type.value] = locations.filter(l => l.location_type === type.value).length; });
     return stats;
   }, [locations]);
 
   const parentOptions = useMemo(() => {
-    return locations.filter(loc => loc.location_type !== 'village').sort((a, b) => {
-      const aLevel = getLocationTypeConfig(a.location_type).level;
-      const bLevel = getLocationTypeConfig(b.location_type).level;
-      return aLevel - bLevel || a.name.localeCompare(b.name);
-    });
+    return locations
+      .filter(loc => loc.location_type !== 'village')
+      .sort((a, b) => {
+        const aLevel = getLocationTypeConfig(a.location_type).level;
+        const bLevel = getLocationTypeConfig(b.location_type).level;
+        return aLevel - bLevel || a.name.localeCompare(b.name);
+      });
   }, [locations]);
 
   const handleFilterChange = useCallback((key, value) => {
@@ -847,55 +906,28 @@ const LocationManagement = ({ user, onLogout }) => {
   }, [setFilters, setPagination]);
 
   const clearFilters = useCallback(() => {
-    setFilters({
-      search: '',
-      location_type: '',
-      parent: '',
-      has_coordinates: ''
-    });
+    setFilters({ search: '', location_type: '', parent: '', has_coordinates: '' });
     setPagination(prev => ({ ...prev, page: 1 }));
   }, [setFilters, setPagination]);
 
-  const handleLocationAction = useCallback(async (action, locationData) => {
+  const handleLocationAction = useCallback(async (action, data) => {
     switch (action) {
-      case 'create':
-        return await createLocation(locationData);
-      case 'update':
-        return await updateLocation(selectedLocation.id, locationData);
-      case 'delete':
-        return await deleteLocation(locationData);
-      default:
-        return false;
+      case 'create': return await createLocation(data);
+      case 'update': return await updateLocation(selectedLocation.id, data);
+      case 'delete': return await deleteLocation(data);
+      default: return { ok: false, error: 'Unknown action' };
     }
   }, [createLocation, updateLocation, deleteLocation, selectedLocation]);
 
-  const openCreateModal = () => {
-    setSelectedLocation(null);
-    setModalMode('create');
-    setShowCreateModal(true);
-  };
-
-  const openEditModal = (location) => {
-    setSelectedLocation(location);
-    setModalMode('edit');
-    setShowEditModal(true);
-  };
-
-  const openAddChildModal = (parentLocation) => {
-    setSelectedLocation(parentLocation);
-    setModalMode('add_child');
-    setShowCreateModal(true);
-  };
-
-  const openViewModal = (location) => {
-    setSelectedLocation(location);
-    setShowViewModal(true);
-  };
+  const openCreateModal = () => { setSelectedLocation(null); setModalMode('create'); setShowCreateModal(true); };
+  const openEditModal = (loc) => { setSelectedLocation(loc); setModalMode('edit'); setShowEditModal(true); };
+  const openAddChildModal = (parentLoc) => { setSelectedLocation(parentLoc); setModalMode('add_child'); setShowCreateModal(true); };
+  const openViewModal = (loc) => { setSelectedLocation(loc); setShowViewModal(true); };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-green-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
+        {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div className="mb-6 lg:mb-0">
@@ -909,24 +941,16 @@ const LocationManagement = ({ user, onLogout }) => {
                 </div>
               </div>
               <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{pagination.total} locations</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Navigation className="w-4 h-4" />
-                  <span>{locationStats.withCoordinates} with coordinates</span>
-                </div>
+                <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{pagination.total} locations</span></div>
+                <div className="flex items-center space-x-1"><Navigation className="w-4 h-4" /><span>{locationStats.withCoordinates} with coordinates</span></div>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={() => fetchLocations(pagination.page)} className="inline-flex items-center px-4 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium transition-colors">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
+                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
               </button>
-              <button onClick={() => { /* Export functionality */ }} className="inline-flex items-center px-4 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium transition-colors">
-                <Download className="w-4 h-4 mr-2" />
-                Export
+              <button onClick={() => { /* TODO: Export */ }} className="inline-flex items-center px-4 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <Download className="w-4 h-4 mr-2" /> Export
               </button>
               <div className="flex bg-white border border-gray-300 rounded-lg p-1">
                 <button onClick={() => setViewMode('hierarchy')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'hierarchy' ? 'bg-green-100 text-green-700' : 'text-gray-500 hover:text-gray-700'}`}>Tree</button>
@@ -934,14 +958,13 @@ const LocationManagement = ({ user, onLogout }) => {
                 <button onClick={() => setViewMode('table')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'table' ? 'bg-green-100 text-green-700' : 'text-gray-500 hover:text-gray-700'}`}>Table</button>
               </div>
               <button onClick={openCreateModal} className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-lg transition-colors">
-                <Plus className="w-4 h-4 mr-2" />
-                New Location
+                <Plus className="w-4 h-4 mr-2" /> New Location
               </button>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard icon={MapPin} title="Total Locations" value={locationStats.total} subtitle={`${locationStats.withCoordinates} mapped`} color="blue" />
           {LOCATION_TYPES.slice(1, 4).map(type => (
@@ -995,10 +1018,10 @@ const LocationManagement = ({ user, onLogout }) => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {hierarchyData.map(province => (
+                      {hierarchyData.map(root => (
                         <HierarchyNode
-                          key={province.id}
-                          location={province}
+                          key={root.id}
+                          location={root}
                           level={0}
                           onEdit={openEditModal}
                           onView={openViewModal}
@@ -1025,10 +1048,10 @@ const LocationManagement = ({ user, onLogout }) => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {locations.map(location => (
+                      {locations.map(loc => (
                         <LocationCard
-                          key={location.id}
-                          location={location}
+                          key={loc.id}
+                          location={loc}
                           onEdit={openEditModal}
                           onView={openViewModal}
                           onDelete={(id) => handleLocationAction('delete', id)}
@@ -1052,20 +1075,20 @@ const LocationManagement = ({ user, onLogout }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {locations.map(location => {
-                        const typeConfig = getLocationTypeConfig(location.location_type);
+                      {locations.map(loc => {
+                        const typeConfig = getLocationTypeConfig(loc.location_type);
                         const IconComponent = typeConfig.icon;
                         return (
-                          <tr key={location.id} className="hover:bg-gray-50">
+                          <tr key={loc.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className={`p-2 rounded-lg ${typeConfig.color} border mr-3`}>
                                   <IconComponent className="w-4 h-4" />
                                 </div>
                                 <div>
-                                  <div className="text-sm font-medium text-gray-900">{location.name}</div>
-                                  {location.name_rw && location.name_rw !== location.name && (
-                                    <div className="text-xs text-gray-500">{location.name_rw}</div>
+                                  <div className="text-sm font-medium text-gray-900">{loc.name}</div>
+                                  {loc.name_rw && loc.name_rw !== loc.name && (
+                                    <div className="text-xs text-gray-500">{loc.name_rw}</div>
                                   )}
                                 </div>
                               </div>
@@ -1073,17 +1096,24 @@ const LocationManagement = ({ user, onLogout }) => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${typeConfig.color}`}>{typeConfig.label}</span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{location.parent_name || 'None'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{location.population ? formatPopulation(location.population) : 'Unknown'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(location.center_lat && location.center_lng) ? formatCoordinates(location.center_lat, location.center_lng) : 'Not set'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.parent_name || 'None'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{loc.population ? formatPopulation(loc.population) : 'Unknown'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {(loc.center_lat || loc.center_lng) ? formatCoordinates(loc.center_lat, loc.center_lng) : 'Not set'}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex items-center justify-end space-x-2">
-                                <button onClick={() => openViewModal(location)} className="text-blue-600 hover:text-blue-900" title="View Details"><Eye className="w-4 h-4" /></button>
-                                <button onClick={() => openEditModal(location)} className="text-green-600 hover:text-green-900" title="Edit Location"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => openViewModal(loc)} className="text-blue-600 hover:text-blue-900" title="View Details"><Eye className="w-4 h-4" /></button>
+                                <button onClick={() => openEditModal(loc)} className="text-green-600 hover:text-green-900" title="Edit Location"><Edit className="w-4 h-4" /></button>
                                 {typeConfig.level < 5 && (
-                                  <button onClick={() => openAddChildModal(location)} className="text-purple-600 hover:text-purple-900" title="Add Child Location"><Plus className="w-4 h-4" /></button>
+                                  <button onClick={() => openAddChildModal(loc)} className="text-purple-600 hover:text-purple-900" title="Add Child Location"><Plus className="w-4 h-4" /></button>
                                 )}
-                                <button onClick={() => { if (window.confirm(`Delete "${location.name}"? This action cannot be undone.`)) handleLocationAction('delete', location.id); }} className="text-red-600 hover:text-red-900" title="Delete Location"><Trash2 className="w-4 h-4" /></button>
+                                <button
+                                  onClick={() => { if (window.confirm(`Delete "${loc.name}"? This action cannot be undone.`)) handleLocationAction('delete', loc.id); }}
+                                  className="text-red-600 hover:text-red-900" title="Delete Location"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1111,15 +1141,10 @@ const LocationManagement = ({ user, onLogout }) => {
                     <div className="flex items-center space-x-1">
                       {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                         let pageNum;
-                        if (pagination.totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (pagination.page <= 3) {
-                          pageNum = i + 1;
-                        } else if (pagination.page >= pagination.totalPages - 2) {
-                          pageNum = pagination.totalPages - 4 + i;
-                        } else {
-                          pageNum = pagination.page - 2 + i;
-                        }
+                        if (pagination.totalPages <= 5) pageNum = i + 1;
+                        else if (pagination.page <= 3) pageNum = i + 1;
+                        else if (pagination.page >= pagination.totalPages - 2) pageNum = pagination.totalPages - 4 + i;
+                        else pageNum = pagination.page - 2 + i;
                         return (
                           <button
                             key={pageNum}
