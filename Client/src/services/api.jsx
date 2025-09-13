@@ -339,10 +339,28 @@ async deactivateDisasterType(id) {
     return this.request('/alert-responses/', { method: 'POST', body: responseData });
   }
 
-  // -------- Incidents --------
-  async getIncidents(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/incidents/${query ? `?${query}` : ''}`);
+  // Resend failed notifications for an alert
+async resendFailedNotifications(alertId) {
+  return this.request(`/alerts/${alertId}/resend_notifications/`, { method: 'POST' });
+}
+
+// Cancel an active alert
+async cancelAlert(alertId) {
+  return this.request(`/alerts/${alertId}/cancel/`, { method: 'POST' });
+}
+
+// -------- Enhanced Delivery Tracking --------
+
+// Get delivery statistics with optional filtering
+async getDeliveryStatistics(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/deliveries/statistics/${query ? `?${query}` : ''}`);
+}
+
+// -------- Incidents --------
+async getIncidents(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/${query ? `?${query}` : ''}`);
   }
 
   async getIncident(id) {

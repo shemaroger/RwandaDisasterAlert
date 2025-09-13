@@ -1,382 +1,353 @@
-// src/pages/alerts/CreateAlert.jsx
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+// src/pages/alerts/CreateAlert.jsx - Enhanced version
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Save, AlertTriangle, Target, Radio, Clock, Mail, Globe, 
-  MessageSquare, MapPin, X, Plus, Minus
+  MessageSquare, MapPin, X, Map, CheckCircle2, Bell, Zap, Users, 
+  Eye, Settings, Info
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiService from '../../services/api';
+import MapModal from '../../components/MapModal';
 
-// Map Location Selector Component
-const MapLocationSelector = ({ 
+// Enhanced Location Selector Component
+const LocationSelector = ({ 
   centerLat, 
   centerLng, 
   radiusKm, 
   onLocationChange, 
   onRadiusChange,
-  className = ""
+  onOpenMap
 }) => {
-  const mapRef = useRef(null);
-  const [map, setMap] = useState(null);
-  const [marker, setMarker] = useState(null);
-  const [circle, setCircle] = useState(null);
-  const [isMapReady, setIsMapReady] = useState(false);
-  const [mapError, setMapError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Initialize Leaflet map
-  useEffect(() => {
-    if (!mapRef.current || map) return;
-
-    let mounted = true;
-
-    const loadLeaflet = async () => {
-      try {
-        setIsLoading(true);
-        setMapError(null);
-
-        // Check if Leaflet is already loaded
-        if (window.L) {
-          initMap();
-          return;
-        }
-
-        // Load CSS first
-        const cssPromise = new Promise((resolve, reject) => {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          link.onload = resolve;
-          link.onerror = () => reject(new Error('Failed to load Leaflet CSS'));
-          document.head.appendChild(link);
-        });
-
-        // Load JS
-        const jsPromise = new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load Leaflet JS'));
-          document.head.appendChild(script);
-        });
-
-        // Wait for both to load
-        await Promise.all([cssPromise, jsPromise]);
-        
-        // Small delay to ensure everything is ready
-        setTimeout(() => {
-          if (mounted && window.L) {
-            initMap();
-          }
-        }, 200);
-
-      } catch (error) {
-        console.error('Error loading Leaflet:', error);
-        if (mounted) {
-          setMapError(error.message || 'Failed to load map library');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    const initMap = () => {
-      try {
-        if (!window.L || !mapRef.current || !mounted) return;
-
-        const L = window.L;
-        
-        // Default to Rwanda center
-        const defaultLat = centerLat || -1.9441;
-        const defaultLng = centerLng || 30.0619;
-        const defaultZoom = centerLat && centerLng ? 12 : 8;
-
-        // Create map instance
-        const mapInstance = L.map(mapRef.current, {
-          preferCanvas: true // Better performance
-        }).setView([defaultLat, defaultLng], defaultZoom);
-
-        // Add tile layer with error handling
-        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 18,
-          errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzZiNzI4MCIgZm9udC1zaXplPSIxNCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPk1hcCBUaWxlIEVycm9yPC90ZXh0Pjwvc3ZnPg=='
-        });
-
-        tileLayer.addTo(mapInstance);
-
-        // Add click handler
-        mapInstance.on('click', (e) => {
-          if (mounted) {
-            const { lat, lng } = e.latlng;
-            onLocationChange(lat, lng);
-          }
-        });
-
-        // Handle tile loading errors
-        tileLayer.on('tileerror', (error) => {
-          console.warn('Tile loading error:', error);
-        });
-
-        // Force resize after a short delay
-        setTimeout(() => {
-          if (mounted && mapInstance) {
-            mapInstance.invalidateSize();
-          }
-        }, 300);
-
-        if (mounted) {
-          setMap(mapInstance);
-          setIsMapReady(true);
-          setIsLoading(false);
-          setMapError(null);
-        }
-
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        if (mounted) {
-          setMapError('Failed to initialize map: ' + error.message);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadLeaflet();
-
-    return () => {
-      mounted = false;
-      if (map) {
-        try {
-          map.remove();
-        } catch (e) {
-          console.warn('Error removing map:', e);
-        }
-        setMap(null);
-        setIsMapReady(false);
-      }
-    };
-  }, []); // No dependencies to prevent re-initialization
-
-  // Update markers when coordinates change
-  useEffect(() => {
-    if (!map || !isMapReady || !window.L) return;
-
-    const L = window.L;
-
-    try {
-      // Clean up existing layers
-      if (marker) {
-        map.removeLayer(marker);
-        setMarker(null);
-      }
-      if (circle) {
-        map.removeLayer(circle);
-        setCircle(null);
-      }
-
-      // Add new marker if coordinates exist
-      if (centerLat && centerLng && typeof centerLat === 'number' && typeof centerLng === 'number') {
-        const newMarker = L.marker([centerLat, centerLng], {
-          draggable: true
-        }).addTo(map);
-
-        newMarker.on('dragend', (e) => {
-          const { lat, lng } = e.target.getLatLng();
-          onLocationChange(lat, lng);
-        });
-
-        setMarker(newMarker);
-
-        // Add circle if radius exists
-        if (radiusKm > 0) {
-          const newCircle = L.circle([centerLat, centerLng], {
-            color: '#ef4444',
-            fillColor: '#fca5a5',
-            fillOpacity: 0.2,
-            weight: 2,
-            radius: radiusKm * 1000
-          }).addTo(map);
-
-          setCircle(newCircle);
-        }
-
-        // Pan to location
-        map.setView([centerLat, centerLng], map.getZoom());
-      }
-    } catch (error) {
-      console.error('Error updating markers:', error);
-    }
-  }, [map, isMapReady, centerLat, centerLng, radiusKm, onLocationChange]);
-
-  const adjustRadius = (delta) => {
-    const newRadius = Math.max(0.1, Math.min(100, (radiusKm || 1) + delta));
-    onRadiusChange(newRadius);
-  };
-
   const handleClearLocation = () => {
     onLocationChange(null, null);
   };
 
-  // Fallback map using simple coordinate input
-  const renderFallbackMap = () => (
-    <div className="w-full border border-gray-300 rounded-lg p-6 bg-gray-50">
-      <div className="text-center mb-4">
-        <MapPin className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <h3 className="text-sm font-medium text-gray-700 mb-1">Map Unavailable</h3>
-        <p className="text-xs text-gray-500">Enter coordinates manually</p>
+  // Estimate affected population based on radius (rough calculation)
+  const estimatePopulation = () => {
+    if (!radiusKm) return 0;
+    // Rough estimate: Rwanda has ~13M people in ~26,000 km²
+    // This is a very rough approximation for demonstration
+    const populationDensity = 500; // people per km²
+    const area = Math.PI * radiusKm * radiusKm;
+    return Math.round(area * populationDensity);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Map trigger button */}
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={onOpenMap}
+          className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors group"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-red-100 p-4 rounded-full group-hover:bg-red-200 transition-colors">
+              <Map className="w-8 h-8 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                {centerLat && centerLng ? 'Update Target Location' : 'Set Target Location'}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {centerLat && centerLng ? 
+                  'Click to modify your alert target area' : 
+                  'Click to open interactive map and select target area'
+                }
+              </p>
+            </div>
+          </div>
+        </button>
       </div>
-      
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
-          <input
-            type="number"
-            step="any"
-            value={centerLat || ''}
-            onChange={(e) => onLocationChange(parseFloat(e.target.value) || null, centerLng)}
-            placeholder="-1.9441"
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
-          <input
-            type="number"
-            step="any"
-            value={centerLng || ''}
-            onChange={(e) => onLocationChange(centerLat, parseFloat(e.target.value) || null)}
-            placeholder="30.0619"
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500"
-          />
-        </div>
-      </div>
-      
+
+      {/* Current location display */}
       {centerLat && centerLng && (
-        <div className="mt-3 text-center">
-          <button
-            type="button"
-            onClick={handleClearLocation}
-            className="text-xs text-red-600 hover:text-red-700"
-          >
-            Clear coordinates
-          </button>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-green-100 p-1.5 rounded">
+                <Target className="w-4 h-4 text-green-600" />
+              </div>
+              <span className="text-sm font-medium text-green-800">Target Location Set</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClearLocation}
+              className="text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              Clear
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-green-700 font-medium">Coordinates:</span>
+              <p className="font-mono text-green-800">{centerLat.toFixed(6)}, {centerLng.toFixed(6)}</p>
+            </div>
+            <div>
+              <span className="text-green-700 font-medium">Coverage:</span>
+              <p className="text-green-800">
+                {radiusKm}km radius (~{(Math.PI * radiusKm * radiusKm).toFixed(1)} km²)
+              </p>
+            </div>
+          </div>
+          
+          {/* Population estimate */}
+          <div className="mt-3 p-3 bg-green-100 rounded-lg border border-green-300">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-green-700" />
+              <span className="text-sm font-medium text-green-800">
+                Estimated Population: ~{estimatePopulation().toLocaleString()} people
+              </span>
+            </div>
+            <p className="text-xs text-green-600 mt-1">
+              This is a rough estimate based on population density
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Quick radius adjustment */}
+      {centerLat && centerLng && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Quick Radius Adjustment
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 5, 10, 20].map(radius => (
+              <button
+                key={radius}
+                type="button"
+                onClick={() => onRadiusChange(radius)}
+                className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                  radiusKm === radius 
+                    ? 'bg-red-50 border-red-300 text-red-700 font-medium' 
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {radius}km
+              </button>
+            ))}
+          </div>
+          
+          {/* Custom radius input */}
+          <div className="mt-3">
+            <label className="block text-xs text-gray-600 mb-1">Custom Radius (km):</label>
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={radiusKm}
+              onChange={(e) => onRadiusChange(parseFloat(e.target.value) || 1)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              placeholder="Enter custom radius"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Help text */}
+      {!centerLat || !centerLng ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm text-blue-800 font-medium mb-1">Geographic Targeting</p>
+              <p className="text-xs text-blue-700">
+                Use the interactive map to precisely target your emergency alert to specific geographic areas. 
+                This helps ensure only relevant people receive the notification.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+// Enhanced Delivery Channels Component
+const DeliveryChannelsCard = ({ form, setField }) => {
+  const channels = [
+    {
+      key: 'send_sms',
+      label: 'SMS Messages',
+      icon: MessageSquare,
+      description: 'Text messages to mobile phones',
+      enabled: form.send_sms,
+      priority: 'High reach, immediate delivery'
+    },
+    {
+      key: 'send_push',
+      label: 'Push Notifications',
+      icon: Bell,
+      description: 'Mobile app notifications',
+      enabled: form.send_push,
+      priority: 'Instant, rich media support'
+    },
+    {
+      key: 'send_email',
+      label: 'Email Alerts',
+      icon: Mail,
+      description: 'Detailed email notifications',
+      enabled: form.send_email,
+      priority: 'Detailed information, attachments'
+    },
+    {
+      key: 'publish_web',
+      label: 'Web Publication',
+      icon: Globe,
+      description: 'Public website and feeds',
+      enabled: form.publish_web,
+      priority: 'Broad public access'
+    }
+  ];
+
+  const enabledCount = channels.filter(c => c.enabled).length;
+
+  return (
+    <div className="bg-white rounded-xl border shadow-sm p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Radio className="w-5 h-5 text-red-600" />
+        Delivery Channels
+        <span className="text-sm font-normal text-gray-500">({enabledCount} enabled)</span>
+      </h3>
+      
+      <div className="space-y-4">
+        {channels.map((channel) => {
+          const IconComponent = channel.icon;
+          return (
+            <div key={channel.key} className="border border-gray-200 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={channel.enabled}
+                  onChange={(e) => setField(channel.key, e.target.checked)}
+                  className="w-4 h-4 text-red-600 rounded focus:ring-red-500 focus:ring-2 mt-0.5"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <IconComponent className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-900">{channel.label}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1">{channel.description}</p>
+                  <p className="text-xs text-blue-600 font-medium">{channel.priority}</p>
+                </div>
+              </label>
+            </div>
+          );
+        })}
+      </div>
+
+      {enabledCount === 0 && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span className="text-sm text-amber-800 font-medium">No delivery channels selected</span>
+          </div>
+          <p className="text-xs text-amber-700 mt-1">
+            Select at least one delivery channel to send your alert.
+          </p>
         </div>
       )}
     </div>
   );
+};
 
+// Preview Card Component
+const AlertPreviewCard = ({ form, disasterTypes }) => {
+  const disasterType = disasterTypes.find(dt => dt.id == form.disaster_type);
+  
   return (
-    <div className={className}>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700">
-            {mapError ? 'Set coordinates manually' : 'Click map to set location'}
-          </span>
-        </div>
-        {centerLat && centerLng && (
-          <button
-            type="button"
-            onClick={handleClearLocation}
-            className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-          >
-            <X className="w-4 h-4" /> Clear
-          </button>
-        )}
-      </div>
+    <div className="bg-white rounded-xl border shadow-sm p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Eye className="w-5 h-5 text-red-600" />
+        Alert Preview
+      </h3>
+      
+      {form.title || form.message ? (
+        <div className="space-y-4">
+          {/* Mobile SMS Preview */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" />
+              SMS Preview
+            </div>
+            <div className="bg-white rounded-lg p-3 border max-w-xs">
+              <div className="text-sm">
+                {form.severity && (
+                  <span className="text-xs font-bold">
+                    {form.severity.toUpperCase()} ALERT • 
+                  </span>
+                )}
+                {form.title && <strong>{form.title}</strong>}
+                {form.title && form.message && <br />}
+                {form.message}
+              </div>
+            </div>
+          </div>
 
-      {/* Map container or fallback */}
-      <div className="relative">
-        {mapError ? (
-          renderFallbackMap()
-        ) : (
-          <>
-            <div 
-              ref={mapRef} 
-              className="w-full h-64 rounded-lg border border-gray-300 bg-gray-100"
-              style={{ 
-                minHeight: '256px',
-                height: '256px'
-              }}
-            />
-            
-            {/* Loading overlay */}
-            {isLoading && (
-              <div className="absolute inset-0 bg-white/80 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600 text-sm">Loading map...</p>
+          {/* Web Preview */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              Web Preview
+            </div>
+            <div className="bg-white rounded-lg p-4 border">
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${
+                  form.severity === 'extreme' ? 'bg-red-100' :
+                  form.severity === 'severe' ? 'bg-orange-100' :
+                  form.severity === 'moderate' ? 'bg-yellow-100' :
+                  'bg-blue-100'
+                }`}>
+                  <AlertTriangle className={`w-5 h-5 ${
+                    form.severity === 'extreme' ? 'text-red-600' :
+                    form.severity === 'severe' ? 'text-orange-600' :
+                    form.severity === 'moderate' ? 'text-yellow-600' :
+                    'text-blue-600'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  {form.title && (
+                    <h4 className="font-semibold text-gray-900 text-sm">{form.title}</h4>
+                  )}
+                  <div className="text-xs text-gray-600 mb-2">
+                    {disasterType?.name} • {form.severity} • {new Date().toLocaleString()}
+                  </div>
+                  {form.message && (
+                    <p className="text-sm text-gray-800">{form.message}</p>
+                  )}
                 </div>
               </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Controls */}
-      <div className="mt-4 space-y-3">
-        {centerLat && centerLng && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-            <MapPin className="w-4 h-4" />
-            <span className="font-mono">{centerLat.toFixed(6)}, {centerLng.toFixed(6)}</span>
+            </div>
           </div>
-        )}
 
-        {/* Radius control */}
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-700 font-medium min-w-fit">Radius (km):</label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => adjustRadius(-0.5)}
-              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-              disabled={!radiusKm || radiusKm <= 0.5}
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              max="100"
-              value={radiusKm || ''}
-              onChange={(e) => onRadiusChange(parseFloat(e.target.value) || 0)}
-              className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              placeholder="5.0"
-            />
-            <button
-              type="button"
-              onClick={() => adjustRadius(0.5)}
-              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+          {/* Alert Stats */}
+          <div className="text-xs text-gray-500 space-y-1">
+            <div>Character count: {(form.title + ' ' + form.message).length}/160 (SMS limit)</div>
+            {form.center_lat && form.center_lng && (
+              <div>Target area: ~{(Math.PI * form.radius_km * form.radius_km).toFixed(1)} km²</div>
+            )}
           </div>
         </div>
-
-        {centerLat && centerLng && radiusKm && (
-          <div className="text-sm text-gray-500 bg-blue-50 px-3 py-2 rounded-lg">
-            <span className="font-medium">Coverage area:</span> ~{(Math.PI * radiusKm * radiusKm).toFixed(1)} km²
-          </div>
-        )}
-
-        {!mapError && (!centerLat || !centerLng) && (
-          <div className="text-xs text-gray-500 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-200">
-            Click anywhere on the map to set the target location for your alert
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          <Eye className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm">Enter alert title and message to see preview</p>
+        </div>
+      )}
     </div>
   );
 };
 
 // Constants
 const SEVERITIES = [
-  { value: 'info', label: 'Information' },
-  { value: 'minor', label: 'Minor' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'severe', label: 'Severe' },
-  { value: 'extreme', label: 'Extreme' }
+  { value: 'info', label: 'Information', color: 'blue', description: 'General information, no immediate action required' },
+  { value: 'minor', label: 'Minor', color: 'green', description: 'Minor threat, minimal impact expected' },
+  { value: 'moderate', label: 'Moderate', color: 'yellow', description: 'Moderate threat, some action may be required' },
+  { value: 'severe', label: 'Severe', color: 'orange', description: 'Severe threat, immediate action recommended' },
+  { value: 'extreme', label: 'Extreme', color: 'red', description: 'Extreme threat, immediate action required' }
 ];
 
 // Main CreateAlert Component
@@ -385,6 +356,8 @@ export function CreateAlert() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [saveAndActivate, setSaveAndActivate] = useState(false);
   
   const [disasterTypes, setDisasterTypes] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -462,12 +435,25 @@ export function CreateAlert() {
     setField('radius_km', radius);
   }, []);
 
+  const openMapModal = () => {
+    setIsMapModalOpen(true);
+  };
+
+  const closeMapModal = () => {
+    setIsMapModalOpen(false);
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
     if (!form.title.trim()) newErrors.title = 'Title is required';
     if (!form.message.trim()) newErrors.message = 'Message is required';
     if (!form.disaster_type) newErrors.disaster_type = 'Disaster type is required';
+    
+    // Check if at least one delivery channel is selected
+    if (!form.send_sms && !form.send_push && !form.send_email && !form.publish_web) {
+      newErrors.delivery_channels = 'Select at least one delivery channel';
+    }
     
     // Validate JSON fields
     if (form.geofence_coordinates && form.geofence_coordinates.trim()) {
@@ -490,7 +476,7 @@ export function CreateAlert() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, activateAfterSave = false) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -499,6 +485,8 @@ export function CreateAlert() {
     }
 
     setSaving(true);
+    setSaveAndActivate(activateAfterSave);
+    
     try {
       const payload = {
         ...form,
@@ -524,14 +512,34 @@ export function CreateAlert() {
         payload.resources_urls = null;
       }
 
-      await apiService.createAlert(payload);
-      toast.success('Alert created successfully');
+      const createdAlert = await apiService.createAlert(payload);
+      
+      if (activateAfterSave) {
+        // Activate the alert immediately
+        try {
+          const activationResult = await apiService.activateAlert(createdAlert.id);
+          if (activationResult?.delivery_results) {
+            const results = activationResult.delivery_results;
+            const totalSent = Object.values(results).reduce((sum, method) => sum + (method.sent || 0), 0);
+            toast.success(`Alert created and activated! ${totalSent} notifications sent.`);
+          } else {
+            toast.success('Alert created and activated successfully!');
+          }
+        } catch (activationError) {
+          toast.success('Alert created successfully!');
+          toast.error('Failed to activate alert: ' + (activationError.message || 'Unknown error'));
+        }
+      } else {
+        toast.success('Alert created successfully as draft');
+      }
+      
       navigate('/admin/alerts');
     } catch (error) {
       toast.error(error?.message || 'Failed to create alert');
       console.error('Error creating alert:', error);
     } finally {
       setSaving(false);
+      setSaveAndActivate(false);
     }
   };
 
@@ -565,14 +573,14 @@ export function CreateAlert() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Create Emergency Alert</h1>
-                <p className="text-gray-600">Set up a new disaster alert with geographic targeting</p>
+                <p className="text-gray-600">Set up a new disaster alert with multi-channel delivery</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content - Left Side */}
             <div className="lg:col-span-2 space-y-6">
@@ -613,6 +621,9 @@ export function CreateAlert() {
                       required
                     />
                     {errors.message && <p className="text-sm text-red-600 mt-1">{errors.message}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Character count: {form.message.length} | SMS optimal: under 160 characters
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -647,11 +658,14 @@ export function CreateAlert() {
                         required
                       >
                         {SEVERITIES.map(severity => (
-                          <option key={severity.value} value={severity.value}>
+                          <option key={severity.value} value={severity.value} title={severity.description}>
                             {severity.label}
                           </option>
                         ))}
                       </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {SEVERITIES.find(s => s.value === form.severity)?.description}
+                      </p>
                     </div>
                   </div>
 
@@ -686,12 +700,13 @@ export function CreateAlert() {
                   Geographic Targeting
                 </h2>
                 
-                <MapLocationSelector
+                <LocationSelector
                   centerLat={form.center_lat}
                   centerLng={form.center_lng}
                   radiusKm={form.radius_km}
                   onLocationChange={handleLocationChange}
                   onRadiusChange={handleRadiusChange}
+                  onOpenMap={openMapModal}
                 />
 
                 {/* Advanced Geofence */}
@@ -810,67 +825,14 @@ export function CreateAlert() {
 
             {/* Sidebar - Right Side */}
             <div className="space-y-6">
+              {/* Alert Preview */}
+              <AlertPreviewCard form={form} disasterTypes={disasterTypes} />
+
               {/* Delivery Channels */}
-              <div className="bg-white rounded-xl border shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Radio className="w-5 h-5 text-red-600" />
-                  Delivery Channels
-                </h3>
-                
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.send_sms}
-                      onChange={(e) => setField('send_sms', e.target.checked)}
-                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500 focus:ring-2"
-                    />
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">SMS Messages</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.send_push}
-                      onChange={(e) => setField('send_push', e.target.checked)}
-                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500 focus:ring-2"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">Push Notifications</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.send_email}
-                      onChange={(e) => setField('send_email', e.target.checked)}
-                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500 focus:ring-2"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">Email Alerts</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.publish_web}
-                      onChange={(e) => setField('publish_web', e.target.checked)}
-                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500 focus:ring-2"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium">Publish to Web</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
+              <DeliveryChannelsCard form={form} setField={setField} />
+              {errors.delivery_channels && (
+                <p className="text-sm text-red-600 -mt-4">{errors.delivery_channels}</p>
+              )}
 
               {/* Timing */}
               <div className="bg-white rounded-xl border shadow-sm p-6">
@@ -898,20 +860,41 @@ export function CreateAlert() {
               {/* Actions */}
               <div className="bg-white rounded-xl border shadow-sm p-6">
                 <div className="flex flex-col gap-3">
+                  {/* Create and Activate */}
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={(e) => handleSubmit(e, true)}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold shadow-sm"
+                  >
+                    {saving && saveAndActivate ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Creating & Activating...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Create & Activate Alert
+                      </>
+                    )}
+                  </button>
+
+                  {/* Create as Draft */}
                   <button
                     type="submit"
                     disabled={saving}
                     className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold shadow-sm"
                   >
-                    {saving ? (
+                    {saving && !saveAndActivate ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                        Creating Alert...
+                        Creating Draft...
                       </>
                     ) : (
                       <>
                         <Save className="w-4 h-4" />
-                        Create Alert
+                        Save as Draft
                       </>
                     )}
                   </button>
@@ -920,26 +903,80 @@ export function CreateAlert() {
                     type="button"
                     onClick={() => navigate('/admin/alerts')}
                     className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    disabled={saving}
                   >
                     Cancel
                   </button>
+                </div>
+
+                {/* Action explanations */}
+                <div className="mt-4 text-xs text-gray-500 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Zap className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                    <span>Create & Activate will immediately send notifications to targeted users</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Save className="w-3 h-3 text-red-600 mt-0.5 flex-shrink-0" />
+                    <span>Save as Draft allows you to review and test before activation</span>
+                  </div>
                 </div>
               </div>
 
               {/* Help Section */}
               <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
-                <h4 className="text-sm font-semibold text-blue-900 mb-3">💡 Quick Tips</h4>
+                <h4 className="text-sm font-semibold text-blue-900 mb-3">Quick Tips</h4>
                 <ul className="text-xs text-blue-800 space-y-2">
                   <li>• Use clear, action-oriented language in your alert message</li>
                   <li>• Set geographic targeting to reach only affected areas</li>
                   <li>• Include specific safety instructions when possible</li>
                   <li>• Test with a small area before wide deployment</li>
                   <li>• Consider multiple delivery channels for better reach</li>
+                  <li>• Save as draft first to review before activation</li>
                 </ul>
+              </div>
+
+              {/* Notification Settings Status */}
+              <div className="bg-gray-50 rounded-xl border p-6">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Notification Status
+                </h4>
+                <div className="text-xs text-gray-700 space-y-2">
+                  <div className="flex justify-between">
+                    <span>SMS Service:</span>
+                    <span className="font-medium text-green-600">Ready</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Push Service:</span>
+                    <span className="font-medium text-green-600">Ready</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Email Service:</span>
+                    <span className="font-medium text-green-600">Ready</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Web Publishing:</span>
+                    <span className="font-medium text-green-600">Ready</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  All notification channels are operational and ready to deliver your alert.
+                </p>
               </div>
             </div>
           </div>
         </form>
+
+        {/* Map Modal */}
+        <MapModal
+          isOpen={isMapModalOpen}
+          onClose={closeMapModal}
+          centerLat={form.center_lat}
+          centerLng={form.center_lng}
+          radiusKm={form.radius_km}
+          onLocationChange={handleLocationChange}
+          onRadiusChange={handleRadiusChange}
+        />
       </div>
     </div>
   );

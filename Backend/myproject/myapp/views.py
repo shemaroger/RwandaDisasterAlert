@@ -13,6 +13,10 @@ from rest_framework.authtoken.models import Token
 from datetime import timedelta
 from .models import *
 from .serializers import *
+import logging
+from .services import AlertDeliveryManager, deliver_alert_async
+
+logger = logging.getLogger(__name__)
 
 
 # ======================== AUTHENTICATION VIEWS ========================
@@ -267,7 +271,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class AlertViewSet(viewsets.ModelViewSet):
-    """ViewSet for alerts"""
+    """ViewSet for alerts with integrated notification delivery"""
     queryset = Alert.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['disaster_type', 'severity', 'status', 'affected_locations']
@@ -323,7 +327,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
-        """Activate an alert"""
+        """Activate an alert and trigger notification delivery"""
         alert = self.get_object()
         if alert.status != 'draft':
             return Response(
@@ -331,15 +335,131 @@ class AlertViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        alert.status = 'active'
-        alert.issued_at = timezone.now()
-        alert.approved_by = request.user
-        alert.save()
+        try:
+            # Update alert status
+            alert.status = 'active'
+            alert.issued_at = timezone.now()
+            alert.approved_by = request.user
+            alert.save()
+            
+            # Trigger notification delivery
+            delivery_manager = AlertDeliveryManager()
+            
+            # Check if async delivery is available
+            use_async = request.data.get('async', True)
+            
+            if deliver_alert_async and use_async:
+                # Use Celery for async delivery
+                task = deliver_alert_async.delay(str(alert.id))
+                delivery_results = {'task_id': task.id, 'status': 'queued'}
+                logger.info(f"Alert {alert.id} queued for async delivery")
+            else:
+                # Synchronous delivery
+                delivery_results = delivery_manager.deliver_alert(alert)
+                logger.info(f"Alert {alert.id} delivered synchronously")
+            
+            serializer = self.get_serializer(alert)
+            response_data = serializer.data
+            response_data['delivery_results'] = delivery_results
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error activating alert {alert.id}: {e}")
+            return Response(
+                {'error': f'Failed to activate alert: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def resend_notifications(self, request, pk=None):
+        """Resend failed notifications for an alert"""
+        alert = self.get_object()
         
-        # TODO: Trigger SMS/push notification sending here
+        if alert.status != 'active':
+            return Response(
+                {'error': 'Can only resend notifications for active alerts'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        serializer = self.get_serializer(alert)
-        return Response(serializer.data)
+        try:
+            # Get failed deliveries
+            failed_deliveries = alert.deliveries.filter(status='failed')
+            
+            if not failed_deliveries.exists():
+                return Response(
+                    {'message': 'No failed deliveries to resend'},
+                    status=status.HTTP_200_OK
+                )
+            
+            delivery_manager = AlertDeliveryManager()
+            
+            # Reset failed deliveries and retry
+            failed_deliveries.update(status='pending', error_message='')
+            
+            # Trigger delivery again
+            use_async = request.data.get('async', True)
+            
+            if deliver_alert_async and use_async:
+                task = deliver_alert_async.delay(str(alert.id))
+                delivery_results = {'task_id': task.id, 'status': 'queued'}
+            else:
+                delivery_results = delivery_manager.deliver_alert(alert)
+            
+            return Response({
+                'message': f'Resending notifications for {failed_deliveries.count()} failed deliveries',
+                'delivery_results': delivery_results
+            })
+            
+        except Exception as e:
+            logger.error(f"Error resending notifications for alert {alert.id}: {e}")
+            return Response(
+                {'error': f'Failed to resend notifications: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'])
+    def delivery_status(self, request, pk=None):
+        """Get detailed delivery status for an alert"""
+        alert = self.get_object()
+        
+        deliveries = alert.deliveries.all()
+        
+        # Aggregate statistics
+        stats_by_method = {}
+        for method in ['sms', 'push', 'email']:
+            method_deliveries = deliveries.filter(delivery_method=method)
+            stats_by_method[method] = {
+                'total': method_deliveries.count(),
+                'pending': method_deliveries.filter(status='pending').count(),
+                'sent': method_deliveries.filter(status='sent').count(),
+                'delivered': method_deliveries.filter(status='delivered').count(),
+                'failed': method_deliveries.filter(status='failed').count(),
+                'read': method_deliveries.filter(status='read').count(),
+            }
+            
+            # Calculate success rate
+            total = stats_by_method[method]['total']
+            if total > 0:
+                successful = stats_by_method[method]['sent'] + stats_by_method[method]['delivered']
+                stats_by_method[method]['success_rate'] = round((successful / total) * 100, 2)
+            else:
+                stats_by_method[method]['success_rate'] = 0
+        
+        # Recent deliveries for debugging
+        recent_deliveries = AlertDeliverySerializer(
+            deliveries.order_by('-created_at')[:20], 
+            many=True
+        ).data
+        
+        return Response({
+            'alert_id': alert.id,
+            'alert_title': alert.title,
+            'issued_at': alert.issued_at,
+            'stats_by_method': stats_by_method,
+            'recent_deliveries': recent_deliveries,
+            'total_target_users': deliveries.values('user').distinct().count()
+        })
     
     @action(detail=True, methods=['post'])
     def respond(self, request, pk=None):
@@ -349,12 +469,42 @@ class AlertViewSet(viewsets.ModelViewSet):
         
         if serializer.is_valid():
             serializer.save(alert=alert, user=request.user)
+            
+            # Mark relevant deliveries as "read" when user responds
+            AlertDelivery.objects.filter(
+                alert=alert,
+                user=request.user,
+                status__in=['sent', 'delivered']
+            ).update(
+                status='read',
+                read_at=timezone.now()
+            )
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancel an active alert"""
+        alert = self.get_object()
+        
+        if alert.status != 'active':
+            return Response(
+                {'error': 'Only active alerts can be cancelled'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        alert.status = 'cancelled'
+        alert.save()
+        
+        # TODO: Send cancellation notifications to users who received the original alert
+        
+        serializer = self.get_serializer(alert)
+        return Response(serializer.data)
 
 
 class AlertDeliveryViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for alert deliveries - read-only"""
+    """ViewSet for alert deliveries - read-only with enhanced filtering"""
     queryset = AlertDelivery.objects.all()
     serializer_class = AlertDeliverySerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -363,9 +513,76 @@ class AlertDeliveryViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        if self.request.user.is_superuser or self.request.user.user_type in ['admin', 'operator']:
-            return AlertDelivery.objects.all()
-        return AlertDelivery.objects.filter(user=self.request.user)
+        queryset = AlertDelivery.objects.select_related('alert', 'user')
+        
+        if self.request.user.is_superuser or getattr(self.request.user, 'user_type', None) in ['admin', 'operator']:
+            return queryset
+        return queryset.filter(user=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Get delivery statistics"""
+        queryset = self.get_queryset()
+        
+        # Filter by date range if provided
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        
+        # Aggregate statistics
+        total_deliveries = queryset.count()
+        
+        stats = {
+            'total_deliveries': total_deliveries,
+            'by_method': {},
+            'by_status': {},
+            'success_rate': 0
+        }
+        
+        # Statistics by delivery method
+        for method in ['sms', 'push', 'email']:
+            method_count = queryset.filter(delivery_method=method).count()
+            stats['by_method'][method] = method_count
+        
+        # Statistics by status
+        for status_choice in ['pending', 'sent', 'delivered', 'failed', 'read']:
+            status_count = queryset.filter(status=status_choice).count()
+            stats['by_status'][status_choice] = status_count
+        
+        # Calculate success rate
+        if total_deliveries > 0:
+            successful = stats['by_status']['sent'] + stats['by_status']['delivered'] + stats['by_status']['read']
+            stats['success_rate'] = round((successful / total_deliveries) * 100, 2)
+        
+        return Response(stats)
+    
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        """Mark a delivery as read (for tracking purposes)"""
+        delivery = self.get_object()
+        
+        if delivery.user != request.user and not request.user.is_superuser:
+            return Response(
+                {'error': 'Can only mark your own deliveries as read'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if delivery.status in ['sent', 'delivered']:
+            delivery.status = 'read'
+            delivery.read_at = timezone.now()
+            delivery.save()
+            
+            serializer = self.get_serializer(delivery)
+            return Response(serializer.data)
+        
+        return Response(
+            {'error': 'Can only mark sent or delivered notifications as read'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class IncidentReportViewSet(viewsets.ModelViewSet):
