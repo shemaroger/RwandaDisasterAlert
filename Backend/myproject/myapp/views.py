@@ -330,6 +330,8 @@ class AlertViewSet(viewsets.ModelViewSet):
     def activate(self, request, pk=None):
         """Activate an alert and trigger notification delivery"""
         alert = self.get_object()
+        logger.info(f"DEBUG: Attempting to activate alert {alert.id} - current status: {alert.status}")
+        
         if alert.status != 'draft':
             return Response(
                 {'error': 'Only draft alerts can be activated'},
@@ -343,21 +345,27 @@ class AlertViewSet(viewsets.ModelViewSet):
             alert.approved_by = request.user
             alert.save()
             
+            logger.info(f"DEBUG: Alert {alert.id} status updated to active")
+            logger.info(f"DEBUG: Alert notification settings - SMS: {alert.send_sms}, Email: {alert.send_email}, Push: {alert.send_push}")
+            
             # Trigger notification delivery
             delivery_manager = AlertDeliveryManager()
+            logger.info(f"DEBUG: Created AlertDeliveryManager instance")
             
             # Check if async delivery is available
             use_async = request.data.get('async', True)
+            logger.info(f"DEBUG: Using async delivery: {use_async}, deliver_alert_async available: {deliver_alert_async is not None}")
             
             if deliver_alert_async and use_async:
                 # Use Celery for async delivery
                 task = deliver_alert_async.delay(str(alert.id))
                 delivery_results = {'task_id': task.id, 'status': 'queued'}
-                logger.info(f"Alert {alert.id} queued for async delivery")
+                logger.info(f"Alert {alert.id} queued for async delivery with task ID: {task.id}")
             else:
                 # Synchronous delivery
+                logger.info(f"DEBUG: Starting synchronous delivery for alert {alert.id}")
                 delivery_results = delivery_manager.deliver_alert(alert)
-                logger.info(f"Alert {alert.id} delivered synchronously")
+                logger.info(f"Alert {alert.id} delivered synchronously: {delivery_results}")
             
             serializer = self.get_serializer(alert)
             response_data = serializer.data
@@ -366,7 +374,7 @@ class AlertViewSet(viewsets.ModelViewSet):
             return Response(response_data, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"Error activating alert {alert.id}: {e}")
+            logger.error(f"Error activating alert {alert.id}: {e}", exc_info=True)
             return Response(
                 {'error': f'Failed to activate alert: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -376,6 +384,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     def resend_notifications(self, request, pk=None):
         """Resend failed notifications for an alert"""
         alert = self.get_object()
+        logger.info(f"DEBUG: Resending notifications for alert {alert.id}")
         
         if alert.status != 'active':
             return Response(
@@ -386,34 +395,39 @@ class AlertViewSet(viewsets.ModelViewSet):
         try:
             # Get failed deliveries
             failed_deliveries = alert.deliveries.filter(status='failed')
+            logger.info(f"DEBUG: Found {failed_deliveries.count()} failed deliveries")
             
-            if not failed_deliveries.exists():
-                return Response(
-                    {'message': 'No failed deliveries to resend'},
-                    status=status.HTTP_200_OK
-                )
-            
+            # Always trigger delivery regardless of failed deliveries count
+            # This will create new delivery records for all users
             delivery_manager = AlertDeliveryManager()
+            logger.info(f"DEBUG: Created delivery manager for resend")
             
             # Reset failed deliveries and retry
-            failed_deliveries.update(status='pending', error_message='')
+            if failed_deliveries.exists():
+                failed_deliveries.update(status='pending', error_message='')
+                logger.info(f"DEBUG: Reset {failed_deliveries.count()} failed deliveries to pending")
             
             # Trigger delivery again
-            use_async = request.data.get('async', True)
+            use_async = request.data.get('async', False)  # Default to sync for debugging
+            logger.info(f"DEBUG: Using async for resend: {use_async}")
             
             if deliver_alert_async and use_async:
                 task = deliver_alert_async.delay(str(alert.id))
                 delivery_results = {'task_id': task.id, 'status': 'queued'}
+                logger.info(f"DEBUG: Queued resend task {task.id}")
             else:
+                logger.info(f"DEBUG: Starting synchronous resend delivery")
                 delivery_results = delivery_manager.deliver_alert(alert)
+                logger.info(f"DEBUG: Resend delivery results: {delivery_results}")
             
             return Response({
-                'message': f'Resending notifications for {failed_deliveries.count()} failed deliveries',
-                'delivery_results': delivery_results
+                'message': f'Resending notifications for alert {alert.id}',
+                'delivery_results': delivery_results,
+                'failed_deliveries_reset': failed_deliveries.count()
             })
             
         except Exception as e:
-            logger.error(f"Error resending notifications for alert {alert.id}: {e}")
+            logger.error(f"Error resending notifications for alert {alert.id}: {e}", exc_info=True)
             return Response(
                 {'error': f'Failed to resend notifications: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -425,6 +439,7 @@ class AlertViewSet(viewsets.ModelViewSet):
         alert = self.get_object()
         
         deliveries = alert.deliveries.all()
+        logger.info(f"DEBUG: Found {deliveries.count()} delivery records for alert {alert.id}")
         
         # Aggregate statistics
         stats_by_method = {}
@@ -502,8 +517,6 @@ class AlertViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(alert)
         return Response(serializer.data)
-
-
 class AlertDeliveryViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for alert deliveries - read-only with enhanced filtering"""
     queryset = AlertDelivery.objects.all()
@@ -584,7 +597,6 @@ class AlertDeliveryViewSet(viewsets.ReadOnlyModelViewSet):
             {'error': 'Can only mark sent or delivered notifications as read'},
             status=status.HTTP_400_BAD_REQUEST
         )
-
 
 class IncidentReportViewSet(viewsets.ModelViewSet):
     """ViewSet for incident reports"""

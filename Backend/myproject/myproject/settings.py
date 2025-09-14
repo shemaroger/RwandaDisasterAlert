@@ -173,12 +173,13 @@ TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
 TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com" 
+EMAIL_PORT = 587  
+EMAIL_USE_TLS = True  
+EMAIL_HOST_USER = "shemaroger60@gmail.com"  
+EMAIL_HOST_PASSWORD = "jehi lmrs wdkx jdth"  
+DEFAULT_FROM_EMAIL = "shemaroger60@gmail.com"  
 
 # Firebase Cloud Messaging Configuration
 FCM_SERVER_KEY = config('FCM_SERVER_KEY', default='')
@@ -221,32 +222,25 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
+            'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         },
     },
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/notifications.log',
+        'console': {
+            'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
     },
     'loggers': {
-        'notifications': {
-            'handlers': ['file', 'console'],
+        'myapp.services': {
+            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,
         },
     },
 }
@@ -284,3 +278,22 @@ if config('DEBUG', default=True, cast=bool) == False:
     SECURE_BROWSER_XSS_FILTER = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# NOTIFICATION_SETTINGS = {
+#     'SMS_ENABLED': True,
+#     'EMAIL_ENABLED': True,
+#     'PUSH_ENABLED': True,
+# }
+# Enable email notifications
+NOTIFICATION_SETTINGS = {
+    'SMS_ENABLED': False,    # Keep SMS disabled for now
+    'EMAIL_ENABLED': True,   # Enable real email sending
+    'PUSH_ENABLED': False,   # Keep push disabled for now
+}
+
+# Set email to True by default for alerts
+ALERT_DEFAULT_SETTINGS = {
+    'send_sms': True,
+    'send_email': True,  # Make sure this is True
+    'send_push': True,
+}    

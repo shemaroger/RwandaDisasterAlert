@@ -57,6 +57,7 @@ const Sidebar = ({
     if (path.includes('/templates') || path.includes('/notification-templates')) return 'templates';
     if (path.includes('/profile')) return 'profile';
     if (path.includes('/admin/disaster-types')) return 'disaster-types';
+    if (path.includes('/deliveries') || path.includes('/admin/deliveries')) return 'deliveries';
     return 'dashboard';
   };
 
@@ -134,13 +135,13 @@ const Sidebar = ({
         userTypes: ['admin', 'authority']
       },
       {
-        name: 'Alert Delivery',
-        id: 'deliveries',
-        path: '/deliveries',
-        icon: Radio,
-        description: 'SMS, Push, Email delivery',
-        userTypes: ['admin', 'authority', 'operator']
-      }
+  name: 'Alert Deliveries',
+  id: 'deliveries',
+  path: '/admin/deliveries',
+  icon: Radio,
+  description: 'Monitor notification delivery status',
+  userTypes: ['admin','operator']
+}
     ];
     
     const analyticsNavigation = [

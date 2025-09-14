@@ -176,13 +176,6 @@ class ApiService {
     return this.request('/profile/preferences/', { method: 'PATCH', body: preferences });
   }
 
-  // async updateLocation(latitude, longitude, district_id) {
-  //   return this.request('/profile/location/', {
-  //     method: 'POST',
-  //     body: { latitude, longitude, district_id },
-  //   });
-  // }
-
   // -------- Users --------
   async getUsers(params = {}) {
     const query = new URLSearchParams(params).toString();
@@ -205,7 +198,7 @@ class ApiService {
     return this.request(`/users/${id}/`, { method: 'DELETE' });
   }
 
-    // -------- Locations (Rwanda Administrative Boundaries) --------
+  // -------- Locations (Rwanda Administrative Boundaries) --------
   async getLocations(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/locations/${query ? `?${query}` : ''}`);
@@ -215,15 +208,11 @@ class ApiService {
     return this.request(`/locations/${id}/`);
   }
 
-  // ✅ ADD THESE:
   async createLocation(payload) {
-    // payload example:
-    // { name, name_rw, name_fr, location_type, parent, center_lat, center_lng, population, is_active }
     return this.request('/locations/', { method: 'POST', body: payload });
   }
 
   async updateLocation(id, payload) {
-    // Partial update by default
     return this.request(`/locations/${id}/`, { method: 'PATCH', body: payload });
   }
 
@@ -231,38 +220,36 @@ class ApiService {
     return this.request(`/locations/${id}/`, { method: 'DELETE' });
   }
 
+  // -------- Disaster Types --------
+  async getDisasterTypes(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/disaster-types/${query ? `?${query}` : ''}`);
+  }
 
- // -------- Disaster Types --------
-async getDisasterTypes(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/disaster-types/${query ? `?${query}` : ''}`);
-}
+  async getDisasterType(id) {
+    return this.request(`/disaster-types/${id}/`);
+  }
 
-async getDisasterType(id) {
-  return this.request(`/disaster-types/${id}/`);
-}
+  async createDisasterType(data) {
+    return this.request('/disaster-types/', { method: 'POST', body: data });
+  }
 
-async createDisasterType(data) {
-  return this.request('/disaster-types/', { method: 'POST', body: data });
-}
+  async updateDisasterType(id, data) {
+    return this.request(`/disaster-types/${id}/`, { method: 'PATCH', body: data });
+  }
 
-async updateDisasterType(id, data) {
-  return this.request(`/disaster-types/${id}/`, { method: 'PATCH', body: data });
-}
+  async deleteDisasterType(id, { hard = false } = {}) {
+    const suffix = hard ? '?hard=true' : '';
+    return this.request(`/disaster-types/${id}/${suffix}`, { method: 'DELETE' });
+  }
 
-async deleteDisasterType(id, { hard = false } = {}) {
-  const suffix = hard ? '?hard=true' : '';
-  return this.request(`/disaster-types/${id}/${suffix}`, { method: 'DELETE' });
-}
+  async activateDisasterType(id) {
+    return this.request(`/disaster-types/${id}/activate/`, { method: 'POST' });
+  }
 
-async activateDisasterType(id) {
-  return this.request(`/disaster-types/${id}/activate/`, { method: 'POST' });
-}
-
-async deactivateDisasterType(id) {
-  return this.request(`/disaster-types/${id}/deactivate/`, { method: 'POST' });
-}
-
+  async deactivateDisasterType(id) {
+    return this.request(`/disaster-types/${id}/deactivate/`, { method: 'POST' });
+  }
 
   // -------- Alerts --------
   async getAlerts(params = {}) {
@@ -290,8 +277,11 @@ async deactivateDisasterType(id) {
     return this.request('/alerts/active/');
   }
 
-  async activateAlert(id) {
-    return this.request(`/alerts/${id}/activate/`, { method: 'POST' });
+  async activateAlert(id, options = { async: true }) {
+    return this.request(`/alerts/${id}/activate/`, { 
+      method: 'POST', 
+      body: options 
+    });
   }
 
   async respondToAlert(id, responseData) {
@@ -312,190 +302,260 @@ async deactivateDisasterType(id) {
   }
 
   async getAlertDeliveryStatus(alertId) {
-    return this.request(`/alerts/${alertId}/delivery-status/`);
+    return this.request(`/alerts/${alertId}/delivery_status/`);
+  }
+
+  async resendFailedNotifications(alertId, options = {}) {
+    return this.request(`/alerts/${alertId}/resend_notifications/`, { 
+      method: 'POST',
+      body: options 
+    });
+  }
+
+  async cancelAlert(alertId) {
+    return this.request(`/alerts/${alertId}/cancel/`, { method: 'POST' });
   }
 
   async getPublicActiveAlerts() {
     return this.request('/public/active-alerts/', { includeAuth: false });
   }
 
-  // Get all alert deliveries with filtering
-async getAlertDeliveries(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
-}
-
-// Get specific alert delivery by ID
-async getAlertDelivery(id) {
-  return this.request(`/alert-deliveries/${id}/`);
-}
-
-// Get delivery statistics (from the backend statistics action)
-async getDeliveryStatistics(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/alert-deliveries/statistics/${query ? `?${query}` : ''}`);
-}
-
-// Mark a delivery as read
-async markDeliveryAsRead(deliveryId) {
-  return this.request(`/alert-deliveries/${deliveryId}/mark_as_read/`, { 
-    method: 'POST' 
-  });
-}
-
-// Get deliveries for a specific alert
-async getAlertDeliveriesForAlert(alertId, params = {}) {
-  const allParams = { ...params, alert: alertId };
-  const query = new URLSearchParams(allParams).toString();
-  return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
-}
-
-// Get deliveries for current user
-async getMyDeliveries(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
-}
-
-// Get failed deliveries (useful for admin debugging)
-async getFailedDeliveries(params = {}) {
-  const allParams = { ...params, status: 'failed' };
-  const query = new URLSearchParams(allParams).toString();
-  return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
-}
-
-// Get deliveries by method (sms, push, email)
-async getDeliveriesByMethod(method, params = {}) {
-  const allParams = { ...params, delivery_method: method };
-  const query = new URLSearchParams(allParams).toString();
-  return this.request(`/alert-deliveries/${query ? `?${query}` : ''}`);
-}
-
-// Bulk mark deliveries as read (useful for clearing notifications)
-async bulkMarkDeliveriesAsRead(deliveryIds) {
-  return this.request('/alert-deliveries/bulk-mark-read/', {
-    method: 'POST',
-    body: { delivery_ids: deliveryIds }
-  });
-}
-
-// Get delivery metrics for dashboard
-async getDeliveryMetrics(timeframe = '24h') {
-  return this.request(`/alert-deliveries/metrics/?timeframe=${timeframe}`);
-}
-
-// -------- Enhanced Alert Methods (based on backend analysis) --------
-
-// Get alert delivery status with enhanced details
-async getAlertDeliveryStatus(alertId) {
-  return this.request(`/alerts/${alertId}/delivery_status/`);
-}
-
-// Resend failed notifications for an alert
-async resendFailedNotifications(alertId, options = {}) {
-  return this.request(`/alerts/${alertId}/resend_notifications/`, { 
-    method: 'POST',
-    body: options 
-  });
-}
-
-// Cancel an active alert
-async cancelAlert(alertId) {
-  return this.request(`/alerts/${alertId}/cancel/`, { method: 'POST' });
-}
-
-// Activate alert with options (async/sync)
-async activateAlert(id, options = { async: true }) {
-  return this.request(`/alerts/${id}/activate/`, { 
-    method: 'POST', 
-    body: options 
-  });
-}
-
-// -------- Utility Methods for Better UX --------
-
-// Get real-time delivery progress for an alert
-async getDeliveryProgress(alertId) {
-  const status = await this.getAlertDeliveryStatus(alertId);
-  const totalTargeted = status.total_target_users || 0;
+  // -------- Alert Deliveries (Updated to use existing endpoints) --------
   
-  if (totalTargeted === 0) {
-    return { progress: 0, status: 'no_targets' };
+  // Use the delivery reports endpoint that exists in your backend
+  async getAlertDeliveries(params = {}) {
+    try {
+      // Use the existing delivery reports endpoint
+      const deliveryReports = await this.request('/notifications/delivery-reports/');
+      
+      // Transform the response to match expected format
+      if (Array.isArray(deliveryReports)) {
+        return {
+          results: deliveryReports,
+          count: deliveryReports.length,
+          next: null,
+          previous: null
+        };
+      }
+      return deliveryReports;
+    } catch (error) {
+      console.warn('Delivery reports endpoint not available, returning empty data');
+      return {
+        results: [],
+        count: 0,
+        next: null,
+        previous: null
+      };
+    }
   }
 
-  let totalProcessed = 0;
-  let totalSuccessful = 0;
-  
-  Object.values(status.stats_by_method || {}).forEach(method => {
-    totalProcessed += method.sent + method.delivered + method.failed;
-    totalSuccessful += method.sent + method.delivered;
-  });
+  // Get delivery statistics from multiple sources
+  async getDeliveryStatistics(params = {}) {
+    try {
+      // Try to get statistics from various alert delivery statuses
+      const alerts = await this.getAlerts({ status: 'active', page_size: 10 });
+      
+      // Aggregate statistics from recent alerts
+      let totalDeliveries = 0;
+      let totalSuccessful = 0;
+      let byMethod = { sms: 0, push: 0, email: 0 };
+      let byStatus = { pending: 0, sent: 0, delivered: 0, failed: 0, read: 0 };
 
-  return {
-    progress: Math.round((totalProcessed / totalTargeted) * 100),
-    successRate: totalProcessed > 0 ? Math.round((totalSuccessful / totalProcessed) * 100) : 0,
-    totalTargeted,
-    totalProcessed,
-    totalSuccessful,
-    status: totalProcessed >= totalTargeted ? 'complete' : 'in_progress'
-  };
-}
+      if (alerts.results) {
+        for (const alert of alerts.results) {
+          try {
+            const deliveryStatus = await this.getAlertDeliveryStatus(alert.id);
+            if (deliveryStatus.stats_by_method) {
+              Object.entries(deliveryStatus.stats_by_method).forEach(([method, stats]) => {
+                totalDeliveries += stats.total || 0;
+                totalSuccessful += (stats.sent || 0) + (stats.delivered || 0);
+                byMethod[method] = (byMethod[method] || 0) + (stats.total || 0);
+                
+                Object.entries(stats).forEach(([status, count]) => {
+                  if (byStatus.hasOwnProperty(status)) {
+                    byStatus[status] += count || 0;
+                  }
+                });
+              });
+            }
+          } catch (error) {
+            // Skip alerts that don't have delivery status
+            console.warn(`Could not get delivery status for alert ${alert.id}`);
+          }
+        }
+      }
 
-// Check if user has unread alert deliveries
-async hasUnreadDeliveries() {
-  try {
-    const deliveries = await this.getMyDeliveries({ 
-      status: 'delivered,sent',
-      page_size: 1 
-    });
-    return deliveries.count > 0;
-  } catch (error) {
-    console.error('Error checking unread deliveries:', error);
-    return false;
+      const successRate = totalDeliveries > 0 ? ((totalSuccessful / totalDeliveries) * 100).toFixed(1) : 0;
+
+      return {
+        total_deliveries: totalDeliveries,
+        success_rate: parseFloat(successRate),
+        by_method: byMethod,
+        by_status: byStatus
+      };
+    } catch (error) {
+      console.warn('Could not calculate delivery statistics, returning defaults');
+      return {
+        total_deliveries: 0,
+        success_rate: 0,
+        by_method: { sms: 0, push: 0, email: 0 },
+        by_status: { pending: 0, sent: 0, delivered: 0, failed: 0, read: 0 }
+      };
+    }
   }
-}
 
-// Get delivery summary for admin dashboard
-async getDeliverySummary(timeframe = '24h') {
-  try {
-    const [statistics, metrics] = await Promise.all([
-      this.getDeliveryStatistics({ 
-        start_date: this.getTimeframeStartDate(timeframe) 
-      }),
-      this.getDeliveryMetrics(timeframe)
-    ]);
-    
+  // These methods are not available in the current backend, so we'll provide fallbacks
+  async getAlertDelivery(id) {
+    throw new ApiError('Alert delivery detail endpoint not implemented', 404);
+  }
+
+  async markDeliveryAsRead(deliveryId) {
+    throw new ApiError('Mark delivery as read endpoint not implemented', 404);
+  }
+
+  async getAlertDeliveriesForAlert(alertId, params = {}) {
+    // Use the alert delivery status endpoint instead
+    try {
+      const status = await this.getAlertDeliveryStatus(alertId);
+      return {
+        results: status.recent_deliveries || [],
+        count: status.total_target_users || 0
+      };
+    } catch (error) {
+      return { results: [], count: 0 };
+    }
+  }
+
+  async getMyDeliveries(params = {}) {
+    // This would need to be implemented in the backend
+    return { results: [], count: 0 };
+  }
+
+  async getFailedDeliveries(params = {}) {
+    try {
+      const deliveries = await this.getAlertDeliveries(params);
+      const failed = deliveries.results.filter(d => d.status === 'failed');
+      return {
+        results: failed,
+        count: failed.length
+      };
+    } catch (error) {
+      return { results: [], count: 0 };
+    }
+  }
+
+  async getDeliveriesByMethod(method, params = {}) {
+    try {
+      const deliveries = await this.getAlertDeliveries(params);
+      const filtered = deliveries.results.filter(d => d.delivery_method === method);
+      return {
+        results: filtered,
+        count: filtered.length
+      };
+    } catch (error) {
+      return { results: [], count: 0 };
+    }
+  }
+
+  async bulkMarkDeliveriesAsRead(deliveryIds) {
+    throw new ApiError('Bulk mark deliveries as read endpoint not implemented', 404);
+  }
+
+  async getDeliveryMetrics(timeframe = '24h') {
+    // Return basic metrics for now
     return {
-      ...statistics,
-      ...metrics,
-      timeframe
+      timeframe,
+      total_sent: 0,
+      total_delivered: 0,
+      total_failed: 0,
+      success_rate: 0
     };
-  } catch (error) {
-    console.error('Error getting delivery summary:', error);
-    throw error;
   }
-}
 
-// Helper method to calculate start date for timeframe
-getTimeframeStartDate(timeframe) {
-  const now = new Date();
-  switch (timeframe) {
-    case '1h':
-      return new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-    case '24h':
-      return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    case '7d':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    case '30d':
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    default:
-      return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  // -------- Utility Methods for Better UX --------
+  async getDeliveryProgress(alertId) {
+    try {
+      const status = await this.getAlertDeliveryStatus(alertId);
+      const totalTargeted = status.total_target_users || 0;
+      
+      if (totalTargeted === 0) {
+        return { progress: 0, status: 'no_targets' };
+      }
+
+      let totalProcessed = 0;
+      let totalSuccessful = 0;
+      
+      Object.values(status.stats_by_method || {}).forEach(method => {
+        totalProcessed += method.sent + method.delivered + method.failed;
+        totalSuccessful += method.sent + method.delivered;
+      });
+
+      return {
+        progress: Math.round((totalProcessed / totalTargeted) * 100),
+        successRate: totalProcessed > 0 ? Math.round((totalSuccessful / totalProcessed) * 100) : 0,
+        totalTargeted,
+        totalProcessed,
+        totalSuccessful,
+        status: totalProcessed >= totalTargeted ? 'complete' : 'in_progress'
+      };
+    } catch (error) {
+      return { progress: 0, status: 'error' };
+    }
   }
-}
 
-// -------- Incidents --------
-async getIncidents(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/incidents/${query ? `?${query}` : ''}`);
+  async hasUnreadDeliveries() {
+    try {
+      const deliveries = await this.getMyDeliveries({ 
+        status: 'delivered,sent',
+        page_size: 1 
+      });
+      return deliveries.count > 0;
+    } catch (error) {
+      console.error('Error checking unread deliveries:', error);
+      return false;
+    }
+  }
+
+  async getDeliverySummary(timeframe = '24h') {
+    try {
+      const [statistics, metrics] = await Promise.all([
+        this.getDeliveryStatistics({ 
+          start_date: this.getTimeframeStartDate(timeframe) 
+        }),
+        this.getDeliveryMetrics(timeframe)
+      ]);
+      
+      return {
+        ...statistics,
+        ...metrics,
+        timeframe
+      };
+    } catch (error) {
+      console.error('Error getting delivery summary:', error);
+      throw error;
+    }
+  }
+
+  getTimeframeStartDate(timeframe) {
+    const now = new Date();
+    switch (timeframe) {
+      case '1h':
+        return new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      case '24h':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      default:
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
+
+  // -------- Incidents --------
+  async getIncidents(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/incidents/${query ? `?${query}` : ''}`);
   }
 
   async getIncident(id) {
@@ -659,6 +719,10 @@ async getIncidents(params = {}) {
     });
   }
 
+  async getDeliveryReports() {
+    return this.request('/notifications/delivery-reports/');
+  }
+
   // -------- System & Monitoring --------
   async getSystemHealth() {
     return this.request('/system/health/');
@@ -757,44 +821,36 @@ async getIncidents(params = {}) {
 
   // -------- Legacy Compatibility (for gradual migration) --------
   async getGeoZones(params = {}) {
-    // Map to new locations endpoint
     return this.getLocations(params);
   }
 
   async getSubscribers(params = {}) {
-    // Map to users with citizen type
     return this.getUsers({ ...params, user_type: 'citizen' });
   }
 
   async getDevices(params = {}) {
-    // Devices are now handled through user device tokens
     console.warn('getDevices is deprecated. Use user notification preferences instead.');
     return { results: [] };
   }
 
   async getCheckins(params = {}) {
-    // Map to alert responses
     return this.getAlertResponses(params);
   }
 
   async getShelters(params = {}) {
-    // Map to emergency contacts
     return this.getEmergencyContacts({ ...params, contact_type: 'shelter' });
   }
 
   async getMessageTemplates(params = {}) {
-    // Map to notification templates
     return this.getNotificationTemplates(params);
   }
 
   async getProviderIntegrations() {
-    // Provider integrations are now handled through system configuration
     console.warn('getProviderIntegrations is deprecated. Use system configuration instead.');
     return { results: [] };
   }
 
   async getAuditLogs(params = {}) {
-    // Audit logs can be implemented later if needed
     console.warn('getAuditLogs is not yet implemented in the new system.');
     return { results: [] };
   }

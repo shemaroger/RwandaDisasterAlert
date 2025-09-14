@@ -31,6 +31,7 @@ import { CreateAlert } from './pages/admin/CreateAlert';
 import { EditAlert } from './pages/admin/EditAlert';
 import IncidentsManagement from './pages/citizen/IncidentsManagement';
 import ReportIncident from './pages/citizen/ReportIncident';
+import AlertDeliveries from './pages/admin/AlertDeliveries';
 
 
 
@@ -333,18 +334,28 @@ function AppRoutes() {
         }
       />
 
-      {/* Alert Delivery Routes - Admin, Authority, Operator */}
       <Route
-        path="/deliveries"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority", "operator"]}>
-            <Layout>
-              <div>Alert Delivery Management Coming Soon</div>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+  path="/admin/deliveries"
+  element={
+    <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+      <Layout>
+        <AlertDeliveries />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
+{/* Also update the legacy deliveries route */}
+<Route
+  path="/deliveries"
+  element={
+    <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+      <Layout>
+        <AlertDeliveries />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
       {/* Analytics Routes - Admin, Authority, Operator */}
       <Route
         path="/analytics"

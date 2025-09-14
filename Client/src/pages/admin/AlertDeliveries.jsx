@@ -503,7 +503,7 @@ export default function AlertDeliveries() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {deliveries.map((delivery) => (
+                {Array.isArray(deliveries) && deliveries.map((delivery) => (
                   <DeliveryRow
                     key={delivery.id}
                     delivery={delivery}
@@ -512,13 +512,23 @@ export default function AlertDeliveries() {
                     onToggleExpand={handleToggleExpand}
                   />
                 ))}
-                {deliveries.length === 0 && !loading && (
+                {(!Array.isArray(deliveries) || deliveries.length === 0) && !loading && (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center">
                       <div className="flex flex-col items-center">
                         <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No deliveries found</h3>
-                        <p className="text-gray-600">Try adjusting your filters or check back later.</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery data available</h3>
+                        <p className="text-gray-600 mb-4">
+                          Alert delivery tracking will be available once the backend endpoints are implemented.
+                        </p>
+                        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                          <p className="font-medium mb-1">What you can do now:</p>
+                          <ul className="text-left">
+                            <li>• Create and activate alerts to generate delivery data</li>
+                            <li>• Check individual alert pages for delivery status</li>
+                            <li>• Wait for delivery tracking endpoints to be implemented</li>
+                          </ul>
+                        </div>
                       </div>
                     </td>
                   </tr>
