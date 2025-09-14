@@ -40,11 +40,6 @@ const formatDate = (dateString) => {
   });
 };
 
-const formatPhoneNumber = (phone) => {
-  if (!phone) return 'Not provided';
-  return phone.replace(/(\+250)(\d{3})(\d{3})(\d{3})/, '$1 $2 $3 $4');
-};
-
 // Custom hooks
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -66,7 +61,7 @@ const useUserManagement = () => {
     user_type: '',
     is_active: '',
     is_verified: '',
-    district: ''
+    location: ''
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -108,9 +103,22 @@ const useUserManagement = () => {
     }
   }, [filters, pagination.pageSize]);
 
+  const createUser = useCallback(async (userData) => {
+    try {
+      await apiService.createUser(userData);
+      toast.success('User created successfully');
+      await fetchUsers(pagination.page);
+      return true;
+    } catch (err) {
+      toast.error(`Failed to create user: ${err.message}`);
+      return false;
+    }
+  }, [fetchUsers, pagination.page]);
+
   const updateUser = useCallback(async (userId, updates) => {
     try {
       await apiService.updateUser(userId, updates);
+      toast.success('User updated successfully');
       await fetchUsers(pagination.page);
       return true;
     } catch (err) {
@@ -131,6 +139,16 @@ const useUserManagement = () => {
     }
   }, [fetchUsers, pagination.page]);
 
+  const getUserById = useCallback(async (userId) => {
+    try {
+      const user = await apiService.getUser(userId);
+      return user;
+    } catch (err) {
+      toast.error(`Failed to fetch user: ${err.message}`);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -144,8 +162,10 @@ const useUserManagement = () => {
     pagination,
     setPagination,
     fetchUsers,
+    createUser,
     updateUser,
-    deleteUser
+    deleteUser,
+    getUserById
   };
 };
 
@@ -269,7 +289,7 @@ const UserCard = ({ user, onEdit, onView, onDelete, onToggleStatus, onVerify }) 
         <div className="flex items-center space-x-4 text-sm text-gray-500">
           <div className="flex items-center space-x-1">
             <MapPin className="w-4 h-4" />
-            <span>{user.district || 'No district'}</span>
+            <span>{user.location || 'No location'}</span>
           </div>
           <div className="flex items-center space-x-1">
             <Calendar className="w-4 h-4" />
@@ -387,13 +407,13 @@ const FilterPanel = ({ filters, onFilterChange, onClearFilters, showFilters, onT
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
               <select
-                value={filters.district}
-                onChange={(e) => onFilterChange('district', e.target.value)}
+                value={filters.location}
+                onChange={(e) => onFilterChange('location', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50"
               >
-                <option value="">All Districts</option>
+                <option value="">All Locations</option>
                 {RWANDA_DISTRICTS.map(district => (
                   <option key={district} value={district}>{district}</option>
                 ))}
@@ -406,7 +426,7 @@ const FilterPanel = ({ filters, onFilterChange, onClearFilters, showFilters, onT
   );
 };
 
-const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
+const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -416,7 +436,7 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
     last_name: '',
     phone_number: '',
     user_type: 'citizen',
-    district: '',
+    location: '',
     preferred_language: 'rw',
     is_active: true,
     is_verified: false
@@ -424,27 +444,87 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Initialize form data when user is provided (edit mode)
+  useEffect(() => {
+    if (user && mode === 'edit') {
+      setFormData({
+        username: user.username || '',
+        email: user.email || '',
+        password: '',
+        password_confirm: '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone_number: user.phone_number || '',
+        user_type: user.user_type || 'citizen',
+        location: user.location || '',
+        preferred_language: user.preferred_language || 'rw',
+        is_active: user.is_active !== undefined ? user.is_active : true,
+        is_verified: user.is_verified !== undefined ? user.is_verified : false
+      });
+    } else if (mode === 'create') {
+      setFormData({
+        username: '',
+        email: '',
+        password: '',
+        password_confirm: '',
+        first_name: '',
+        last_name: '',
+        phone_number: '',
+        user_type: 'citizen',
+        location: '',
+        preferred_language: 'rw',
+        is_active: true,
+        is_verified: false
+      });
+    }
+  }, [user, mode]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (formData.password !== formData.password_confirm) {
+    // Password validation for create mode or when password is provided
+    if ((mode === 'create' || formData.password) && formData.password !== formData.password_confirm) {
       setErrors({ password_confirm: 'Passwords do not match' });
       return;
     }
 
     try {
       setLoading(true);
-      await apiService.createUser(formData);
-      toast.success('User created successfully');
+      const submitData = { ...formData };
+      
+      // Remove password confirmation from submission
+      delete submitData.password_confirm;
+      
+      // For edit mode, only include password if it's provided
+      if (mode === 'edit' && !formData.password) {
+        delete submitData.password;
+      }
+
+      if (mode === 'edit') {
+        await apiService.updateUser(user.id, submitData);
+        toast.success('User updated successfully');
+      } else {
+        await apiService.createUser(submitData);
+        toast.success('User created successfully');
+      }
+      
       onSuccess();
       onClose();
-      setFormData({
-        username: '', email: '', password: '', password_confirm: '',
-        first_name: '', last_name: '', phone_number: '', user_type: 'citizen',
-        district: '', preferred_language: 'rw', is_active: true, is_verified: false
-      });
+      
+      // Reset form for create mode
+      if (mode === 'create') {
+        setFormData({
+          username: '', email: '', password: '', password_confirm: '',
+          first_name: '', last_name: '', phone_number: '', user_type: 'citizen',
+          location: '', preferred_language: 'rw', is_active: true, is_verified: false
+        });
+      }
     } catch (err) {
-      toast.error(`Failed to create user: ${err.message}`);
+      const action = mode === 'edit' ? 'update' : 'create';
+      toast.error(`Failed to ${action} user: ${err.message}`);
+      if (err.response?.data) {
+        setErrors(err.response.data);
+      }
     } finally {
       setLoading(false);
     }
@@ -463,12 +543,15 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
+  const title = mode === 'edit' ? 'Edit User' : 'Create New User';
+  const submitText = mode === 'edit' ? 'Update User' : 'Create User';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Create New User</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
@@ -487,9 +570,14 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  errors.username ? 'border-red-300' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.username && (
+                <p className="text-red-600 text-sm mt-1">{errors.username}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
@@ -498,9 +586,14 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  errors.email ? 'border-red-300' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.email && (
+                <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
@@ -525,14 +618,16 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password {mode === 'edit' && <span className="text-gray-500">(leave blank to keep current)</span>}
+              </label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                required
+                required={mode === 'create'}
               />
             </div>
             <div>
@@ -545,7 +640,7 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
                   errors.password_confirm ? 'border-red-300' : 'border-gray-300'
                 }`}
-                required
+                required={mode === 'create' || formData.password}
               />
               {errors.password_confirm && (
                 <p className="text-red-600 text-sm mt-1">{errors.password_confirm}</p>
@@ -576,14 +671,14 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
               <select
-                name="district"
-                value={formData.district}
+                name="location"
+                value={formData.location}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
-                <option value="">Select District</option>
+                <option value="">Select Location</option>
                 {RWANDA_DISTRICTS.map(district => (
                   <option key={district} value={district}>{district}</option>
                 ))}
@@ -643,17 +738,188 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating...
+                  {mode === 'edit' ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Create User
+                  {submitText}
                 </>
               )}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+const UserViewModal = ({ isOpen, onClose, user }) => {
+  if (!isOpen || !user) return null;
+
+  const userTypeConfig = getUserTypeConfig(user.user_type);
+  const IconComponent = userTypeConfig.icon;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="flex items-center space-x-4 mb-6">
+            <div className={`p-4 rounded-xl ${userTypeConfig.color} border`}>
+              <IconComponent className="w-8 h-8" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {user.first_name} {user.last_name}
+                </h3>
+                {user.is_verified && (
+                  <div className="bg-green-100 p-1 rounded-full">
+                    <Check className="w-4 h-4 text-green-600" />
+                  </div>
+                )}
+              </div>
+              <p className="text-lg text-gray-600">@{user.username}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                <div className="flex items-center space-x-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{user.email}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Phone Number</label>
+                <div className="flex items-center space-x-2">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{user.phone_number || 'Not provided'}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Location</label>
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{user.location || 'Not specified'}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Preferred Language</label>
+                <div className="flex items-center space-x-2">
+                  <Globe className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">
+                    {user.preferred_language === 'rw' ? 'Kinyarwanda' : 
+                     user.preferred_language === 'fr' ? 'Français' : 'English'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">User Type</label>
+                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${userTypeConfig.color}`}>
+                  {userTypeConfig.label}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                    user.is_active 
+                      ? 'bg-green-50 text-green-700 border border-green-200' 
+                      : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {user.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                    user.is_verified 
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                      : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                  }`}>
+                    {user.is_verified ? 'Verified' : 'Pending Verification'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Created</label>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{formatDate(user.created_at)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Last Updated</label>
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-900">{formatDate(user.updated_at)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h4 className="text-sm font-medium text-gray-500 mb-3">Notification Preferences</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center space-x-2">
+                <Bell className={`w-4 h-4 ${user.push_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
+                <span className="text-sm text-gray-700">Push Notifications</span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  user.push_notifications_enabled 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {user.push_notifications_enabled ? 'On' : 'Off'}
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Mail className={`w-4 h-4 ${user.email_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
+                <span className="text-sm text-gray-700">Email Notifications</span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  user.email_notifications_enabled 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {user.email_notifications_enabled ? 'On' : 'Off'}
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Phone className={`w-4 h-4 ${user.sms_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
+                <span className="text-sm text-gray-700">SMS Notifications</span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  user.sms_notifications_enabled 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {user.sms_notifications_enabled ? 'On' : 'Off'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -670,13 +936,18 @@ const UserManagement = ({ user, onLogout }) => {
     pagination,
     setPagination,
     fetchUsers,
+    createUser,
     updateUser,
-    deleteUser
+    deleteUser,
+    getUserById
   } = useUserManagement();
 
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
   const debouncedSearch = useDebounce(filters.search, 300);
 
   // Update search filter when debounced value changes
@@ -713,7 +984,7 @@ const UserManagement = ({ user, onLogout }) => {
       user_type: '',
       is_active: '',
       is_verified: '',
-      district: ''
+      location: ''
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   }, [setFilters, setPagination]);
@@ -730,6 +1001,23 @@ const UserManagement = ({ user, onLogout }) => {
         return false;
     }
   }, [updateUser, deleteUser]);
+
+  const handleViewUser = useCallback(async (userData) => {
+    setSelectedUser(userData);
+    setShowViewModal(true);
+  }, []);
+
+  const handleEditUser = useCallback(async (userData) => {
+    setSelectedUser(userData);
+    setShowEditModal(true);
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setSelectedUser(null);
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setShowViewModal(false);
+  }, []);
 
   // Auth check
   if (!user) {
@@ -910,12 +1198,12 @@ const UserManagement = ({ user, onLogout }) => {
             <div className="p-6">
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {users.map(user => (
+                  {users.map(userData => (
                     <UserCard
-                      key={user.id}
-                      user={user}
-                      onEdit={(user) => console.log('Edit user:', user)}
-                      onView={(user) => console.log('View user:', user)}
+                      key={userData.id}
+                      user={userData}
+                      onEdit={handleEditUser}
+                      onView={handleViewUser}
                       onDelete={(userId) => handleUserAction(userId, 'delete')}
                       onToggleStatus={(userId, isActive) => handleUserAction(userId, 'toggle_status', { isActive })}
                       onVerify={(userId) => handleUserAction(userId, 'verify')}
@@ -934,7 +1222,7 @@ const UserManagement = ({ user, onLogout }) => {
                           Type
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          District
+                          Location
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
@@ -948,12 +1236,12 @@ const UserManagement = ({ user, onLogout }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {users.map(user => {
-                        const userTypeConfig = getUserTypeConfig(user.user_type);
+                      {users.map(userData => {
+                        const userTypeConfig = getUserTypeConfig(userData.user_type);
                         const IconComponent = userTypeConfig.icon;
                         
                         return (
-                          <tr key={user.id} className="hover:bg-gray-50">
+                          <tr key={userData.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className={`p-2 rounded-lg ${userTypeConfig.color} border mr-3`}>
@@ -961,10 +1249,10 @@ const UserManagement = ({ user, onLogout }) => {
                                 </div>
                                 <div>
                                   <div className="text-sm font-medium text-gray-900">
-                                    {user.first_name} {user.last_name}
+                                    {userData.first_name} {userData.last_name}
                                   </div>
-                                  <div className="text-sm text-gray-500">@{user.username}</div>
-                                  <div className="text-sm text-gray-500">{user.email}</div>
+                                  <div className="text-sm text-gray-500">@{userData.username}</div>
+                                  <div className="text-sm text-gray-500">{userData.email}</div>
                                 </div>
                               </div>
                             </td>
@@ -974,18 +1262,18 @@ const UserManagement = ({ user, onLogout }) => {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.district || 'Not specified'}
+                              {userData.location || 'Not specified'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                  user.is_active 
+                                  userData.is_active 
                                     ? 'bg-green-50 text-green-700 border border-green-200' 
                                     : 'bg-red-50 text-red-700 border border-red-200'
                                 }`}>
-                                  {user.is_active ? 'Active' : 'Inactive'}
+                                  {userData.is_active ? 'Active' : 'Inactive'}
                                 </span>
-                                {user.is_verified && (
+                                {userData.is_verified && (
                                   <div className="bg-green-100 p-1 rounded-full">
                                     <Check className="w-3 h-3 text-green-600" />
                                   </div>
@@ -993,18 +1281,18 @@ const UserManagement = ({ user, onLogout }) => {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(user.created_at)}
+                              {formatDate(userData.created_at)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex items-center justify-end space-x-2">
                                 <button
-                                  onClick={() => console.log('View user:', user)}
+                                  onClick={() => handleViewUser(userData)}
                                   className="text-blue-600 hover:text-blue-900"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => console.log('Edit user:', user)}
+                                  onClick={() => handleEditUser(userData)}
                                   className="text-green-600 hover:text-green-900"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -1012,7 +1300,7 @@ const UserManagement = ({ user, onLogout }) => {
                                 <button
                                   onClick={() => {
                                     if (window.confirm('Are you sure you want to delete this user?')) {
-                                      handleUserAction(user.id, 'delete');
+                                      handleUserAction(userData.id, 'delete');
                                     }
                                   }}
                                   className="text-red-600 hover:text-red-900"
@@ -1090,11 +1378,26 @@ const UserManagement = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {/* Create User Modal */}
-      <CreateUserModal
+      {/* Modals */}
+      <UserModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={() => fetchUsers(pagination.page)}
+        onClose={handleModalClose}
+        onSuccess={fetchUsers}
+        mode="create"
+      />
+
+      <UserModal
+        isOpen={showEditModal}
+        onClose={handleModalClose}
+        onSuccess={fetchUsers}
+        user={selectedUser}
+        mode="edit"
+      />
+
+      <UserViewModal
+        isOpen={showViewModal}
+        onClose={handleModalClose}
+        user={selectedUser}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-// src/pages/alerts/EditAlert.jsx - Enhanced version
+// src/pages/alerts/EditAlert.jsx - Enhanced version with fixes
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import apiService from '../../services/api';
 import MapModal from '../../components/MapModal'; // Import the modal
 
-// Enhanced Location Selector Component
+// Enhanced Location Selector Component - Fixed
 const LocationSelector = ({ 
   centerLat, 
   centerLng, 
@@ -22,6 +22,11 @@ const LocationSelector = ({
   const handleClearLocation = () => {
     onLocationChange(null, null);
   };
+
+  // Convert to numbers and validate
+  const lat = parseFloat(centerLat);
+  const lng = parseFloat(centerLng);
+  const hasValidLocation = !isNaN(lat) && !isNaN(lng);
 
   return (
     <div className="space-y-4">
@@ -37,10 +42,10 @@ const LocationSelector = ({
             </div>
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">
-                {centerLat && centerLng ? 'Update Target Location' : 'Set Target Location'}
+                {hasValidLocation ? 'Update Target Location' : 'Set Target Location'}
               </h3>
               <p className="text-sm text-gray-600">
-                {centerLat && centerLng ? 
+                {hasValidLocation ? 
                   'Click to modify your alert target area' : 
                   'Click to open interactive map and select target area'
                 }
@@ -50,7 +55,7 @@ const LocationSelector = ({
         </button>
       </div>
 
-      {centerLat && centerLng && (
+      {hasValidLocation && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -71,7 +76,7 @@ const LocationSelector = ({
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-green-700 font-medium">Coordinates:</span>
-              <p className="font-mono text-green-800">{centerLat.toFixed(6)}, {centerLng.toFixed(6)}</p>
+              <p className="font-mono text-green-800">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
             </div>
             <div>
               <span className="text-green-700 font-medium">Coverage:</span>
@@ -83,7 +88,7 @@ const LocationSelector = ({
         </div>
       )}
 
-      {centerLat && centerLng && (
+      {hasValidLocation && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Quick Radius Adjustment

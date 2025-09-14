@@ -29,7 +29,7 @@ class User(AbstractUser):
     )
     location_lat = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     location_lng = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
-    district = models.ForeignKey('Location', on_delete=models.SET_NULL, blank=True, null=True)
+    district = models.CharField(max_length=100, blank=True, null=True)  # Changed to CharField
     push_notifications_enabled = models.BooleanField(default=True)
     sms_notifications_enabled = models.BooleanField(default=True)
     email_notifications_enabled = models.BooleanField(default=True)

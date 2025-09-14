@@ -1,4 +1,4 @@
-// src/pages/alerts/AlertsManagement.jsx - Enhanced version
+// src/pages/alerts/AlertsManagement.jsx - Fixed version
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,6 +32,18 @@ const formatDateTime = (iso) => {
 };
 
 const formatBool = (b) => (b ? 'Yes' : 'No');
+
+const formatCoordinate = (coord) => {
+  if (!coord) return '';
+  const num = parseFloat(coord);
+  return isNaN(num) ? coord : num.toFixed(3);
+};
+
+const parseNumber = (value) => {
+  if (typeof value === 'number') return value;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
 
 const useDebounce = (value, delay = 400) => {
   const [v, setV] = useState(value);
@@ -237,13 +249,13 @@ function ViewAlertModal({ open, onClose, alert, onResendNotifications, onCancelA
             <div className="rounded-xl border p-4">
               <div className="font-medium mb-2 flex items-center"><MapPin className="w-4 h-4 mr-2" /> Target</div>
               <div className="text-sm grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div>Lat: <span className="font-medium">{alert.center_lat ?? '—'}</span></div>
-                <div>Lng: <span className="font-medium">{alert.center_lng ?? '—'}</span></div>
+                <div>Lat: <span className="font-medium">{formatCoordinate(alert.center_lat) || '—'}</span></div>
+                <div>Lng: <span className="font-medium">{formatCoordinate(alert.center_lng) || '—'}</span></div>
                 <div>Radius: <span className="font-medium">{alert.radius_km ?? '—'} km</span></div>
               </div>
               {alert.center_lat && alert.center_lng && alert.radius_km && (
                 <div className="text-xs text-gray-500 mt-2">
-                  Coverage area: ~{(Math.PI * alert.radius_km * alert.radius_km).toFixed(1)} km²
+                  Coverage area: ~{(Math.PI * parseNumber(alert.radius_km) * parseNumber(alert.radius_km)).toFixed(1)} km²
                 </div>
               )}
             </div>
@@ -620,129 +632,134 @@ export default function AlertsManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {alerts.map((alert) => (
-                    <tr key={alert.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="max-w-xs">
-                          <div className="font-medium text-gray-900 truncate">{alert.title}</div>
-                          <div className="text-sm text-gray-500 truncate mt-1">{alert.message}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">{alert.disaster_type_name}</div>
-                          <div className={`text-xs capitalize px-2 py-1 rounded-full mt-1 inline-block font-medium
-                            ${alert.severity === 'extreme' ? 'bg-red-100 text-red-800' :
-                              alert.severity === 'severe' ? 'bg-orange-100 text-orange-800' :
-                              alert.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
-                              alert.severity === 'minor' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'}`}>
-                            {alert.severity}
+                  {alerts.map((alert) => {
+                    const centerLat = parseNumber(alert.center_lat);
+                    const centerLng = parseNumber(alert.center_lng);
+                    
+                    return (
+                      <tr key={alert.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="max-w-xs">
+                            <div className="font-medium text-gray-900 truncate">{alert.title}</div>
+                            <div className="text-sm text-gray-500 truncate mt-1">{alert.message}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-2">
-                          <div className={`text-xs capitalize px-2 py-1 rounded-full inline-block font-medium
-                            ${alert.status === 'active' ? 'bg-green-100 text-green-800' :
-                              alert.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                              alert.status === 'expired' ? 'bg-red-100 text-red-800' :
-                              alert.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'}`}>
-                            {alert.status}
-                          </div>
-                          {/* Delivery channel indicators */}
-                          <div className="flex items-center gap-1">
-                            {alert.send_sms && <Bell className="w-3 h-3 text-blue-600" title="SMS" />}
-                            {alert.send_push && <Radio className="w-3 h-3 text-green-600" title="Push" />}
-                            {alert.send_email && <Radio className="w-3 h-3 text-purple-600" title="Email" />}
-                            {alert.publish_web && <Radio className="w-3 h-3 text-orange-600" title="Web" />}
-                          </div>
-                          {/* Delivery stats if available */}
-                          {alert.delivery_stats && alert.delivery_stats.total > 0 && (
-                            <div className="text-xs text-gray-500">
-                              {alert.delivery_stats.delivery_rate}% delivery rate
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {alert.center_lat && alert.center_lng ? (
+                        </td>
+                        <td className="px-6 py-4">
                           <div className="text-sm">
-                            <div className="flex items-center text-gray-600">
-                              <MapPin className="w-3 h-3 mr-1" />
-                              <span>{alert.center_lat.toFixed(3)}, {alert.center_lng.toFixed(3)}</span>
+                            <div className="font-medium text-gray-900">{alert.disaster_type_name}</div>
+                            <div className={`text-xs capitalize px-2 py-1 rounded-full mt-1 inline-block font-medium
+                              ${alert.severity === 'extreme' ? 'bg-red-100 text-red-800' :
+                                alert.severity === 'severe' ? 'bg-orange-100 text-orange-800' :
+                                alert.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                alert.severity === 'minor' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'}`}>
+                              {alert.severity}
                             </div>
-                            {alert.radius_km && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {alert.radius_km}km radius
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            <div className={`text-xs capitalize px-2 py-1 rounded-full inline-block font-medium
+                              ${alert.status === 'active' ? 'bg-green-100 text-green-800' :
+                                alert.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                                alert.status === 'expired' ? 'bg-red-100 text-red-800' :
+                                alert.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'}`}>
+                              {alert.status}
+                            </div>
+                            {/* Delivery channel indicators */}
+                            <div className="flex items-center gap-1">
+                              {alert.send_sms && <Bell className="w-3 h-3 text-blue-600" title="SMS" />}
+                              {alert.send_push && <Radio className="w-3 h-3 text-green-600" title="Push" />}
+                              {alert.send_email && <Radio className="w-3 h-3 text-purple-600" title="Email" />}
+                              {alert.publish_web && <Radio className="w-3 h-3 text-orange-600" title="Web" />}
+                            </div>
+                            {/* Delivery stats if available */}
+                            {alert.delivery_stats && alert.delivery_stats.total > 0 && (
+                              <div className="text-xs text-gray-500">
+                                {alert.delivery_stats.delivery_rate}% delivery rate
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">No targeting</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatDateTime(alert.issued_at)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button 
-                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
-                            title="View Details" 
-                            onClick={() => openViewModal(alert)}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button 
-                            className="p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
-                            title="Edit Alert" 
-                            onClick={() => goToEditAlert(alert.id)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {alert.status === 'draft' && (
+                        </td>
+                        <td className="px-6 py-4">
+                          {centerLat && centerLng ? (
+                            <div className="text-sm">
+                              <div className="flex items-center text-gray-600">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                <span>{formatCoordinate(centerLat)}, {formatCoordinate(centerLng)}</span>
+                              </div>
+                              {alert.radius_km && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {alert.radius_km}km radius
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">No targeting</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {formatDateTime(alert.issued_at)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-1">
                             <button 
-                              className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-colors"
-                              title="Activate Alert" 
+                              className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                              title="View Details" 
+                              onClick={() => openViewModal(alert)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button 
+                              className="p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                              title="Edit Alert" 
+                              onClick={() => goToEditAlert(alert.id)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            {alert.status === 'draft' && (
+                              <button 
+                                className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-colors"
+                                title="Activate Alert" 
+                                onClick={() => {
+                                  if (window.confirm('Activate this alert? This will send notifications to targeted users.')) {
+                                    activateAlert(alert.id);
+                                  }
+                                }}
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {alert.status === 'active' && (
+                              <button 
+                                className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 transition-colors"
+                                title="Resend Failed Notifications" 
+                                onClick={() => {
+                                  if (window.confirm('Resend failed notifications for this alert?')) {
+                                    resendFailedNotifications(alert.id);
+                                  }
+                                }}
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button 
+                              className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                              title="Delete Alert"
                               onClick={() => {
-                                if (window.confirm('Activate this alert? This will send notifications to targeted users.')) {
-                                  activateAlert(alert.id);
+                                if (window.confirm(`Delete alert "${alert.title}"? This action cannot be undone.`)) {
+                                  deleteAlert(alert.id);
                                 }
                               }}
                             >
-                              <CheckCircle2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                          )}
-                          {alert.status === 'active' && (
-                            <button 
-                              className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 transition-colors"
-                              title="Resend Failed Notifications" 
-                              onClick={() => {
-                                if (window.confirm('Resend failed notifications for this alert?')) {
-                                  resendFailedNotifications(alert.id);
-                                }
-                              }}
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button 
-                            className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
-                            title="Delete Alert"
-                            onClick={() => {
-                              if (window.confirm(`Delete alert "${alert.title}"? This action cannot be undone.`)) {
-                                deleteAlert(alert.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
