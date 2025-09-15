@@ -98,6 +98,8 @@ const DeliveryRow = ({ delivery, onMarkAsRead, expandedRow, onToggleExpand }) =>
     setMarking(true);
     try {
       await onMarkAsRead(delivery.id);
+    } catch (error) {
+      console.error('Error marking as read:', error);
     } finally {
       setMarking(false);
     }
@@ -134,14 +136,14 @@ const DeliveryRow = ({ delivery, onMarkAsRead, expandedRow, onToggleExpand }) =>
                 {delivery.delivery_method.toUpperCase()}
               </div>
               <div className="text-xs text-gray-500">
-                {delivery.user_name || delivery.user?.username || 'Unknown User'}
+                {delivery.user_name || 'Unknown User'}
               </div>
             </div>
           </div>
         </td>
         <td className="px-6 py-4">
           <div className="text-sm text-gray-900 max-w-xs truncate">
-            {delivery.alert?.title || `Alert ID: ${delivery.alert}`}
+            {delivery.alert_title || `Alert ID: ${delivery.alert}`}
           </div>
         </td>
         <td className="px-6 py-4">
@@ -179,7 +181,6 @@ const DeliveryRow = ({ delivery, onMarkAsRead, expandedRow, onToggleExpand }) =>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">User Details</h4>
                   <div className="text-sm text-gray-600 space-y-1">
                     <div>Name: {delivery.user_name || 'N/A'}</div>
-                    <div>Username: {delivery.user?.username || 'N/A'}</div>
                     <div>User ID: {delivery.user || 'N/A'}</div>
                   </div>
                 </div>
@@ -196,6 +197,10 @@ const DeliveryRow = ({ delivery, onMarkAsRead, expandedRow, onToggleExpand }) =>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Alert Info</h4>
                   <div className="text-sm text-gray-600 space-y-1">
                     <div>Alert ID: {delivery.alert}</div>
+                    <div>Title: {delivery.alert_title || 'N/A'}</div>
+                    {delivery.alert_severity && (
+                      <div>Severity: <span className="font-medium capitalize">{delivery.alert_severity}</span></div>
+                    )}
                     {delivery.error_message && (
                       <div className="text-red-600">
                         Error: {delivery.error_message}
@@ -220,6 +225,12 @@ export default function AlertDeliveries() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0
+  });
   
   const [filters, setFilters] = useState({
     search: '',
@@ -233,21 +244,47 @@ export default function AlertDeliveries() {
   const loadData = useCallback(async () => {
     try {
       setError(null);
+      
+      // Prepare filters for API call
+      const apiFilters = { ...filters, page: pagination.page, page_size: pagination.pageSize };
+      
       const [deliveriesData, statsData] = await Promise.all([
-        apiService.getAlertDeliveries(filters),
+        apiService.getAlertDeliveries(apiFilters),
         apiService.getDeliveryStatistics()
       ]);
       
-      setDeliveries(deliveriesData.results || deliveriesData || []);
+      // Handle the response structure from your ViewSet
+      if (deliveriesData.results) {
+        setDeliveries(deliveriesData.results);
+        setPagination(prev => ({
+          ...prev,
+          total: deliveriesData.count || 0,
+          totalPages: Math.ceil((deliveriesData.count || 0) / pagination.pageSize)
+        }));
+      } else if (Array.isArray(deliveriesData)) {
+        // Fallback for direct array response
+        setDeliveries(deliveriesData);
+      } else {
+        setDeliveries([]);
+      }
+      
       setStatistics(statsData);
     } catch (error) {
       console.error('Error loading deliveries:', error);
       setError(error.message || 'Failed to load delivery data');
+      // Set empty state on error
+      setDeliveries([]);
+      setStatistics({
+        total_deliveries: 0,
+        success_rate: 0,
+        by_method: { sms: 0, push: 0, email: 0 },
+        by_status: { pending: 0, sent: 0, delivered: 0, failed: 0, read: 0 }
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters]);
+  }, [filters, pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     loadData();
@@ -275,6 +312,12 @@ export default function AlertDeliveries() {
 
   const handleFilterChange = (name, value) => {
     setFilters(prev => ({ ...prev, [name]: value }));
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
   };
 
   const handleToggleExpand = (deliveryId) => {
@@ -283,10 +326,15 @@ export default function AlertDeliveries() {
 
   const handleExport = async () => {
     try {
-      // Implementation depends on your backend export endpoint
-      console.log('Export functionality - implement based on your backend');
+      // Create a CSV export URL with current filters
+      const params = new URLSearchParams(filters);
+      const exportUrl = `/api/alert-deliveries/export/?${params.toString()}`;
+      
+      // Open export URL in new window
+      window.open(exportUrl, '_blank');
     } catch (error) {
       console.error('Export failed:', error);
+      setError('Export failed');
     }
   };
 
@@ -320,7 +368,7 @@ export default function AlertDeliveries() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
@@ -470,9 +518,32 @@ export default function AlertDeliveries() {
         {/* Deliveries Table */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Delivery Records ({deliveries.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Delivery Records ({pagination.total})
+              </h3>
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.totalPages}
+                    className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -516,19 +587,24 @@ export default function AlertDeliveries() {
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center">
                       <div className="flex flex-col items-center">
-                        <AlertTriangle className="w-12 h-12 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery data available</h3>
+                        <Activity className="w-12 h-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery records found</h3>
                         <p className="text-gray-600 mb-4">
-                          Alert delivery tracking will be available once the backend endpoints are implemented.
+                          {Object.values(filters).some(v => v) 
+                            ? 'No deliveries match your current filters. Try adjusting the search criteria.'
+                            : 'Send some alerts to see delivery tracking data here.'
+                          }
                         </p>
-                        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                          <p className="font-medium mb-1">What you can do now:</p>
-                          <ul className="text-left">
-                            <li>• Create and activate alerts to generate delivery data</li>
-                            <li>• Check individual alert pages for delivery status</li>
-                            <li>• Wait for delivery tracking endpoints to be implemented</li>
-                          </ul>
-                        </div>
+                        {Object.values(filters).some(v => v) && (
+                          <button
+                            onClick={() => setFilters({
+                              search: '', delivery_method: '', status: '', alert: '', start_date: '', end_date: ''
+                            })}
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Clear all filters
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
