@@ -215,18 +215,62 @@ class IncidentReportSerializer(serializers.ModelSerializer):
 
 class IncidentReportCreateSerializer(serializers.ModelSerializer):
     """Simplified serializer for citizens to create incident reports"""
+    
     class Meta:
         model = IncidentReport
         fields = [
             'report_type', 'disaster_type', 'title', 'description', 'location',
-            'latitude', 'longitude', 'address', 'images', 'videos', 'casualties',
+            'latitude', 'longitude', 'address', 'casualties',
             'property_damage', 'immediate_needs'
         ]
     
     def create(self, validated_data):
         validated_data['reporter'] = self.context['request'].user
+        
+        # Handle file uploads from FormData
+        request = self.context['request']
+        images = []
+        videos = []
+        
+        # Process uploaded files
+        for key, file in request.FILES.items():
+            if key.startswith('images['):
+                # Save image file and store URL/path
+                # You'll need to implement your file storage logic
+                file_url = self.save_uploaded_file(file, 'images')
+                images.append(file_url)
+            elif key.startswith('videos['):
+                # Save video file and store URL/path
+                file_url = self.save_uploaded_file(file, 'videos')
+                videos.append(file_url)
+        
+        # Store file URLs in JSONField
+        if images:
+            validated_data['images'] = images
+        if videos:
+            validated_data['videos'] = videos
+            
         return super().create(validated_data)
-
+    
+    def save_uploaded_file(self, file, file_type):
+        """
+        Save uploaded file and return URL/path
+        Implement based on your storage backend (local, S3, etc.)
+        """
+        # Example for local storage:
+        import os
+        from django.conf import settings
+        from django.core.files.storage import default_storage
+        
+        # Create filename with timestamp to avoid conflicts
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{file_type}/{timestamp}_{file.name}"
+        
+        # Save file
+        path = default_storage.save(filename, file)
+        
+        # Return URL that can be accessed by frontend
+        return default_storage.url(path)
 
 class EmergencyContactSerializer(serializers.ModelSerializer):
     locations_data = LocationSerializer(source='locations', many=True, read_only=True)
