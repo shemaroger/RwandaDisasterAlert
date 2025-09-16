@@ -624,11 +624,12 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             'reporter', 'disaster_type', 'location', 'assigned_to', 'verified_by'
         )
         
-        # Citizens can only see their own reports
+        # Citizens can only see their 
         if hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'citizen':
             return queryset.filter(reporter=self.request.user)
         
         return queryset
+    
     
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
