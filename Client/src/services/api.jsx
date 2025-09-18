@@ -671,12 +671,33 @@ class ApiService {
       includeAuth: false,
     });
   }
+// Add to your API service
+async createSafetyGuide(guideData) {
+  return this.request('/safety-guides/', { method: 'POST', body: guideData });
+}
 
-  // -------- Notification Templates --------
-  async getNotificationTemplates(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/notification-templates/${query ? `?${query}` : ''}`);
-  }
+async updateSafetyGuide(id, guideData) {
+  return this.request(`/safety-guides/${id}/`, { method: 'PATCH', body: guideData });
+}
+
+async deleteSafetyGuide(id) {
+  return this.request(`/safety-guides/${id}/`, { method: 'DELETE' });
+}
+
+async exportSafetyGuides(format = 'csv', filters = {}) {
+  const params = new URLSearchParams({ ...filters, export_format: format }).toString();
+  const res = await fetch(`${API_BASE_URL}/safety-guides/export/?${params}`, {
+    headers: this.getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  return await res.blob();
+}
+
+// -------- Notification Templates --------
+async getNotificationTemplates(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/notification-templates/${query ? `?${query}` : ''}`);
+}
 
   async getNotificationTemplate(id) {
     return this.request(`/notification-templates/${id}/`);

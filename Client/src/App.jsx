@@ -30,7 +30,17 @@ import AlertsManagement from './pages/admin/AlertsManagement';
 import { CreateAlert } from './pages/admin/CreateAlert';
 import { EditAlert } from './pages/admin/EditAlert';
 import IncidentsManagement from './pages/citizen/IncidentsManagement';
-import ReportIncident from './pages/citizen/ReportIncident';
+import CitizenIncidentReport from './pages/citizen/CitizenIncidentReport';
+import IncidentListPage from './pages/citizen/IncidentListPage';
+import IncidentDetailPage from './pages/citizen/IncidentDetailPage';
+import IncidentEditPage from './pages/citizen/IncidentEditPage';
+import IncidentExportPage from './pages/citizen/IncidentExportPage';
+import SafetyGuideManagement from './pages/admin/SafetyGuideManagement';
+import SafetyGuideManagement from './pages/admin/SafetyGuideManagement';
+import SafetyGuideList from './pages/admin/SafetyGuideList';
+import CreateSafetyGuide from './pages/admin/CreateSafetyGuide';
+import EditSafetyGuide from './pages/admin/EditSafetyGuide';
+import ViewSafetyGuide from './pages/admin/ViewSafetyGuide';
 import AlertDeliveries from './pages/admin/AlertDeliveries';
 
 
@@ -284,17 +294,110 @@ function AppRoutes() {
               }
                 />
 
+     {/* Citizen Incident List - View their own reports */}
       <Route
   path="/incidents/citizen/reports"
   element={
     <ProtectedRoute requiredUserType="citizen">
       <Layout>
-        <ReportIncident />
+        <CitizenIncidentReport />
       </Layout>
     </ProtectedRoute>
   }
 />
 
+      <Route
+        path="/incidents/citizen/my-reports"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <Layout>
+              <IncidentListPage citizenView={true} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Citizen Incident Detail View */}
+      <Route
+        path="/incidents/citizen/:id/view"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <Layout>
+              <IncidentDetailPage citizenView={true} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Citizen Incident Edit - Citizens can edit their own reports if not yet processed */}
+      <Route
+        path="/incidents/citizen/:id/edit"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <Layout>
+              <IncidentEditPage citizenView={true} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin/Operator Incident List - View all incidents */}
+      <Route
+        path="/incidents/admin/list"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
+            <Layout>
+              <IncidentListPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin/Operator Incident Detail View */}
+      <Route
+        path="/incidents/admin/:id/view"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
+            <Layout>
+              <IncidentDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin/Operator Incident Edit */}
+      <Route
+        path="/incidents/admin/:id/edit"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
+            <Layout>
+              <IncidentEditPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Incident Export - Admin/Operator only */}
+      <Route
+        path="/incidents/export"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+            <Layout>
+              <IncidentExportPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Public Incident Reporting - No auth required */}
+      <Route
+        path="/report-incident"
+        element={
+          <Layout>
+            <CitizenIncidentReport />
+          </Layout>
+        }
+      />
       {/* Location Management Routes - Admin and Authority */}
 
 <Route
@@ -328,7 +431,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <div>Safety Guides Coming Soon</div>
+              <SafetyGuideManagement />
             </Layout>
           </ProtectedRoute>
         }

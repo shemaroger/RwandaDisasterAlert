@@ -19,7 +19,7 @@ import {
 // Import your actual API service
 import apiService from '../../services/api';
 
-const IncidentReportPage = () => {
+const CitizenIncidentReport = () => {
   const [formData, setFormData] = useState({
     report_type: '',
     disaster_type: '',
@@ -58,6 +58,15 @@ const IncidentReportPage = () => {
     { value: 'health', label: 'Health Emergency', icon: Phone, color: 'text-pink-500', bg: 'bg-pink-50 border-pink-200' },
     { value: 'security', label: 'Security Incident', icon: AlertTriangle, color: 'text-purple-500', bg: 'bg-purple-50 border-purple-200' },
     { value: 'other', label: 'Other', icon: Clock, color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' }
+  ];
+
+  const PROPERTY_DAMAGE_OPTIONS = [
+    { value: '', label: 'Select damage level' },
+    { value: 'none', label: 'No visible damage' },
+    { value: 'minor', label: 'Minor damage' },
+    { value: 'moderate', label: 'Moderate damage' },
+    { value: 'severe', label: 'Severe damage' },
+    { value: 'total', label: 'Total destruction' }
   ];
 
   useEffect(() => {
@@ -270,8 +279,10 @@ const IncidentReportPage = () => {
     setErrors(prev => ({ ...prev, submit: null }));
     
     try {
+      // Create FormData object to handle file uploads properly
       const submitData = new FormData();
       
+      // Add form fields to FormData
       Object.keys(formData).forEach(key => {
         const value = formData[key];
         if (value !== null && value !== '' && value !== undefined) {
@@ -279,6 +290,7 @@ const IncidentReportPage = () => {
         }
       });
 
+      // Add files with correct naming convention for Django backend
       mediaFiles.images.forEach((file, index) => {
         submitData.append(`images[${index}]`, file);
       });
@@ -288,6 +300,8 @@ const IncidentReportPage = () => {
       });
 
       console.log('Submitting incident report...');
+      
+      // Use the corrected API call that matches your backend
       const result = await apiService.createIncident(submitData);
       
       console.log('Incident created successfully:', result);
@@ -301,23 +315,25 @@ const IncidentReportPage = () => {
       
       let errorMessage = 'Failed to submit incident report. Please try again.';
       
-      if (error.status === 400 && error.data) {
-        if (typeof error.data === 'object') {
+      // Handle different error types based on your API service
+      if (error.response?.status === 400 && error.response?.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'object') {
           const fieldErrors = {};
-          Object.keys(error.data).forEach(field => {
-            const fieldError = Array.isArray(error.data[field]) 
-              ? error.data[field].join(', ') 
-              : error.data[field];
+          Object.keys(errorData).forEach(field => {
+            const fieldError = Array.isArray(errorData[field]) 
+              ? errorData[field].join(', ') 
+              : errorData[field];
             fieldErrors[field] = fieldError;
           });
           setErrors(prev => ({ ...prev, ...fieldErrors }));
           errorMessage = 'Please check the form for validation errors.';
         } else {
-          errorMessage = error.data.message || error.data || errorMessage;
+          errorMessage = errorData.message || errorData || errorMessage;
         }
-      } else if (error.status === 413) {
+      } else if (error.response?.status === 413) {
         errorMessage = 'Files are too large. Please reduce file sizes and try again.';
-      } else if (error.status === 0) {
+      } else if (!error.response) {
         errorMessage = 'Network error. Please check your internet connection and try again.';
       } else if (error.message) {
         errorMessage = error.message;
@@ -366,6 +382,7 @@ const IncidentReportPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Success page after submission
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
@@ -406,15 +423,15 @@ const IncidentReportPage = () => {
             </div>
 
             <div className="pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-4">Need to report on the go?</p>
+              <p className="text-sm text-gray-600 mb-4">Need emergency help?</p>
               <div className="flex justify-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-blue-500" />
-                  <span>Download our mobile app</span>
+                  <Phone className="w-4 h-4 text-red-500" />
+                  <span>Emergency: 912</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-green-500" />
-                  <span>SMS: Text to 111</span>
+                  <Smartphone className="w-4 h-4 text-blue-500" />
+                  <span>SMS: Text to 3030</span>
                 </div>
               </div>
             </div>
@@ -431,41 +448,41 @@ const IncidentReportPage = () => {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Emergency Incident Report</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Report Emergency Incident</h1>
               <p className="text-gray-600">Help emergency services respond quickly with accurate information</p>
             </div>
             <div className="hidden md:flex items-center gap-4 text-sm text-gray-500">
               <div className="flex items-center gap-2">
                 <Monitor className="w-4 h-4" />
-                <span>Web Version</span>
+                <span>Rwanda Emergency Portal</span>
               </div>
               <span className="text-gray-300">|</span>
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                <span>Emergency: 911</span>
+                <Phone className="w-4 h-4 text-red-500" />
+                <span>Emergency: 912</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Form */}
       <div className="py-8">
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             {/* Progress Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-6">
               <div className="flex items-center gap-3 mb-2">
                 <AlertTriangle className="w-7 h-7" />
                 <div>
-                  <h2 className="text-xl font-bold">Report Incident Details</h2>
-                  <p className="text-blue-100">All information helps emergency responders assess and respond appropriately</p>
+                  <h2 className="text-xl font-bold">Emergency Incident Details</h2>
+                  <p className="text-red-100">Provide accurate information to help emergency responders</p>
                 </div>
               </div>
               {dataLoading && (
                 <div className="flex items-center gap-2 mt-3">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-blue-100 text-sm">Loading form data...</span>
+                  <span className="text-red-100 text-sm">Loading form data...</span>
                 </div>
               )}
             </div>
@@ -551,7 +568,7 @@ const IncidentReportPage = () => {
                 {/* Disaster Type */}
                 <div>
                   <label htmlFor="disaster_type" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Specific Disaster/Emergency Type
+                    Specific Emergency/Disaster Type
                   </label>
                   <select
                     id="disaster_type"
@@ -569,14 +586,14 @@ const IncidentReportPage = () => {
                     ))}
                   </select>
                   {disasterTypes.length === 0 && !dataLoading && (
-                    <p className="mt-1 text-xs text-gray-500">Disaster types unavailable - you can still submit</p>
+                    <p className="mt-1 text-xs text-gray-500">Emergency types unavailable - you can still submit</p>
                   )}
                 </div>
 
                 {/* Administrative Location */}
                 <div>
                   <label htmlFor="location" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Administrative Area
+                    District/Province
                   </label>
                   <select
                     id="location"
@@ -610,7 +627,7 @@ const IncidentReportPage = () => {
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  placeholder="Brief, clear title describing what happened (e.g., 'House fire on Main Street')"
+                  placeholder="Brief, clear title describing what happened (e.g., 'House fire on Nyamirambo Street')"
                   maxLength="200"
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     errors.title ? 'border-red-300 bg-red-50' : 'border-gray-300'
@@ -640,7 +657,7 @@ const IncidentReportPage = () => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={5}
-                  placeholder="Provide as much detail as possible:&#10;• What exactly happened?&#10;• When did it occur?&#10;• Current situation?&#10;• Any immediate dangers?"
+                  placeholder="Provide as much detail as possible:&#10;• What exactly happened?&#10;• When did it occur?&#10;• Current situation?&#10;• Any immediate dangers?&#10;• How many people are affected?"
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
@@ -674,7 +691,7 @@ const IncidentReportPage = () => {
                       value={formData.address}
                       onChange={handleInputChange}
                       rows={3}
-                      placeholder="Enter specific address, street names, landmarks, or detailed location description..."
+                      placeholder="Enter specific address, street names, sector, cell, landmarks, or detailed location description..."
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -761,3 +778,240 @@ const IncidentReportPage = () => {
                   {/* Property Damage */}
                   <div className="md:col-span-2">
                     <label htmlFor="property_damage" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Property Damage Assessment
+                    </label>
+                    <select
+                      id="property_damage"
+                      name="property_damage"
+                      value={formData.property_damage}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {PROPERTY_DAMAGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Immediate Needs */}
+                <div>
+                  <label htmlFor="immediate_needs" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Immediate Needs/Resources Required
+                  </label>
+                  <textarea
+                    id="immediate_needs"
+                    name="immediate_needs"
+                    value={formData.immediate_needs}
+                    onChange={handleInputChange}
+                    rows={3}
+                    placeholder="What immediate help is needed? (medical assistance, evacuation, rescue equipment, food, water, shelter, etc.)"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Media Upload */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Visual Evidence</h3>
+                <p className="text-sm text-gray-600">
+                  Photos and videos help emergency responders understand the situation better and respond more effectively.
+                </p>
+
+                {/* Image Upload */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Photos (Max 5 files, 10MB each)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleFileUpload(e, 'images')}
+                      className="hidden"
+                    />
+                    
+                    <div className="text-center">
+                      <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Upload Photos
+                      </button>
+                      <p className="text-sm text-gray-500 mt-2">
+                        JPG, PNG, GIF up to 10MB each
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Display uploaded images */}
+                  {mediaFiles.images.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {mediaFiles.images.map((file, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Upload ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFile('images', index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Image upload errors */}
+                  {(errors.images_size || errors.images_type || errors.images_count) && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {errors.images_size || errors.images_type || errors.images_count}
+                    </div>
+                  )}
+                </div>
+
+                {/* Video Upload */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Videos (Max 5 files, 10MB each)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      multiple
+                      onChange={(e) => handleFileUpload(e, 'videos')}
+                      className="hidden"
+                    />
+                    
+                    <div className="text-center">
+                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <button
+                        type="button"
+                        onClick={() => videoInputRef.current?.click()}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Upload Videos
+                      </button>
+                      <p className="text-sm text-gray-500 mt-2">
+                        MP4, MOV, AVI up to 10MB each
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Display uploaded videos */}
+                  {mediaFiles.videos.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      {mediaFiles.videos.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-100 p-2 rounded">
+                              <Upload className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="text-sm text-gray-600">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile('videos', index)}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Video upload errors */}
+                  {(errors.videos_size || errors.videos_type || errors.videos_count) && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {errors.videos_size || errors.videos_type || errors.videos_count}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Emergency Contact Info */}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-red-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-red-900 mb-2">Emergency Contacts</h4>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm text-red-800">
+                      <div>
+                        <p className="font-medium">Police Emergency: <span className="text-lg">912</span></p>
+                        <p>Medical Emergency: 114</p>
+                      </div>
+                      <div>
+                        <p>Fire Emergency: 113</p>
+                        <p>SMS Emergency: 3030</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-red-600 mt-2">
+                      If this is a life-threatening emergency, please call emergency services immediately before or while submitting this report.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-6 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-red-600 text-white py-4 px-8 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-lg flex items-center justify-center gap-3"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        Submitting Report...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-6 h-6" />
+                        Submit Emergency Report
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={loading}
+                    className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                  >
+                    Clear Form
+                  </button>
+                </div>
+                
+                <p className="text-center text-sm text-gray-600 mt-4">
+                  By submitting this report, you confirm that the information provided is accurate to the best of your knowledge and understand that false emergency reports are illegal.
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CitizenIncidentReport;

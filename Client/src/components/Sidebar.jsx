@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, Bell, Users, Shield, MapPin, FileText, Settings, 
   Radio, Eye, BarChart3, Clock, Globe, MessageSquare, Home,
-  X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart
+  X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart,
+  List, Plus, Download
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -43,8 +44,10 @@ const Sidebar = ({
     const path = location.pathname;
     if (path.includes('/dashboard')) return 'dashboard';
     if (path.includes('/admin/alerts') || path.includes('/alerts')) return 'alerts';
-    if (path.includes('/incidents/citizen/reports')) return 'report-incident';   // NEW
-    if (path.includes('/incidents/my-reports')) return 'my-reports';
+    if (path.includes('/incidents/citizen/reports')) return 'report-incident';
+    if (path.includes('/incidents/citizen/my-reports')) return 'my-reports';
+    if (path.includes('/incidents/admin/list')) return 'admin-incidents';
+    if (path.includes('/incidents/export')) return 'incidents-export';
     if (path.includes('/incidents')) return 'incidents';
     if (path.includes('/locations')) return 'locations';
     if (path.includes('/emergency-contacts')) return 'emergency-contacts';
@@ -78,7 +81,7 @@ const Sidebar = ({
       {
         name: 'Emergency Alerts',
         id: 'alerts',
-        path: '/admin/alerts', // admin hub
+        path: '/admin/alerts',
         icon: AlertTriangle,
         description: 'Create and manage alerts',
         badge: user?.user_type === 'admin' ? 'Admin' : null,
@@ -86,17 +89,49 @@ const Sidebar = ({
       }
     ];
 
-    const incidentNavigation = [
-      // Admin/ops can see management hub
-      {
-        name: 'Incident Reports',
-        id: 'incidents',
-        path: '/incidents',
-        icon: FileText,
-        description: 'Report and manage incidents',
-        userTypes: ['admin', 'authority', 'operator', 'citizen']
+    // Updated incident navigation based on user type
+    const getIncidentNavigation = () => {
+      if (user?.user_type === 'citizen') {
+        return [
+          {
+            name: 'Report Incident',
+            id: 'report-incident',
+            path: '/incidents/citizen/reports',
+            icon: Plus,
+            description: 'Submit a new incident report',
+            userTypes: ['citizen']
+          },
+          {
+            name: 'My Reports',
+            id: 'my-reports',
+            path: '/incidents/citizen/my-reports',
+            icon: List,
+            description: 'View your incident reports',
+            userTypes: ['citizen']
+          }
+        ];
+      } else {
+        // Admin, operator, authority
+        return [
+          {
+            name: 'All Incidents',
+            id: 'admin-incidents',
+            path: '/incidents/admin/list',
+            icon: FileText,
+            description: 'View and manage all incidents',
+            userTypes: ['admin', 'authority', 'operator']
+          },
+          {
+            name: 'Export Incidents',
+            id: 'incidents-export',
+            path: '/incidents/export',
+            icon: Download,
+            description: 'Export incident data',
+            userTypes: ['admin', 'operator']
+          }
+        ];
       }
-    ];
+    };
 
     const emergencyNavigation = [
       {
@@ -135,13 +170,13 @@ const Sidebar = ({
         userTypes: ['admin', 'authority']
       },
       {
-  name: 'Alert Deliveries',
-  id: 'deliveries',
-  path: '/admin/deliveries',
-  icon: Radio,
-  description: 'Monitor notification delivery status',
-  userTypes: ['admin','operator']
-}
+        name: 'Alert Deliveries',
+        id: 'deliveries',
+        path: '/admin/deliveries',
+        icon: Radio,
+        description: 'Monitor notification delivery status',
+        userTypes: ['admin', 'operator']
+      }
     ];
     
     const analyticsNavigation = [
@@ -190,24 +225,8 @@ const Sidebar = ({
       }
     ];
 
-    // Citizen-specific: add Report Incident + My Reports
+    // Citizen-specific additional navigation
     const citizenNavigation = [
-      {
-        name: 'Report Incident',
-        id: 'report-incident',
-        path: '/incidents/citizen/reports',   // NEW link matches your route
-        icon: AlertTriangle,
-        description: 'Submit a new incident',
-        userTypes: ['citizen']
-      },
-      {
-        name: 'My Reports',
-        id: 'my-reports',
-        path: '/incidents/my-reports',
-        icon: FileText,
-        description: 'Your incident reports',
-        userTypes: ['citizen']
-      },
       {
         name: 'My Alert Responses',
         id: 'my-responses',
@@ -228,20 +247,28 @@ const Sidebar = ({
 
     let navigation = [...baseNavigation];
 
+    // Add alerts for admin/authority/operator
     if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
       navigation = [...navigation, ...alertNavigation];
     }
 
-    navigation = [...navigation, ...incidentNavigation, ...emergencyNavigation];
+    // Add incident navigation based on user type
+    navigation = [...navigation, ...getIncidentNavigation()];
 
+    // Add emergency navigation for all users
+    navigation = [...navigation, ...emergencyNavigation];
+
+    // Add management navigation for admin/authority/operator
     if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
       navigation = [...navigation, ...managementNavigation, ...analyticsNavigation];
     }
 
+    // Add admin-only navigation
     if (user?.user_type === 'admin') {
       navigation = [...navigation, ...adminNavigation];
     }
 
+    // Add citizen-specific navigation
     if (user?.user_type === 'citizen') {
       navigation = [...navigation, ...citizenNavigation];
     }
@@ -333,11 +360,11 @@ const Sidebar = ({
               </h3>
               <div className="space-y-2">
                 <a 
-                  href="tel:112" 
+                  href="tel:912" 
                   className="w-full bg-red-600 hover:bg-red-700 text-white text-sm py-2.5 px-3 rounded-md transition-colors flex items-center space-x-2"
                 >
                   <Phone className="h-4 w-4" />
-                  <span className="font-medium">Call 112 - Emergency</span>
+                  <span className="font-medium">Call 912 - Emergency</span>
                 </a>
                 <a 
                   href="tel:+250788000000" 
