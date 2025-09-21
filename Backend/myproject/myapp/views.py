@@ -15,7 +15,7 @@ from .models import *
 from .serializers import *
 import logging
 from .services import AlertDeliveryManager, deliver_alert_async
-
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -1130,25 +1130,278 @@ class EmergencyContactViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'error': 'location_id parameter required'}, 
                        status=status.HTTP_400_BAD_REQUEST)
 
-
-class SafetyGuideViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for safety guides - read-only for citizens"""
-    queryset = SafetyGuide.objects.filter(is_published=True)
+class IsAdminOrAuthority(permissions.BasePermission):
+    """
+    Custom permission to only allow admin, authority, or operator users
+    to perform write operations.
+    """
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'user_type') and
+                request.user.user_type in ['admin', 'authority', 'operator'])
+class SafetyGuideViewSet(viewsets.ModelViewSet):
+    """ViewSet for safety guides with role-based permissions"""
+    queryset = SafetyGuide.objects.all()
     serializer_class = SafetyGuideSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['disaster_types', 'category', 'target_audience', 'is_featured']
+    filterset_fields = ['disaster_types', 'category', 'target_audience', 'is_featured', 'is_published']
     search_fields = ['title', 'title_rw', 'title_fr', 'content']
     ordering = ['display_order', 'title']
-    permission_classes = [permissions.AllowAny]
+    
+    def get_permissions(self):
+        """Set permissions based on action"""
+        if self.action in ['list', 'retrieve', 'featured', 'stats', 'export']:
+            # Read operations - allow everyone
+            permission_classes = [permissions.AllowAny]
+        else:
+            # Write operations - admin/authority only
+            permission_classes = [permissions.IsAuthenticated, IsAdminOrAuthority]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        """Filter queryset based on user permissions"""
+        queryset = SafetyGuide.objects.all()
+        
+        # Apply permission-based filtering
+        if self.request.user.is_authenticated and self.request.user.user_type in ['admin', 'authority', 'operator']:
+            # Admin users see all guides
+            pass
+        else:
+            # Public users only see published guides
+            queryset = queryset.filter(is_published=True)
+        
+        # Handle additional filtering
+        is_published = self.request.GET.get('is_published')
+        if is_published is not None:
+            if is_published.lower() in ['true', '1']:
+                queryset = queryset.filter(is_published=True)
+            elif is_published.lower() in ['false', '0']:
+                queryset = queryset.filter(is_published=False)
+        
+        is_featured = self.request.GET.get('is_featured')
+        if is_featured is not None:
+            if is_featured.lower() in ['true', '1']:
+                queryset = queryset.filter(is_featured=True)
+            elif is_featured.lower() in ['false', '0']:
+                queryset = queryset.filter(is_featured=False)
+        
+        created_by = self.request.GET.get('created_by')
+        if created_by:
+            queryset = queryset.filter(created_by=created_by)
+            
+        return queryset
     
     @action(detail=False, methods=['get'])
     def featured(self, request):
         """Get featured safety guides"""
-        featured = self.queryset.filter(is_featured=True)
+        featured = self.get_queryset().filter(is_featured=True)
+        page = self.paginate_queryset(featured)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
         serializer = self.get_serializer(featured, many=True)
         return Response(serializer.data)
-
-
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get safety guide statistics"""
+        try:
+            # Use the same queryset filtering logic as other actions
+            queryset = self.get_queryset()
+            
+            # Basic counts
+            total = queryset.count()
+            published = queryset.filter(is_published=True).count()
+            featured = queryset.filter(is_featured=True).count()
+            drafts = queryset.filter(is_published=False).count()
+            
+            # Recent guides (last 30 days)
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+            recent = queryset.filter(created_at__gte=thirty_days_ago).count()
+            
+            # Stats by category
+            by_category = dict(
+                queryset.values('category')
+                .annotate(count=Count('category'))
+                .values_list('category', 'count')
+            )
+            
+            # Stats by target audience
+            by_audience = dict(
+                queryset.values('target_audience')
+                .annotate(count=Count('target_audience'))
+                .values_list('target_audience', 'count')
+            )
+            
+            stats_data = {
+                'total': total,
+                'published': published,
+                'featured': featured,
+                'drafts': drafts,
+                'recent': recent,
+                'by_category': by_category,
+                'by_audience': by_audience,
+            }
+            
+            return Response(stats_data)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate stats: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def duplicate(self, request, pk=None):
+        """Duplicate a safety guide"""
+        try:
+            original = self.get_object()
+            
+            # Create a copy with modified title
+            duplicate_data = {
+                'title': f"{original.title} (Copy)",
+                'title_rw': f"{original.title_rw} (Copy)" if original.title_rw else '',
+                'title_fr': f"{original.title_fr} (Copy)" if original.title_fr else '',
+                'content': original.content,
+                'content_rw': original.content_rw or '',
+                'content_fr': original.content_fr or '',
+                'category': original.category,
+                'target_audience': original.target_audience,
+                'featured_image': original.featured_image,
+                'attachments': original.attachments,
+                'is_featured': False,  # New copies shouldn't be featured
+                'is_published': False,  # New copies should be drafts
+                'display_order': (original.display_order or 0) + 1,
+                'created_by': request.user if request.user.is_authenticated else None
+            }
+            
+            # Create the duplicate
+            serializer = self.get_serializer(data=duplicate_data)
+            if serializer.is_valid():
+                duplicate = serializer.save()
+                
+                # Copy disaster types relationship
+                if original.disaster_types.exists():
+                    duplicate.disaster_types.set(original.disaster_types.all())
+                
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to duplicate safety guide: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def bulk_update(self, request):
+        """Bulk update safety guides"""
+        try:
+            guide_ids = request.data.get('guide_ids', [])
+            update_data = request.data.get('update_data', {})
+            
+            if not guide_ids:
+                return Response(
+                    {'error': 'No guide IDs provided'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Filter to only guides the user can modify
+            queryset = self.get_queryset().filter(id__in=guide_ids)
+            
+            # Perform bulk update
+            updated_count = queryset.update(**update_data)
+            
+            return Response({
+                'message': f'Successfully updated {updated_count} safety guides',
+                'updated_count': updated_count,
+                'total_requested': len(guide_ids)
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Bulk update failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """Export safety guides"""
+        try:
+            export_format = request.GET.get('export_format', 'json')
+            queryset = self.get_queryset()
+            
+            if export_format.lower() == 'json':
+                # Export as JSON
+                serializer = self.get_serializer(queryset, many=True)
+                data = {
+                    'export_date': timezone.now().isoformat(),
+                    'total_count': queryset.count(),
+                    'safety_guides': serializer.data
+                }
+                
+                response = HttpResponse(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    content_type='application/json'
+                )
+                response['Content-Disposition'] = f'attachment; filename="safety_guides_{timezone.now().strftime("%Y%m%d_%H%M%S")}.json"'
+                return response
+            
+            elif export_format.lower() == 'csv':
+                # Export as CSV (basic implementation)
+                import csv
+                from io import StringIO
+                
+                output = StringIO()
+                writer = csv.writer(output)
+                
+                # Write headers
+                headers = ['ID', 'Title', 'Category', 'Target Audience', 'Published', 'Featured', 'Created At']
+                writer.writerow(headers)
+                
+                # Write data
+                for guide in queryset:
+                    writer.writerow([
+                        guide.id,
+                        guide.title,
+                        guide.category,
+                        guide.target_audience,
+                        guide.is_published,
+                        guide.is_featured,
+                        guide.created_at.isoformat()
+                    ])
+                
+                response = HttpResponse(output.getvalue(), content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="safety_guides_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+                return response
+            
+            else:
+                return Response(
+                    {'error': 'Unsupported export format. Use "json" or "csv".'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Export failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def perform_create(self, serializer):
+        """Set the created_by field when creating a safety guide"""
+        if self.request.user.is_authenticated:
+            serializer.save(created_by=self.request.user)
+        else:
+            serializer.save()
+    
+    def perform_update(self, serializer):
+        """Set the updated_by field when updating a safety guide"""
+        if self.request.user.is_authenticated:
+            serializer.save(updated_by=self.request.user)
+        else:
+            serializer.save()
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
     """ViewSet for notification templates - admin only"""
     queryset = NotificationTemplate.objects.all()

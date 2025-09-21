@@ -44,7 +44,7 @@ const CreateSafetyGuide = () => {
     category: 'general',
     target_audience: 'general',
     disaster_types: [],
-    featured_image: '',
+    featured_image: null,
     attachments: [],
     is_featured: false,
     is_published: true,
@@ -53,9 +53,11 @@ const CreateSafetyGuide = () => {
   const [formErrors, setFormErrors] = useState({});
   const [disasterTypes, setDisasterTypes] = useState([]);
   
-  // File upload refs
+  // File upload refs and preview states
   const featuredImageRef = useRef(null);
   const attachmentsRef = useRef(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
   
   // Tab state for multilingual content
   const [activeTab, setActiveTab] = useState('en');
@@ -113,11 +115,12 @@ const CreateSafetyGuide = () => {
 
   const handleDisasterTypesChange = (e) => {
     const { value, checked } = e.target;
+    const numericValue = parseInt(value);
     setFormData(prev => ({
       ...prev,
       disaster_types: checked 
-        ? [...prev.disaster_types, value]
-        : prev.disaster_types.filter(id => id !== value)
+        ? [...prev.disaster_types, numericValue]
+        : prev.disaster_types.filter(id => id !== numericValue)
     }));
   };
 
@@ -127,23 +130,22 @@ const CreateSafetyGuide = () => {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      setError('Please select an image file');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image size should be less than 5MB');
+      setError('Image size should be less than 5MB');
       return;
     }
 
-    // For demo purposes, create object URL
-    // In production, you'd upload to your storage service
-    const imageUrl = URL.createObjectURL(file);
+    // Store the actual file and create preview
     setFormData(prev => ({
       ...prev,
-      featured_image: imageUrl
+      featured_image: file
     }));
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleAttachmentsUpload = (e) => {
@@ -155,23 +157,26 @@ const CreateSafetyGuide = () => {
 
     files.forEach(file => {
       if (file.size > maxSize) {
-        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        setError(`File "${file.name}" is too large. Maximum size is 10MB.`);
         return;
       }
       validFiles.push(file);
     });
 
     if (validFiles.length > 0) {
-      // For demo purposes, create object URLs
-      const fileUrls = validFiles.map(file => ({
+      // Store actual files
+      setAttachmentFiles(prev => [...prev, ...validFiles]);
+      
+      // Update form data with file names for display
+      const fileData = validFiles.map(file => ({
         name: file.name,
-        url: URL.createObjectURL(file),
-        type: file.type
+        type: file.type,
+        size: file.size
       }));
       
       setFormData(prev => ({
         ...prev,
-        attachments: [...prev.attachments, ...fileUrls]
+        attachments: [...prev.attachments, ...fileData]
       }));
     }
 
@@ -183,18 +188,21 @@ const CreateSafetyGuide = () => {
       ...prev,
       attachments: prev.attachments.filter((_, i) => i !== index)
     }));
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.title.trim()) {
+    console.log('Validating form data:', formData);
+    
+    if (!formData.title || !formData.title.trim()) {
       errors.title = 'Title is required';
     } else if (formData.title.trim().length < 5) {
       errors.title = 'Title must be at least 5 characters';
     }
     
-    if (!formData.content.trim()) {
+    if (!formData.content || !formData.content.trim()) {
       errors.content = 'Content is required';
     } else if (formData.content.trim().length < 50) {
       errors.content = 'Content must be at least 50 characters';
@@ -204,6 +212,7 @@ const CreateSafetyGuide = () => {
       errors.display_order = 'Display order cannot be negative';
     }
     
+    console.log('Validation errors:', errors);
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -211,7 +220,10 @@ const CreateSafetyGuide = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('Form submitted, validating...');
+    
     if (!validateForm()) {
+      console.log('Validation failed:', formErrors);
       return;
     }
 
@@ -219,23 +231,95 @@ const CreateSafetyGuide = () => {
     setError(null);
     
     try {
-      // Prepare data for submission
-      const submitData = {
-        ...formData,
-        disaster_types: formData.disaster_types,
-        display_order: parseInt(formData.display_order) || 0
-      };
+      console.log('Preparing form data for submission...');
+      
+      // Create FormData for file uploads
+      const submitData = new FormData();
+      
+      // Add text fields
+      submitData.append('title', formData.title.trim());
+      submitData.append('content', formData.content.trim());
+      submitData.append('category', formData.category);
+      submitData.append('target_audience', formData.target_audience);
+      submitData.append('is_featured', formData.is_featured);
+      submitData.append('is_published', formData.is_published);
+      submitData.append('display_order', parseInt(formData.display_order) || 0);
+      
+      // Add optional multilingual fields
+      if (formData.title_rw.trim()) {
+        submitData.append('title_rw', formData.title_rw.trim());
+      }
+      if (formData.title_fr.trim()) {
+        submitData.append('title_fr', formData.title_fr.trim());
+      }
+      if (formData.content_rw.trim()) {
+        submitData.append('content_rw', formData.content_rw.trim());
+      }
+      if (formData.content_fr.trim()) {
+        submitData.append('content_fr', formData.content_fr.trim());
+      }
+      
+      // Add created_by field (temporary fix until backend handles it)
+      submitData.append('created_by', user.id);
+      
+      // Add disaster types
+      formData.disaster_types.forEach(typeId => {
+        submitData.append('disaster_types', typeId);
+      });
+      
+      // Add featured image if present
+      if (formData.featured_image) {
+        // Since your model expects a string URL, you'll need to upload the file first
+        // For now, let's skip file upload and just send the filename
+        submitData.append('featured_image', formData.featured_image.name);
+      }
+      
+      // Add attachments if present - convert to JSON format as expected by model
+      if (attachmentFiles.length > 0) {
+        const attachmentData = attachmentFiles.map(file => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          // In production, you'd upload these files and store URLs
+          url: `uploads/${file.name}` // placeholder URL
+        }));
+        submitData.append('attachments', JSON.stringify(attachmentData));
+      }
 
-      await apiService.createSafetyGuide(submitData);
+      console.log('Sending API request...');
+      
+      // Debug: Log FormData contents
+      for (let [key, value] of submitData.entries()) {
+        console.log(`${key}:`, value);
+      }
+
+      const response = await apiService.createSafetyGuide(submitData);
+      
+      console.log('Safety guide created successfully:', response);
       
       // Redirect to safety guides list with success message
-      navigate('/safety-guides/admin', { 
+      navigate('/safety-guides', { 
         state: { message: 'Safety guide created successfully!' }
       });
       
     } catch (err) {
       console.error('Create safety guide error:', err);
-      setError('Failed to create safety guide. Please try again.');
+      
+      // Handle different types of errors
+      if (err.response?.data) {
+        // API validation errors
+        const apiErrors = err.response.data;
+        if (typeof apiErrors === 'object') {
+          setFormErrors(apiErrors);
+          setError('Please check the form for errors.');
+        } else {
+          setError(apiErrors.message || 'Failed to create safety guide. Please try again.');
+        }
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError('Failed to create safety guide. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -244,10 +328,10 @@ const CreateSafetyGuide = () => {
   const handleCancel = () => {
     if (formData.title || formData.content) {
       if (confirm('Are you sure you want to discard your changes?')) {
-        navigate('/safety-guides/admin');
+        navigate('/safety-guides');
       }
     } else {
-      navigate('/safety-guides/admin');
+      navigate('/safety-guides');
     }
   };
 
@@ -259,7 +343,7 @@ const CreateSafetyGuide = () => {
           <div className="flex items-center justify-between">
             <div>
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-                <Link to="/safety-guides/admin" className="hover:text-gray-700 flex items-center gap-1">
+                <Link to="/safety-guides" className="hover:text-gray-700 flex items-center gap-1">
                   <ArrowLeft className="w-4 h-4" />
                   Safety Guides
                 </Link>
@@ -509,16 +593,19 @@ const CreateSafetyGuide = () => {
                   <span className="text-sm text-gray-500">JPG, PNG up to 5MB</span>
                 </div>
                 
-                {formData.featured_image && (
+                {imagePreview && (
                   <div className="mt-4 relative inline-block">
                     <img
-                      src={formData.featured_image}
+                      src={imagePreview}
                       alt="Featured"
                       className="w-32 h-32 object-cover rounded-lg border"
                     />
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, featured_image: '' }))}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, featured_image: null }));
+                        setImagePreview('');
+                      }}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                     >
                       <X className="w-4 h-4" />

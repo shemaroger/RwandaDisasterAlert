@@ -5,7 +5,7 @@ import {
   AlertTriangle, Bell, Users, Shield, MapPin, FileText, Settings, 
   Radio, Eye, BarChart3, Clock, Globe, MessageSquare, Home,
   X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart,
-  List, Plus, Download
+  List, Plus, Download, Edit, BookOpenCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -51,6 +51,8 @@ const Sidebar = ({
     if (path.includes('/incidents')) return 'incidents';
     if (path.includes('/locations')) return 'locations';
     if (path.includes('/emergency-contacts')) return 'emergency-contacts';
+    if (path.includes('/safety-guides/admin') || (path.includes('/safety-guides') && (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator'))) return 'safety-guides-admin';
+    if (path.includes('/safety-guides/public') || (path.includes('/safety-guides') && user?.user_type === 'citizen')) return 'safety-guides-public';
     if (path.includes('/safety-guides')) return 'safety-guides';
     if (path.includes('/users')) return 'users';
     if (path.includes('/deliveries')) return 'deliveries';
@@ -133,6 +135,49 @@ const Sidebar = ({
       }
     };
 
+    // Updated safety guides navigation based on user type
+    const getSafetyGuidesNavigation = () => {
+      if (user?.user_type === 'citizen') {
+        return [
+          {
+            name: 'Safety Guides',
+            id: 'safety-guides-public',
+            path: '/safety-guides/public',
+            icon: BookOpen,
+            description: 'Preparedness information',
+            userTypes: ['citizen']
+          }
+        ];
+      } else {
+        // Admin, operator, authority get admin interface
+        return [
+          {
+            name: 'Safety Guides',
+            id: 'safety-guides-admin',
+            path: '/safety-guides',
+            icon: BookOpenCheck,
+            description: 'Manage safety guides',
+            badge: 'Admin',
+            userTypes: ['admin', 'authority', 'operator'],
+            subItems: [
+              {
+                name: 'All Guides',
+                path: '/safety-guides',
+                icon: List,
+                description: 'View all safety guides'
+              },
+              {
+                name: 'Create Guide',
+                path: '/safety-guides/admin/create',
+                icon: Plus,
+                description: 'Create new safety guide'
+              }
+            ]
+          }
+        ];
+      }
+    };
+
     const emergencyNavigation = [
       {
         name: 'Emergency Contacts',
@@ -140,14 +185,6 @@ const Sidebar = ({
         path: '/emergency-contacts',
         icon: Phone,
         description: 'Emergency services directory',
-        userTypes: ['admin', 'authority', 'operator', 'citizen']
-      },
-      {
-        name: 'Safety Guides',
-        id: 'safety-guides',
-        path: '/safety-guides',
-        icon: BookOpen,
-        description: 'Preparedness information',
         userTypes: ['admin', 'authority', 'operator', 'citizen']
       }
     ];
@@ -257,6 +294,9 @@ const Sidebar = ({
 
     // Add emergency navigation for all users
     navigation = [...navigation, ...emergencyNavigation];
+
+    // Add safety guides navigation based on user type
+    navigation = [...navigation, ...getSafetyGuidesNavigation()];
 
     // Add management navigation for admin/authority/operator
     if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
@@ -398,33 +438,70 @@ const Sidebar = ({
             </h3>
             {navigationItems.map((item) => {
               const isActive = currentPage === item.id;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isExpanded = expandedSections[item.id];
+              
               return (
                 <div key={item.id}>
-                  <button
-                    onClick={() => handleNavigation(item.path)}
-                    className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
-                      isActive
-                        ? 'bg-red-50 border-r-2 border-red-600 text-red-700'
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <item.icon className={`mr-3 h-5 w-5 ${
-                      isActive ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-500'
-                    }`} />
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center justify-between">
-                        <span>{item.name}</span>
-                        {item.badge && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            {item.badge}
-                          </span>
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => hasSubItems ? toggleSection(item.id) : handleNavigation(item.path)}
+                      className={`flex-1 group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                        isActive
+                          ? 'bg-red-50 border-r-2 border-red-600 text-red-700'
+                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <item.icon className={`mr-3 h-5 w-5 ${
+                        isActive ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-500'
+                      }`} />
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center justify-between">
+                          <span>{item.name}</span>
+                          {item.badge && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
                         )}
                       </div>
-                      {item.description && (
-                        <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-                      )}
+                    </button>
+                    {hasSubItems && (
+                      <button
+                        onClick={() => toggleSection(item.id)}
+                        className="p-2 text-gray-400 hover:text-gray-600"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {hasSubItems && isExpanded && (
+                    <div className="ml-8 mt-1 space-y-1">
+                      {item.subItems.map((subItem, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleNavigation(subItem.path)}
+                          className="w-full group flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                        >
+                          <subItem.icon className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+                          <div className="flex-1 text-left">
+                            <span>{subItem.name}</span>
+                            {subItem.description && (
+                              <p className="text-xs text-gray-500 mt-0.5">{subItem.description}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </button>
+                  )}
                 </div>
               );
             })}

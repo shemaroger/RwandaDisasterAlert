@@ -17,6 +17,7 @@ router.register(r'emergency-contacts', EmergencyContactViewSet, basename='emerge
 router.register(r'safety-guides', SafetyGuideViewSet, basename='safetyguide')
 router.register(r'notification-templates', NotificationTemplateViewSet, basename='notificationtemplate')
 
+
 urlpatterns = [
     # Authentication endpoints
     path("auth/register/", RegisterView.as_view(), name="register"),

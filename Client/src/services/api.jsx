@@ -646,53 +646,371 @@ class ApiService {
     });
   }
 
-  // -------- Safety Guides --------
-  async getSafetyGuides(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/safety-guides/${query ? `?${query}` : ''}`);
-  }
+//   // -------- Safety Guides --------
+//   async getSafetyGuides(params = {}) {
+//     const query = new URLSearchParams(params).toString();
+//     return this.request(`/safety-guides/${query ? `?${query}` : ''}`);
+//   }
 
-  async getSafetyGuide(id) {
-    return this.request(`/safety-guides/${id}/`);
-  }
+//   async getSafetyGuide(id) {
+//     return this.request(`/safety-guides/${id}/`);
+//   }
 
-  async getFeaturedSafetyGuides() {
-    return this.request('/safety-guides/featured/');
-  }
+//   async getFeaturedSafetyGuides() {
+//     return this.request('/safety-guides/featured/');
+//   }
 
-  async getSafetyGuidesByDisaster(disasterTypeId) {
-    const params = new URLSearchParams({ disaster_type: disasterTypeId }).toString();
-    return this.request(`/safety-guides/by-disaster/?${params}`);
-  }
+//   async getSafetyGuidesByDisaster(disasterTypeId) {
+//     const params = new URLSearchParams({ disaster_type: disasterTypeId }).toString();
+//     return this.request(`/safety-guides/by-disaster/?${params}`);
+//   }
 
-  async getPublicSafetyTips(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/public/safety-tips/${query ? `?${query}` : ''}`, {
-      includeAuth: false,
-    });
-  }
-// Add to your API service
-async createSafetyGuide(guideData) {
-  return this.request('/safety-guides/', { method: 'POST', body: guideData });
+//   async getPublicSafetyTips(params = {}) {
+//     const query = new URLSearchParams(params).toString();
+//     return this.request(`/public/safety-tips/${query ? `?${query}` : ''}`, {
+//       includeAuth: false,
+//     });
+//   }
+// // Add to your API service
+// async createSafetyGuide(guideData) {
+//   return this.request('/safety-guides/', { method: 'POST', body: guideData });
+// }
+
+// async updateSafetyGuide(id, guideData) {
+//   return this.request(`/safety-guides/${id}/`, { method: 'PATCH', body: guideData });
+// }
+
+// async deleteSafetyGuide(id) {
+//   return this.request(`/safety-guides/${id}/`, { method: 'DELETE' });
+// }
+
+// async exportSafetyGuides(format = 'csv', filters = {}) {
+//   const params = new URLSearchParams({ ...filters, export_format: format }).toString();
+//   const res = await fetch(`${API_BASE_URL}/safety-guides/export/?${params}`, {
+//     headers: this.getHeaders(),
+//   });
+//   if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+//   return await res.blob();
+// }
+// Add these methods to your existing ApiService class in api.jsx
+// Replace the commented-out safety guides section with these complete methods:
+
+// -------- Safety Guides --------
+async getSafetyGuides(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/safety-guides/${query ? `?${query}` : ''}`);
 }
 
-async updateSafetyGuide(id, guideData) {
-  return this.request(`/safety-guides/${id}/`, { method: 'PATCH', body: guideData });
+async getSafetyGuide(id) {
+  return this.request(`/safety-guides/${id}/`);
+}
+
+async getFeaturedSafetyGuides() {
+  return this.request('/safety-guides/featured/');
+}
+
+async getSafetyGuidesByDisaster(disasterTypeId) {
+  const params = new URLSearchParams({ disaster_type: disasterTypeId }).toString();
+  return this.request(`/safety-guides/by-disaster/?${params}`);
+}
+
+async getPublicSafetyTips(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/public/safety-tips/${query ? `?${query}` : ''}`, {
+    includeAuth: false,
+  });
+}
+
+// IMPORTANT: Replace your existing createSafetyGuide and updateSafetyGuide methods with these:
+async createSafetyGuide(formData) {
+  try {
+    console.log('Creating safety guide...');
+    
+    // Check if it's FormData or regular object
+    const isFormData = formData instanceof FormData;
+    
+    if (isFormData) {
+      // For FormData uploads, use fetch directly without Content-Type header
+      const headers = this.getHeaders();
+      delete headers['Content-Type']; // Let browser set multipart/form-data
+      
+      const response = await fetch(`${API_BASE_URL}/safety-guides/`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        // Create proper error message from Django validation errors
+        let message = 'Validation failed';
+        if (errorData && typeof errorData === 'object') {
+          const errors = [];
+          Object.entries(errorData).forEach(([field, fieldErrors]) => {
+            if (Array.isArray(fieldErrors)) {
+              errors.push(`${field}: ${fieldErrors.join(', ')}`);
+            } else {
+              errors.push(`${field}: ${fieldErrors}`);
+            }
+          });
+          message = errors.join('; ');
+        }
+        
+        throw new ApiError(message, response.status, errorData);
+      }
+      
+      return await response.json();
+    } else {
+      // For regular JSON data
+      return this.request('/safety-guides/', {
+        method: 'POST',
+        body: formData
+      });
+    }
+  } catch (error) {
+    console.error('Create safety guide error:', error);
+    throw error;
+  }
+}
+
+async updateSafetyGuide(id, formData) {
+  try {
+    console.log(`Updating safety guide ${id}...`);
+    
+    // Check if it's FormData or regular object
+    const isFormData = formData instanceof FormData;
+    
+    if (isFormData) {
+      // For FormData uploads, use fetch directly
+      const headers = this.getHeaders();
+      delete headers['Content-Type'];
+      
+      const response = await fetch(`${API_BASE_URL}/safety-guides/${id}/`, {
+        method: 'PATCH',
+        headers: headers,
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update error response:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        let message = 'Update failed';
+        if (errorData && typeof errorData === 'object') {
+          const errors = [];
+          Object.entries(errorData).forEach(([field, fieldErrors]) => {
+            if (Array.isArray(fieldErrors)) {
+              errors.push(`${field}: ${fieldErrors.join(', ')}`);
+            } else {
+              errors.push(`${field}: ${fieldErrors}`);
+            }
+          });
+          message = errors.join('; ');
+        }
+        
+        throw new ApiError(message, response.status, errorData);
+      }
+      
+      return await response.json();
+    } else {
+      // For regular JSON updates
+      return this.request(`/safety-guides/${id}/`, { 
+        method: 'PATCH', 
+        body: formData 
+      });
+    }
+  } catch (error) {
+    console.error('Update safety guide error:', error);
+    throw error;
+  }
 }
 
 async deleteSafetyGuide(id) {
   return this.request(`/safety-guides/${id}/`, { method: 'DELETE' });
 }
 
-async exportSafetyGuides(format = 'csv', filters = {}) {
-  const params = new URLSearchParams({ ...filters, export_format: format }).toString();
-  const res = await fetch(`${API_BASE_URL}/safety-guides/export/?${params}`, {
-    headers: this.getHeaders(),
-  });
-  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
-  return await res.blob();
+// Safety Guide Statistics
+async getSafetyGuideStats() {
+  try {
+    return await this.request('/safety-guides/stats/');
+  } catch (error) {
+    console.warn('Stats endpoint not available, generating fallback stats:', error.message);
+    
+    // If stats endpoint doesn't exist, generate stats from the main safety guides endpoint
+    try {
+      const response = await this.request('/safety-guides/?page_size=1000'); // Get all guides
+      const guides = response.results || [];
+      
+      const stats = {
+        total: response.count || guides.length,
+        published: guides.filter(g => g.is_published).length,
+        featured: guides.filter(g => g.is_featured).length,
+        drafts: guides.filter(g => !g.is_published).length,
+        by_category: guides.reduce((acc, guide) => {
+          acc[guide.category] = (acc[guide.category] || 0) + 1;
+          return acc;
+        }, {}),
+        by_audience: guides.reduce((acc, guide) => {
+          acc[guide.target_audience] = (acc[guide.target_audience] || 0) + 1;
+          return acc;
+        }, {}),
+        recent: guides.filter(g => {
+          const createdDate = new Date(g.created_at);
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          return createdDate >= thirtyDaysAgo;
+        }).length
+      };
+      
+      return stats;
+    } catch (fallbackError) {
+      console.error('Failed to generate fallback stats:', fallbackError);
+      // Return empty stats if everything fails
+      return {
+        total: 0,
+        published: 0,
+        featured: 0,
+        drafts: 0,
+        by_category: {},
+        by_audience: {},
+        recent: 0
+      };
+    }
+  }
 }
 
+// Bulk Operations
+async bulkUpdateSafetyGuides(ids, updateData) {
+  try {
+    return await this.request('/safety-guides/bulk_update/', {
+      method: 'POST',
+      body: {
+        guide_ids: ids,
+        update_data: updateData
+      }
+    });
+  } catch (error) {
+    console.error('Bulk update safety guides error:', error);
+    // Fallback to individual updates
+    const results = [];
+    const errors = [];
+    
+    for (const id of ids) {
+      try {
+        await this.updateSafetyGuide(id, updateData);
+        results.push({ id, success: true });
+      } catch (err) {
+        errors.push({ id, success: false, error: err.message });
+      }
+    }
+    
+    return {
+      successful: results,
+      failed: errors,
+      totalProcessed: ids.length,
+      successCount: results.length,
+      failureCount: errors.length
+    };
+  }
+}
+
+async bulkDeleteSafetyGuides(ids) {
+  try {
+    const results = [];
+    const errors = [];
+    
+    for (const id of ids) {
+      try {
+        await this.deleteSafetyGuide(id);
+        results.push({ id, success: true });
+      } catch (error) {
+        errors.push({ id, success: false, error: error.message });
+      }
+    }
+    
+    return {
+      successful: results,
+      failed: errors,
+      totalProcessed: ids.length,
+      successCount: results.length,
+      failureCount: errors.length
+    };
+  } catch (error) {
+    console.error('Bulk delete safety guides error:', error);
+    throw error;
+  }
+}
+
+// Duplicate Safety Guide
+async duplicateSafetyGuide(id) {
+  try {
+    console.log(`Duplicating safety guide ${id}...`);
+    
+    try {
+      // Try the dedicated duplicate endpoint first
+      return await this.request(`/safety-guides/${id}/duplicate/`, { method: 'POST' });
+    } catch (duplicateError) {
+      // Fallback to manual duplication
+      console.log('Duplicate endpoint not available, creating manual copy...');
+      
+      const original = await this.getSafetyGuide(id);
+      
+      // Create a copy with modified title and reset certain fields
+      const duplicateData = {
+        title: `${original.title} (Copy)`,
+        title_rw: original.title_rw ? `${original.title_rw} (Copy)` : '',
+        title_fr: original.title_fr ? `${original.title_fr} (Copy)` : '',
+        content: original.content,
+        content_rw: original.content_rw || '',
+        content_fr: original.content_fr || '',
+        category: original.category,
+        target_audience: original.target_audience,
+        featured_image: original.featured_image || '',
+        attachments: original.attachments || null,
+        disaster_types: original.disaster_types || [],
+        is_featured: false, // New copies shouldn't be featured by default
+        is_published: false, // New copies should be drafts by default
+        display_order: (original.display_order || 0) + 1
+      };
+      
+      return await this.createSafetyGuide(duplicateData);
+    }
+  } catch (error) {
+    console.error('Duplicate safety guide error:', error);
+    throw error;
+  }
+}
+
+// Export Safety Guides
+async exportSafetyGuides(format = 'json', filters = {}) {
+  try {
+    const params = new URLSearchParams({ 
+      ...filters, 
+      export_format: format 
+    }).toString();
+    
+    return await this.request(`/safety-guides/export/?${params}`);
+  } catch (error) {
+    console.error('Export safety guides error:', error);
+    throw error;
+  }
+}
 // -------- Notification Templates --------
 async getNotificationTemplates(params = {}) {
   const query = new URLSearchParams(params).toString();

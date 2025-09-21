@@ -36,7 +36,6 @@ import IncidentDetailPage from './pages/citizen/IncidentDetailPage';
 import IncidentEditPage from './pages/citizen/IncidentEditPage';
 import IncidentExportPage from './pages/citizen/IncidentExportPage';
 import SafetyGuideManagement from './pages/admin/SafetyGuideManagement';
-import SafetyGuideManagement from './pages/admin/SafetyGuideManagement';
 import SafetyGuideList from './pages/admin/SafetyGuideList';
 import CreateSafetyGuide from './pages/admin/CreateSafetyGuide';
 import EditSafetyGuide from './pages/admin/EditSafetyGuide';
@@ -425,17 +424,69 @@ function AppRoutes() {
         }
       />
 
-      {/* Safety Guides Routes - All users can view */}
-      <Route
-        path="/safety-guides"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <SafetyGuideManagement />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+      {/* Safety Guide Admin Routes */}
+<Route
+  path="/safety-guides"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <SafetyGuideList />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/safety-guides/admin/create"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <CreateSafetyGuide />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/safety-guides/admin/:id/edit"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <EditSafetyGuide />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/safety-guides/admin/:id/view"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <ViewSafetyGuide />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+{/* Optional: Public safety guide routes (if needed) */}
+{/* <Route
+  path="/safety-guides/public"
+  element={
+    <Layout>
+      <PublicSafetyGuideList />
+    </Layout>
+  }
+/>
+
+<Route
+  path="/safety-guides/public/:id"
+  element={
+    <Layout>
+      <PublicSafetyGuideView />
+    </Layout>
+  }
+/> */}
 
       <Route
   path="/admin/deliveries"
