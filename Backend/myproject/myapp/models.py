@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, FileExtensionValidator
+from django.conf import settings
 import uuid
+import os
 
 
 class User(AbstractUser):
@@ -308,8 +310,76 @@ class EmergencyContact(models.Model):
         return f"{self.name} ({self.get_contact_type_display()})"
 
 
+# class SafetyGuide(models.Model):
+#     """Safety guidelines and preparedness information"""
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     title = models.CharField(max_length=200)
+#     title_rw = models.CharField(max_length=200, blank=True)
+#     title_fr = models.CharField(max_length=200, blank=True)
+    
+#     content = models.TextField()
+#     content_rw = models.TextField(blank=True)
+#     content_fr = models.TextField(blank=True)
+    
+#     disaster_types = models.ManyToManyField(DisasterType, blank=True)
+#     category = models.CharField(
+#         max_length=20,
+#         choices=[
+#             ('before', 'Before Disaster'),
+#             ('during', 'During Disaster'),
+#             ('after', 'After Disaster'),
+#             ('general', 'General Preparedness'),
+#         ],
+#         default='general'
+#     )
+    
+#     # Media
+#     featured_image = models.CharField(max_length=255, blank=True)  # Image URL/path
+#     attachments = models.JSONField(blank=True, null=True)  # Additional media
+    
+#     # Targeting
+#     target_audience = models.CharField(
+#         max_length=20,
+#         choices=[
+#             ('general', 'General Public'),
+#             ('families', 'Families with Children'),
+#             ('elderly', 'Elderly'),
+#             ('disabled', 'People with Disabilities'),
+#             ('business', 'Businesses'),
+#             ('schools', 'Schools'),
+#         ],
+#         default='general'
+#     )
+    
+#     is_featured = models.BooleanField(default=False)
+#     is_published = models.BooleanField(default=True)
+#     display_order = models.IntegerField(default=0)
+    
+#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         ordering = ['display_order', 'title']
+
+#     def __str__(self):
+#         return self.title
+def safety_guide_image_upload_path(instance, filename):
+    """Generate upload path for safety guide images"""
+    import datetime
+    now = datetime.datetime.now()
+    return f'safety_guides/images/{now.year}/{now.month:02d}/{filename}'
+
+
+def safety_guide_attachment_upload_path(instance, filename):
+    """Generate upload path for safety guide attachments"""
+    import datetime
+    now = datetime.datetime.now()
+    return f'safety_guides/attachments/{now.year}/{now.month:02d}/{instance.id}/{filename}'
+
+
 class SafetyGuide(models.Model):
-    """Safety guidelines and preparedness information"""
+    """Safety guidelines and preparedness information with integrated attachments"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
     title_rw = models.CharField(max_length=200, blank=True)
@@ -319,7 +389,7 @@ class SafetyGuide(models.Model):
     content_rw = models.TextField(blank=True)
     content_fr = models.TextField(blank=True)
     
-    disaster_types = models.ManyToManyField(DisasterType, blank=True)
+    disaster_types = models.ManyToManyField('DisasterType', blank=True)
     category = models.CharField(
         max_length=20,
         choices=[
@@ -331,11 +401,101 @@ class SafetyGuide(models.Model):
         default='general'
     )
     
-    # Media
-    featured_image = models.CharField(max_length=255, blank=True)  # Image URL/path
-    attachments = models.JSONField(blank=True, null=True)  # Additional media
+    # Featured image
+    featured_image = models.ImageField(
+        upload_to=safety_guide_image_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif', 'webp'])],
+        help_text="Featured image for the safety guide (JPG, PNG, GIF, WebP)"
+    )
     
-    # Targeting
+    # Multiple attachment files - supports up to 10 attachments
+    attachment_1 = models.FileField(
+        upload_to=safety_guide_attachment_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'rtf',  # Documents
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',  # Images
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',  # Videos
+            'mp3', 'wav', 'ogg', 'aac',  # Audio
+            'zip', 'rar', '7z', 'tar', 'gz'  # Archives
+        ])],
+        help_text="First attachment file"
+    )
+    attachment_1_name = models.CharField(max_length=255, blank=True, help_text="Display name for attachment 1")
+    attachment_1_description = models.TextField(blank=True, help_text="Description for attachment 1")
+    
+    attachment_2 = models.FileField(
+        upload_to=safety_guide_attachment_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'rtf',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+            'mp3', 'wav', 'ogg', 'aac',
+            'zip', 'rar', '7z', 'tar', 'gz'
+        ])]
+    )
+    attachment_2_name = models.CharField(max_length=255, blank=True)
+    attachment_2_description = models.TextField(blank=True)
+    
+    attachment_3 = models.FileField(
+        upload_to=safety_guide_attachment_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'rtf',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+            'mp3', 'wav', 'ogg', 'aac',
+            'zip', 'rar', '7z', 'tar', 'gz'
+        ])]
+    )
+    attachment_3_name = models.CharField(max_length=255, blank=True)
+    attachment_3_description = models.TextField(blank=True)
+    
+    attachment_4 = models.FileField(
+        upload_to=safety_guide_attachment_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'rtf',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+            'mp3', 'wav', 'ogg', 'aac',
+            'zip', 'rar', '7z', 'tar', 'gz'
+        ])]
+    )
+    attachment_4_name = models.CharField(max_length=255, blank=True)
+    attachment_4_description = models.TextField(blank=True)
+    
+    attachment_5 = models.FileField(
+        upload_to=safety_guide_attachment_upload_path,
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'rtf',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+            'mp3', 'wav', 'ogg', 'aac',
+            'zip', 'rar', '7z', 'tar', 'gz'
+        ])]
+    )
+    attachment_5_name = models.CharField(max_length=255, blank=True)
+    attachment_5_description = models.TextField(blank=True)
+    
+    # Keep legacy JSONField for backward compatibility
+    legacy_attachments = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text="Legacy attachment data from previous version"
+    )
+    
+    # Targeting and metadata
     target_audience = models.CharField(
         max_length=20,
         choices=[
@@ -353,15 +513,139 @@ class SafetyGuide(models.Model):
     is_published = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
     
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_safety_guides')
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_safety_guides')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     class Meta:
         ordering = ['display_order', 'title']
-
+        verbose_name = 'Safety Guide'
+        verbose_name_plural = 'Safety Guides'
+    
     def __str__(self):
         return self.title
+    
+    def save(self, *args, **kwargs):
+        """Auto-populate attachment names if not provided"""
+        for i in range(1, 6):
+            attachment_field = f'attachment_{i}'
+            name_field = f'attachment_{i}_name'
+            
+            attachment = getattr(self, attachment_field)
+            name = getattr(self, name_field)
+            
+            if attachment and not name:
+                setattr(self, name_field, os.path.basename(attachment.name))
+        
+        super().save(*args, **kwargs)
+    
+    def get_featured_image_url(self):
+        """Get the full URL for featured image"""
+        if self.featured_image:
+            return self.featured_image.url
+        return None
+    
+    def get_all_attachments(self):
+        """Get all attachments with metadata"""
+        attachments = []
+        
+        # Get file-based attachments
+        for i in range(1, 6):
+            attachment_field = f'attachment_{i}'
+            name_field = f'attachment_{i}_name'
+            description_field = f'attachment_{i}_description'
+            
+            attachment = getattr(self, attachment_field)
+            if attachment:
+                name = getattr(self, name_field) or os.path.basename(attachment.name)
+                description = getattr(self, description_field, '')
+                
+                # Get file info
+                file_size = attachment.size if hasattr(attachment, 'size') else 0
+                file_type = attachment.name.split('.')[-1].lower() if '.' in attachment.name else 'unknown'
+                
+                attachments.append({
+                    'id': f'attachment_{i}',
+                    'name': name,
+                    'description': description,
+                    'url': attachment.url,
+                    'size': file_size,
+                    'size_display': self._get_file_size_display(file_size),
+                    'type': file_type,
+                    'source': 'file'
+                })
+        
+        # Get legacy JSON attachments
+        if self.legacy_attachments:
+            for idx, attachment in enumerate(self.legacy_attachments):
+                if isinstance(attachment, dict):
+                    attachment_copy = attachment.copy()
+                    attachment_copy['id'] = f'legacy_{idx}'
+                    attachment_copy['source'] = 'legacy'
+                    
+                    # Fix URL if needed
+                    if 'url' in attachment_copy and attachment_copy['url']:
+                        if not attachment_copy['url'].startswith(('http://', 'https://')):
+                            if attachment_copy['url'].startswith('/'):
+                                attachment_copy['url'] = attachment_copy['url'][1:]
+                            attachment_copy['url'] = f"{settings.MEDIA_URL}{attachment_copy['url']}"
+                    
+                    attachments.append(attachment_copy)
+        
+        return attachments
+    
+    @property
+    def attachment_count(self):
+        """Get total number of attachments"""
+        count = 0
+        
+        # Count file attachments
+        for i in range(1, 6):
+            if getattr(self, f'attachment_{i}'):
+                count += 1
+        
+        # Count legacy attachments
+        if self.legacy_attachments:
+            count += len(self.legacy_attachments)
+        
+        return count
+    
+    def has_attachments(self):
+        """Check if guide has any attachments"""
+        return self.attachment_count > 0
+    
+    def get_attachment_by_id(self, attachment_id):
+        """Get specific attachment by ID"""
+        all_attachments = self.get_all_attachments()
+        for attachment in all_attachments:
+            if attachment.get('id') == attachment_id:
+                return attachment
+        return None
+    
+    @staticmethod
+    def _get_file_size_display(file_size):
+        """Get human-readable file size"""
+        if not file_size:
+            return "Unknown size"
+        
+        size = float(file_size)
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"
+    
+    def get_attachment_fields(self):
+        """Get list of attachment field names for forms/admin"""
+        fields = []
+        for i in range(1, 6):
+            fields.extend([
+                f'attachment_{i}',
+                f'attachment_{i}_name',
+                f'attachment_{i}_description'
+            ])
+        return fields
 
 
 class AlertResponse(models.Model):

@@ -287,19 +287,174 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
 
 
 class SafetyGuideSerializer(serializers.ModelSerializer):
-    disaster_types_data = DisasterTypeSerializer(source='disaster_types', many=True, read_only=True)
+    disaster_types_data = serializers.SerializerMethodField()
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
+    featured_image_url = serializers.SerializerMethodField()
+    all_attachments = serializers.SerializerMethodField()
+    attachment_count = serializers.ReadOnlyField()
+    
+    # Individual attachment URLs for direct access
+    attachment_1_url = serializers.SerializerMethodField()
+    attachment_2_url = serializers.SerializerMethodField()
+    attachment_3_url = serializers.SerializerMethodField()
+    attachment_4_url = serializers.SerializerMethodField()
+    attachment_5_url = serializers.SerializerMethodField()
+    
+    # Individual attachment file size displays
+    attachment_1_size_display = serializers.SerializerMethodField()
+    attachment_2_size_display = serializers.SerializerMethodField()
+    attachment_3_size_display = serializers.SerializerMethodField()
+    attachment_4_size_display = serializers.SerializerMethodField()
+    attachment_5_size_display = serializers.SerializerMethodField()
     
     class Meta:
         model = SafetyGuide
         fields = [
             'id', 'title', 'title_rw', 'title_fr', 'content', 'content_rw',
             'content_fr', 'disaster_types', 'disaster_types_data', 'category',
-            'featured_image', 'attachments', 'target_audience', 'is_featured',
-            'is_published', 'display_order', 'created_by', 'created_by_name',
+            'featured_image', 'featured_image_url', 
+            # Attachment fields
+            'attachment_1', 'attachment_1_name', 'attachment_1_description', 'attachment_1_url', 'attachment_1_size_display',
+            'attachment_2', 'attachment_2_name', 'attachment_2_description', 'attachment_2_url', 'attachment_2_size_display',
+            'attachment_3', 'attachment_3_name', 'attachment_3_description', 'attachment_3_url', 'attachment_3_size_display',
+            'attachment_4', 'attachment_4_name', 'attachment_4_description', 'attachment_4_url', 'attachment_4_size_display',
+            'attachment_5', 'attachment_5_name', 'attachment_5_description', 'attachment_5_url', 'attachment_5_size_display',
+            'legacy_attachments', 'all_attachments', 'attachment_count', 
+            'target_audience', 'is_featured', 'is_published', 'display_order', 
+            'created_by', 'created_by_name', 'updated_by', 'updated_by_name', 
             'created_at', 'updated_at'
         ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_disaster_types_data(self, obj):
+        # Assuming you have a DisasterTypeSerializer
+        from .serializers import DisasterTypeSerializer
+        return DisasterTypeSerializer(obj.disaster_types.all(), many=True).data
+    
+    def get_featured_image_url(self, obj):
+        if obj.featured_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.featured_image.url)
+            return obj.featured_image.url
+        return None
+    
+    def get_all_attachments(self, obj):
+        """Get all attachments with proper URLs"""
+        attachments = obj.get_all_attachments()
+        request = self.context.get('request')
+        
+        # Convert relative URLs to absolute URLs
+        if request:
+            for attachment in attachments:
+                if attachment.get('url') and not attachment['url'].startswith(('http://', 'https://')):
+                    attachment['url'] = request.build_absolute_uri(attachment['url'])
+        
+        return attachments
+    
+    def _get_attachment_url(self, obj, attachment_number):
+        """Helper method to get attachment URL"""
+        attachment = getattr(obj, f'attachment_{attachment_number}')
+        if attachment:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(attachment.url)
+            return attachment.url
+        return None
+    
+    def _get_attachment_size_display(self, obj, attachment_number):
+        """Helper method to get attachment file size display"""
+        attachment = getattr(obj, f'attachment_{attachment_number}')
+        if attachment and hasattr(attachment, 'size'):
+            return obj._get_file_size_display(attachment.size)
+        return None
+    
+    # Attachment URL methods
+    def get_attachment_1_url(self, obj):
+        return self._get_attachment_url(obj, 1)
+    
+    def get_attachment_2_url(self, obj):
+        return self._get_attachment_url(obj, 2)
+    
+    def get_attachment_3_url(self, obj):
+        return self._get_attachment_url(obj, 3)
+    
+    def get_attachment_4_url(self, obj):
+        return self._get_attachment_url(obj, 4)
+    
+    def get_attachment_5_url(self, obj):
+        return self._get_attachment_url(obj, 5)
+    
+    # Attachment size display methods
+    def get_attachment_1_size_display(self, obj):
+        return self._get_attachment_size_display(obj, 1)
+    
+    def get_attachment_2_size_display(self, obj):
+        return self._get_attachment_size_display(obj, 2)
+    
+    def get_attachment_3_size_display(self, obj):
+        return self._get_attachment_size_display(obj, 3)
+    
+    def get_attachment_4_size_display(self, obj):
+        return self._get_attachment_size_display(obj, 4)
+    
+    def get_attachment_5_size_display(self, obj):
+        return self._get_attachment_size_display(obj, 5)
 
+
+class SafetyGuideListSerializer(serializers.ModelSerializer):
+    """Lighter serializer for list views"""
+    disaster_types_data = serializers.SerializerMethodField()
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    featured_image_url = serializers.SerializerMethodField()
+    attachment_count = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = SafetyGuide
+        fields = [
+            'id', 'title', 'title_rw', 'title_fr', 'category',
+            'featured_image_url', 'disaster_types_data', 'target_audience',
+            'is_featured', 'is_published', 'display_order', 'attachment_count',
+            'created_by_name', 'created_at', 'updated_at'
+        ]
+    
+    def get_disaster_types_data(self, obj):
+        from .serializers import DisasterTypeSerializer
+        return DisasterTypeSerializer(obj.disaster_types.all(), many=True).data
+    
+    def get_featured_image_url(self, obj):
+        if obj.featured_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.featured_image.url)
+            return obj.featured_image.url
+        return None
+
+
+class SafetyGuideCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for create/update operations"""
+    
+    class Meta:
+        model = SafetyGuide
+        fields = [
+            'title', 'title_rw', 'title_fr', 'content', 'content_rw',
+            'content_fr', 'disaster_types', 'category', 'featured_image',
+            'attachment_1', 'attachment_1_name', 'attachment_1_description',
+            'attachment_2', 'attachment_2_name', 'attachment_2_description',
+            'attachment_3', 'attachment_3_name', 'attachment_3_description',
+            'attachment_4', 'attachment_4_name', 'attachment_4_description',
+            'attachment_5', 'attachment_5_name', 'attachment_5_description',
+            'target_audience', 'is_featured', 'is_published', 'display_order'
+        ]
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        validated_data['updated_by'] = self.context['request'].user
+        return super().update(instance, validated_data)
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):
     disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)

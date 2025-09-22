@@ -10,28 +10,21 @@ import {
   Globe,
   Target,
   Upload,
-  FileText
+  FileText,
+  CheckCircle,
+  Info
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/api';
 
-// Helper function for media URLs
-const getMediaUrl = (mediaPath) => {
-  if (!mediaPath) return null;
-  if (mediaPath.startsWith('http://') || mediaPath.startsWith('https://')) {
-    return mediaPath;
-  }
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-  const cleanPath = mediaPath.startsWith('/') ? mediaPath.substring(1) : mediaPath;
-  return `${baseUrl}/${cleanPath}`;
-};
-
 const CreateSafetyGuide = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -45,7 +38,6 @@ const CreateSafetyGuide = () => {
     target_audience: 'general',
     disaster_types: [],
     featured_image: null,
-    attachments: [],
     is_featured: false,
     is_published: true,
     display_order: 0
@@ -58,6 +50,7 @@ const CreateSafetyGuide = () => {
   const attachmentsRef = useRef(null);
   const [imagePreview, setImagePreview] = useState('');
   const [attachmentFiles, setAttachmentFiles] = useState([]);
+  const [createdGuideId, setCreatedGuideId] = useState(null);
   
   // Tab state for multilingual content
   const [activeTab, setActiveTab] = useState('en');
@@ -91,9 +84,13 @@ const CreateSafetyGuide = () => {
   const loadDisasterTypes = async () => {
     try {
       const response = await apiService.getDisasterTypes();
-      setDisasterTypes(response.results || []);
+      console.log('Disaster types response:', response);
+      // Handle both direct array and paginated response
+      const types = response.results || response.data || response || [];
+      setDisasterTypes(Array.isArray(types) ? types : []);
     } catch (err) {
       console.error('Failed to load disaster types:', err);
+      setDisasterTypes([]);
     }
   };
 
@@ -115,12 +112,14 @@ const CreateSafetyGuide = () => {
 
   const handleDisasterTypesChange = (e) => {
     const { value, checked } = e.target;
-    const numericValue = parseInt(value);
+    
+    console.log('Disaster type change:', { value, checked, currentTypes: formData.disaster_types });
+    
     setFormData(prev => ({
       ...prev,
       disaster_types: checked 
-        ? [...prev.disaster_types, numericValue]
-        : prev.disaster_types.filter(id => id !== numericValue)
+        ? [...prev.disaster_types, value]
+        : prev.disaster_types.filter(id => id !== value)
     }));
   };
 
@@ -130,7 +129,7 @@ const CreateSafetyGuide = () => {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
+      setError('Please select an image file (JPG, PNG, GIF, WebP)');
       return;
     }
 
@@ -146,6 +145,7 @@ const CreateSafetyGuide = () => {
       featured_image: file
     }));
     setImagePreview(URL.createObjectURL(file));
+    setError(null);
   };
 
   const handleAttachmentsUpload = (e) => {
@@ -154,47 +154,35 @@ const CreateSafetyGuide = () => {
 
     const maxSize = 10 * 1024 * 1024; // 10MB
     const validFiles = [];
+    const errors = [];
 
     files.forEach(file => {
       if (file.size > maxSize) {
-        setError(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        errors.push(`File "${file.name}" is too large. Maximum size is 10MB.`);
         return;
       }
       validFiles.push(file);
     });
 
+    if (errors.length > 0) {
+      setError(errors.join('\n'));
+      return;
+    }
+
     if (validFiles.length > 0) {
-      // Store actual files
       setAttachmentFiles(prev => [...prev, ...validFiles]);
-      
-      // Update form data with file names for display
-      const fileData = validFiles.map(file => ({
-        name: file.name,
-        type: file.type,
-        size: file.size
-      }));
-      
-      setFormData(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, ...fileData]
-      }));
+      setError(null);
     }
 
     e.target.value = '';
   };
 
   const removeAttachment = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
-    }));
     setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = () => {
     const errors = {};
-    
-    console.log('Validating form data:', formData);
     
     if (!formData.title || !formData.title.trim()) {
       errors.title = 'Title is required';
@@ -212,27 +200,44 @@ const CreateSafetyGuide = () => {
       errors.display_order = 'Display order cannot be negative';
     }
     
-    console.log('Validation errors:', errors);
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const uploadAttachments = async (guideId) => {
+    if (attachmentFiles.length === 0) return;
+
+    setUploadProgress({ current: 0, total: attachmentFiles.length });
+    
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      try {
+        const file = attachmentFiles[i];
+        
+        // Use the new API method for uploading attachments
+        await apiService.uploadSafetyGuideAttachment(guideId, file, file.name, '');
+
+        setUploadProgress({ current: i + 1, total: attachmentFiles.length });
+      } catch (err) {
+        console.error(`Failed to upload ${attachmentFiles[i].name}:`, err);
+        // Continue with other files even if one fails
+      }
+    }
+    
+    setUploadProgress(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('Form submitted, validating...');
-    
     if (!validateForm()) {
-      console.log('Validation failed:', formErrors);
       return;
     }
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
-      console.log('Preparing form data for submission...');
-      
       // Create FormData for file uploads
       const submitData = new FormData();
       
@@ -259,61 +264,57 @@ const CreateSafetyGuide = () => {
         submitData.append('content_fr', formData.content_fr.trim());
       }
       
-      // Add created_by field (temporary fix until backend handles it)
-      submitData.append('created_by', user.id);
-      
       // Add disaster types
       formData.disaster_types.forEach(typeId => {
+        console.log('Adding disaster type:', typeId);
         submitData.append('disaster_types', typeId);
       });
       
-      // Add featured image if present
+      // Add featured image if present (now using proper ImageField)
       if (formData.featured_image) {
-        // Since your model expects a string URL, you'll need to upload the file first
-        // For now, let's skip file upload and just send the filename
-        submitData.append('featured_image', formData.featured_image.name);
-      }
-      
-      // Add attachments if present - convert to JSON format as expected by model
-      if (attachmentFiles.length > 0) {
-        const attachmentData = attachmentFiles.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          // In production, you'd upload these files and store URLs
-          url: `uploads/${file.name}` // placeholder URL
-        }));
-        submitData.append('attachments', JSON.stringify(attachmentData));
+        submitData.append('featured_image', formData.featured_image);
       }
 
-      console.log('Sending API request...');
+      console.log('Creating safety guide...');
       
-      // Debug: Log FormData contents
+      // Debug: Log FormData contents before sending
+      console.log('FormData contents:');
       for (let [key, value] of submitData.entries()) {
         console.log(`${key}:`, value);
       }
-
+      
       const response = await apiService.createSafetyGuide(submitData);
       
       console.log('Safety guide created successfully:', response);
+      const createdGuide = response.data || response;
+      setCreatedGuideId(createdGuide.id);
       
-      // Redirect to safety guides list with success message
-      navigate('/safety-guides', { 
-        state: { message: 'Safety guide created successfully!' }
-      });
+      // Upload attachments if any
+      if (attachmentFiles.length > 0) {
+        console.log('Uploading attachments...');
+        await uploadAttachments(createdGuide.id);
+      }
+      
+      setSuccess('Safety guide created successfully!');
+      
+      // Redirect after a short delay to show success message
+      setTimeout(() => {
+        navigate('/safety-guides/admin', { 
+          state: { message: 'Safety guide created successfully!' }
+        });
+      }, 2000);
       
     } catch (err) {
       console.error('Create safety guide error:', err);
       
       // Handle different types of errors
       if (err.response?.data) {
-        // API validation errors
         const apiErrors = err.response.data;
-        if (typeof apiErrors === 'object') {
+        if (typeof apiErrors === 'object' && !Array.isArray(apiErrors)) {
           setFormErrors(apiErrors);
           setError('Please check the form for errors.');
         } else {
-          setError(apiErrors.message || 'Failed to create safety guide. Please try again.');
+          setError(apiErrors.message || apiErrors.detail || 'Failed to create safety guide. Please try again.');
         }
       } else if (err.message) {
         setError(err.message);
@@ -327,12 +328,20 @@ const CreateSafetyGuide = () => {
 
   const handleCancel = () => {
     if (formData.title || formData.content) {
-      if (confirm('Are you sure you want to discard your changes?')) {
-        navigate('/safety-guides');
+      if (window.confirm('Are you sure you want to discard your changes?')) {
+        navigate('/safety-guides/admin');
       }
     } else {
-      navigate('/safety-guides');
+      navigate('/safety-guides/admin');
     }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -343,7 +352,7 @@ const CreateSafetyGuide = () => {
           <div className="flex items-center justify-between">
             <div>
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-                <Link to="/safety-guides" className="hover:text-gray-700 flex items-center gap-1">
+                <Link to="/safety-guides/admin" className="hover:text-gray-700 flex items-center gap-1">
                   <ArrowLeft className="w-4 h-4" />
                   Safety Guides
                 </Link>
@@ -369,11 +378,53 @@ const CreateSafetyGuide = () => {
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
+            
+            {/* Success Message */}
+            {success && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex">
+                  <CheckCircle className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
+                  <div>
+                    <p className="text-green-800 font-medium">{success}</p>
+                    {attachmentFiles.length > 0 && uploadProgress && (
+                      <p className="text-green-600 text-sm mt-1">
+                        Uploading attachments: {uploadProgress.current}/{uploadProgress.total}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex">
                   <AlertTriangle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
-                  <p className="text-red-800">{error}</p>
+                  <div>
+                    <p className="text-red-800 whitespace-pre-line">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Upload Progress */}
+            {uploadProgress && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex">
+                  <RefreshCw className="w-5 h-5 text-blue-500 mr-3 mt-0.5 animate-spin" />
+                  <div>
+                    <p className="text-blue-800">Uploading attachments...</p>
+                    <div className="mt-2 bg-blue-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-blue-600 text-sm mt-1">
+                      {uploadProgress.current} of {uploadProgress.total} files uploaded
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -578,19 +629,19 @@ const CreateSafetyGuide = () => {
                   <input
                     ref={featuredImageRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                     onChange={handleFeaturedImageUpload}
                     className="hidden"
                   />
                   <button
                     type="button"
                     onClick={() => featuredImageRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <Camera className="w-4 h-4" />
                     Choose Image
                   </button>
-                  <span className="text-sm text-gray-500">JPG, PNG up to 5MB</span>
+                  <span className="text-sm text-gray-500">JPG, PNG, GIF, WebP up to 5MB</span>
                 </div>
                 
                 {imagePreview && (
@@ -598,7 +649,7 @@ const CreateSafetyGuide = () => {
                     <img
                       src={imagePreview}
                       alt="Featured"
-                      className="w-32 h-32 object-cover rounded-lg border"
+                      className="w-32 h-32 object-cover rounded-lg border shadow-sm"
                     />
                     <button
                       type="button"
@@ -606,7 +657,7 @@ const CreateSafetyGuide = () => {
                         setFormData(prev => ({ ...prev, featured_image: null }));
                         setImagePreview('');
                       }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -623,18 +674,19 @@ const CreateSafetyGuide = () => {
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Upload Additional Files
                 </label>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 mb-2">
                   <input
                     ref={attachmentsRef}
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.avi,.mov,.wmv,.flv,.webm,.mp3,.wav,.ogg,.aac,.zip,.rar,.7z,.tar,.gz"
                     onChange={handleAttachmentsUpload}
                     className="hidden"
                   />
                   <button
                     type="button"
                     onClick={() => attachmentsRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <Upload className="w-4 h-4" />
                     Choose Files
@@ -642,18 +694,31 @@ const CreateSafetyGuide = () => {
                   <span className="text-sm text-gray-500">Documents, images, videos up to 10MB each</span>
                 </div>
                 
-                {formData.attachments.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {formData.attachments.map((file, index) => (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex">
+                    <Info className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <p className="text-blue-800 text-sm">
+                      Attachments will be uploaded after the safety guide is created. You can also add more attachments later by editing the guide.
+                    </p>
+                  </div>
+                </div>
+                
+                {attachmentFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-900">Selected Files ({attachmentFiles.length}):</h4>
+                    {attachmentFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center gap-3">
                           <FileText className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-900">{file.name}</span>
+                          <div>
+                            <span className="text-sm text-gray-900">{file.name}</span>
+                            <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeAttachment(index)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 p-1"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -672,22 +737,51 @@ const CreateSafetyGuide = () => {
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Select applicable disaster types (optional)
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                  {disasterTypes.map(type => (
-                    <label key={type.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        value={type.id}
-                        checked={formData.disaster_types.includes(type.id)}
-                        onChange={handleDisasterTypesChange}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{type.name}</span>
-                    </label>
-                  ))}
-                </div>
-                {disasterTypes.length === 0 && (
-                  <p className="text-sm text-gray-500 italic">No disaster types available</p>
+                
+                {disasterTypes.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-4">
+                    {disasterTypes.map(type => {
+                      const isChecked = formData.disaster_types.includes(type.id) || 
+                                       formData.disaster_types.includes(type.id.toString()) ||
+                                       formData.disaster_types.includes(parseInt(type.id));
+                      
+                      return (
+                        <label key={type.id} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            value={type.id}
+                            checked={isChecked}
+                            onChange={handleDisasterTypesChange}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                          <span className="text-sm text-gray-700 select-none">{type.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg p-4 text-center text-gray-500">
+                    <Target className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm">No disaster types available</p>
+                    <p className="text-xs mt-1">Check your API connection or add disaster types in the admin panel</p>
+                    <button
+                      type="button"
+                      onClick={loadDisasterTypes}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Retry loading disaster types
+                    </button>
+                  </div>
+                )}
+                
+                {/* Debug info - only in development */}
+                {import.meta.env.DEV && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Debug: Found {disasterTypes.length} disaster types
+                    {formData.disaster_types.length > 0 && (
+                      <span> | Selected: {formData.disaster_types.join(', ')}</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -753,13 +847,18 @@ const CreateSafetyGuide = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+                disabled={loading || success}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition-colors"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     Creating Guide...
+                  </>
+                ) : success ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Created Successfully!
                   </>
                 ) : (
                   <>
@@ -772,7 +871,8 @@ const CreateSafetyGuide = () => {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                disabled={loading}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium transition-colors"
               >
                 Cancel
               </button>

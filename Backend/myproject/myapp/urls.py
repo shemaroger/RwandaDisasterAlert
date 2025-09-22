@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import *
 from . import views
 from .views import *
+from django.conf.urls.static import static
+from django.conf import settings
 
 # Create router and register viewsets
 router = DefaultRouter()
@@ -16,6 +18,7 @@ router.register(r'incidents', IncidentReportViewSet, basename='incidentreport')
 router.register(r'emergency-contacts', EmergencyContactViewSet, basename='emergencycontact')
 router.register(r'safety-guides', SafetyGuideViewSet, basename='safetyguide')
 router.register(r'notification-templates', NotificationTemplateViewSet, basename='notificationtemplate')
+# router.register(r'safety-guide-attachments', SafetyGuideAttachmentViewSet, basename='safetyguideattachment')
 
 
 urlpatterns = [
@@ -86,3 +89,13 @@ urlpatterns = [
     # Include router URLs
     path("", include(router.urls)),
 ]
+# Add static file serving for development and production
+if settings.DEBUG:
+    # Development: Serve media files directly
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Also serve any additional static files
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+else:
+    # Production: You should use a web server (nginx/apache) to serve static files
+    # But for testing, you can still add this:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

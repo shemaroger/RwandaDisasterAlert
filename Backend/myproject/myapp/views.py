@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
 from django.contrib.auth import authenticate, login, logout
@@ -16,6 +17,7 @@ from .serializers import *
 import logging
 from .services import AlertDeliveryManager, deliver_alert_async
 from django.http import HttpResponse
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -1140,13 +1142,22 @@ class IsAdminOrAuthority(permissions.BasePermission):
                 hasattr(request.user, 'user_type') and
                 request.user.user_type in ['admin', 'authority', 'operator'])
 class SafetyGuideViewSet(viewsets.ModelViewSet):
-    """ViewSet for safety guides with role-based permissions"""
+    """ViewSet for safety guides with role-based permissions and file upload support"""
     queryset = SafetyGuide.objects.all()
     serializer_class = SafetyGuideSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['disaster_types', 'category', 'target_audience', 'is_featured', 'is_published']
     search_fields = ['title', 'title_rw', 'title_fr', 'content']
     ordering = ['display_order', 'title']
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return SafetyGuideListSerializer
+        elif self.action in ['create', 'update', 'partial_update']:
+            return SafetyGuideCreateUpdateSerializer
+        return SafetyGuideSerializer
     
     def get_permissions(self):
         """Set permissions based on action"""
@@ -1155,19 +1166,25 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.AllowAny]
         else:
             # Write operations - admin/authority only
-            permission_classes = [permissions.IsAuthenticated, IsAdminOrAuthority]
+            permission_classes = [permissions.IsAuthenticated]  # Add your custom permission class here
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         """Filter queryset based on user permissions"""
-        queryset = SafetyGuide.objects.all()
+        queryset = SafetyGuide.objects.select_related('created_by', 'updated_by').prefetch_related(
+            'disaster_types'
+        )
         
         # Apply permission-based filtering
-        if self.request.user.is_authenticated and self.request.user.user_type in ['admin', 'authority', 'operator']:
-            # Admin users see all guides
-            pass
+        if self.request.user.is_authenticated and hasattr(self.request.user, 'user_type'):
+            if self.request.user.user_type in ['admin', 'authority', 'operator']:
+                # Admin users see all guides
+                pass
+            else:
+                # Regular users only see published guides
+                queryset = queryset.filter(is_published=True)
         else:
-            # Public users only see published guides
+            # Anonymous users only see published guides
             queryset = queryset.filter(is_published=True)
         
         # Handle additional filtering
@@ -1191,6 +1208,122 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    def perform_create(self, serializer):
+        """Set the created_by field when creating a safety guide"""
+        if self.request.user.is_authenticated:
+            serializer.save(created_by=self.request.user)
+        else:
+            serializer.save()
+    
+    def perform_update(self, serializer):
+        """Set the updated_by field when updating a safety guide"""
+        if self.request.user.is_authenticated:
+            serializer.save(updated_by=self.request.user)
+        else:
+            serializer.save()
+    
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def update_attachment(self, request, pk=None):
+        """Update a specific attachment on a safety guide"""
+        try:
+            safety_guide = self.get_object()
+            attachment_slot = request.data.get('attachment_slot')  # e.g., "1", "2", etc.
+            file = request.FILES.get('file')
+            name = request.data.get('name', '')
+            description = request.data.get('description', '')
+            
+            if not attachment_slot or attachment_slot not in ['1', '2', '3', '4', '5']:
+                return Response(
+                    {'error': 'Valid attachment_slot (1-5) is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Update the attachment fields
+            if file:
+                setattr(safety_guide, f'attachment_{attachment_slot}', file)
+            
+            if name:
+                setattr(safety_guide, f'attachment_{attachment_slot}_name', name)
+            
+            if description:
+                setattr(safety_guide, f'attachment_{attachment_slot}_description', description)
+            
+            safety_guide.save()
+            
+            # Return updated attachment info
+            attachment_data = {
+                'slot': attachment_slot,
+                'file': getattr(safety_guide, f'attachment_{attachment_slot}').url if getattr(safety_guide, f'attachment_{attachment_slot}') else None,
+                'name': getattr(safety_guide, f'attachment_{attachment_slot}_name', ''),
+                'description': getattr(safety_guide, f'attachment_{attachment_slot}_description', ''),
+                'size_display': safety_guide._get_file_size_display(
+                    getattr(safety_guide, f'attachment_{attachment_slot}').size
+                ) if getattr(safety_guide, f'attachment_{attachment_slot}') else None
+            }
+            
+            return Response(attachment_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to update attachment: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['delete'])
+    def delete_attachment(self, request, pk=None):
+        """Delete a specific attachment from a safety guide"""
+        try:
+            safety_guide = self.get_object()
+            attachment_slot = request.data.get('attachment_slot')
+            
+            if not attachment_slot or attachment_slot not in ['1', '2', '3', '4', '5']:
+                return Response(
+                    {'error': 'Valid attachment_slot (1-5) is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Clear the attachment fields
+            setattr(safety_guide, f'attachment_{attachment_slot}', None)
+            setattr(safety_guide, f'attachment_{attachment_slot}_name', '')
+            setattr(safety_guide, f'attachment_{attachment_slot}_description', '')
+            
+            safety_guide.save()
+            
+            return Response(
+                {'message': f'Attachment {attachment_slot} deleted successfully'}, 
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to delete attachment: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'])
+    def attachments(self, request, pk=None):
+        """Get all attachments for a safety guide"""
+        try:
+            safety_guide = self.get_object()
+            attachments = safety_guide.get_all_attachments()
+            
+            # Add absolute URLs if request context is available
+            for attachment in attachments:
+                if attachment.get('url') and not attachment['url'].startswith(('http://', 'https://')):
+                    attachment['url'] = request.build_absolute_uri(attachment['url'])
+            
+            return Response({
+                'safety_guide_id': safety_guide.id,
+                'attachments': attachments,
+                'total_count': len(attachments)
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to get attachments: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     @action(detail=False, methods=['get'])
     def featured(self, request):
         """Get featured safety guides"""
@@ -1207,7 +1340,6 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         """Get safety guide statistics"""
         try:
-            # Use the same queryset filtering logic as other actions
             queryset = self.get_queryset()
             
             # Basic counts
@@ -1234,12 +1366,20 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 .values_list('target_audience', 'count')
             )
             
+            # Attachment stats
+            total_attachments = sum(guide.attachment_count for guide in queryset)
+            
+            # Guides with attachments
+            guides_with_attachments = sum(1 for guide in queryset if guide.has_attachments())
+            
             stats_data = {
                 'total': total,
                 'published': published,
                 'featured': featured,
                 'drafts': drafts,
                 'recent': recent,
+                'total_attachments': total_attachments,
+                'guides_with_attachments': guides_with_attachments,
                 'by_category': by_category,
                 'by_audience': by_audience,
             }
@@ -1268,16 +1408,23 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 'content_fr': original.content_fr or '',
                 'category': original.category,
                 'target_audience': original.target_audience,
-                'featured_image': original.featured_image,
-                'attachments': original.attachments,
+                'legacy_attachments': original.legacy_attachments,  # Copy legacy JSON attachments
                 'is_featured': False,  # New copies shouldn't be featured
                 'is_published': False,  # New copies should be drafts
                 'display_order': (original.display_order or 0) + 1,
                 'created_by': request.user if request.user.is_authenticated else None
             }
             
+            # Copy attachment files (reference same files, don't duplicate)
+            for i in range(1, 6):
+                attachment = getattr(original, f'attachment_{i}')
+                if attachment:
+                    duplicate_data[f'attachment_{i}'] = attachment
+                    duplicate_data[f'attachment_{i}_name'] = getattr(original, f'attachment_{i}_name', '')
+                    duplicate_data[f'attachment_{i}_description'] = getattr(original, f'attachment_{i}_description', '')
+            
             # Create the duplicate
-            serializer = self.get_serializer(data=duplicate_data)
+            serializer = SafetyGuideCreateUpdateSerializer(data=duplicate_data)
             if serializer.is_valid():
                 duplicate = serializer.save()
                 
@@ -1285,7 +1432,9 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 if original.disaster_types.exists():
                     duplicate.disaster_types.set(original.disaster_types.all())
                 
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                # Return full duplicate data
+                response_serializer = SafetyGuideSerializer(duplicate, context={'request': request})
+                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -1311,6 +1460,10 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
             # Filter to only guides the user can modify
             queryset = self.get_queryset().filter(id__in=guide_ids)
             
+            # Add updated_by to update_data if user is authenticated
+            if request.user.is_authenticated:
+                update_data['updated_by'] = request.user
+            
             # Perform bulk update
             updated_count = queryset.update(**update_data)
             
@@ -1326,6 +1479,37 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'])
+    def bulk_delete(self, request):
+        """Bulk delete safety guides"""
+        try:
+            guide_ids = request.data.get('guide_ids', [])
+            
+            if not guide_ids:
+                return Response(
+                    {'error': 'No guide IDs provided'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Filter to only guides the user can modify
+            queryset = self.get_queryset().filter(id__in=guide_ids)
+            deleted_count = queryset.count()
+            
+            # Delete the guides
+            queryset.delete()
+            
+            return Response({
+                'message': f'Successfully deleted {deleted_count} safety guides',
+                'deleted_count': deleted_count,
+                'total_requested': len(guide_ids)
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Bulk delete failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     @action(detail=False, methods=['get'])
     def export(self, request):
         """Export safety guides"""
@@ -1335,7 +1519,7 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
             
             if export_format.lower() == 'json':
                 # Export as JSON
-                serializer = self.get_serializer(queryset, many=True)
+                serializer = SafetyGuideSerializer(queryset, many=True, context={'request': request})
                 data = {
                     'export_date': timezone.now().isoformat(),
                     'total_count': queryset.count(),
@@ -1350,7 +1534,7 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 return response
             
             elif export_format.lower() == 'csv':
-                # Export as CSV (basic implementation)
+                # Export as CSV
                 import csv
                 from io import StringIO
                 
@@ -1358,7 +1542,10 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 writer = csv.writer(output)
                 
                 # Write headers
-                headers = ['ID', 'Title', 'Category', 'Target Audience', 'Published', 'Featured', 'Created At']
+                headers = [
+                    'ID', 'Title', 'Category', 'Target Audience', 'Published', 
+                    'Featured', 'Attachment Count', 'Created By', 'Created At'
+                ]
                 writer.writerow(headers)
                 
                 # Write data
@@ -1370,6 +1557,8 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                         guide.target_audience,
                         guide.is_published,
                         guide.is_featured,
+                        guide.attachment_count,
+                        guide.created_by.username if guide.created_by else '',
                         guide.created_at.isoformat()
                     ])
                 
@@ -1389,19 +1578,58 @@ class SafetyGuideViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def perform_create(self, serializer):
-        """Set the created_by field when creating a safety guide"""
-        if self.request.user.is_authenticated:
-            serializer.save(created_by=self.request.user)
-        else:
-            serializer.save()
-    
-    def perform_update(self, serializer):
-        """Set the updated_by field when updating a safety guide"""
-        if self.request.user.is_authenticated:
-            serializer.save(updated_by=self.request.user)
-        else:
-            serializer.save()
+    @action(detail=True, methods=['post'])
+    def reorder_attachments(self, request, pk=None):
+        """Reorder attachments within a safety guide"""
+        try:
+            safety_guide = self.get_object()
+            new_order = request.data.get('attachment_order', [])
+            
+            if not new_order or len(new_order) > 5:
+                return Response(
+                    {'error': 'attachment_order must be a list of 1-5 slot numbers'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Store current attachment data
+            current_attachments = {}
+            for i in range(1, 6):
+                attachment = getattr(safety_guide, f'attachment_{i}')
+                if attachment:
+                    current_attachments[i] = {
+                        'file': attachment,
+                        'name': getattr(safety_guide, f'attachment_{i}_name', ''),
+                        'description': getattr(safety_guide, f'attachment_{i}_description', '')
+                    }
+            
+            # Clear all attachments
+            for i in range(1, 6):
+                setattr(safety_guide, f'attachment_{i}', None)
+                setattr(safety_guide, f'attachment_{i}_name', '')
+                setattr(safety_guide, f'attachment_{i}_description', '')
+            
+            # Reorder according to new_order
+            for new_pos, old_slot in enumerate(new_order, 1):
+                if old_slot in current_attachments:
+                    attachment_data = current_attachments[old_slot]
+                    setattr(safety_guide, f'attachment_{new_pos}', attachment_data['file'])
+                    setattr(safety_guide, f'attachment_{new_pos}_name', attachment_data['name'])
+                    setattr(safety_guide, f'attachment_{new_pos}_description', attachment_data['description'])
+            
+            safety_guide.save()
+            
+            return Response({
+                'message': 'Attachments reordered successfully',
+                'new_order': new_order,
+                'attachment_count': safety_guide.attachment_count
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to reorder attachments: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
     """ViewSet for notification templates - admin only"""
     queryset = NotificationTemplate.objects.all()

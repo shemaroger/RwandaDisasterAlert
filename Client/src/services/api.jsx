@@ -12,6 +12,7 @@ class ApiError extends Error {
 
 class ApiService {
   constructor() {
+    this.baseUrl = API_BASE_URL; 
     this.token = localStorage.getItem('auth_token');
   }
 
@@ -694,7 +695,6 @@ class ApiService {
 // }
 // Add these methods to your existing ApiService class in api.jsx
 // Replace the commented-out safety guides section with these complete methods:
-
 // -------- Safety Guides --------
 async getSafetyGuides(params = {}) {
   const query = new URLSearchParams(params).toString();
@@ -710,8 +710,8 @@ async getFeaturedSafetyGuides() {
 }
 
 async getSafetyGuidesByDisaster(disasterTypeId) {
-  const params = new URLSearchParams({ disaster_type: disasterTypeId }).toString();
-  return this.request(`/safety-guides/by-disaster/?${params}`);
+  const params = new URLSearchParams({ disaster_types: disasterTypeId }).toString();
+  return this.request(`/safety-guides/?${params}`);
 }
 
 async getPublicSafetyTips(params = {}) {
@@ -721,7 +721,7 @@ async getPublicSafetyTips(params = {}) {
   });
 }
 
-// IMPORTANT: Replace your existing createSafetyGuide and updateSafetyGuide methods with these:
+// Enhanced createSafetyGuide with proper file handling
 async createSafetyGuide(formData) {
   try {
     console.log('Creating safety guide...');
@@ -734,7 +734,7 @@ async createSafetyGuide(formData) {
       const headers = this.getHeaders();
       delete headers['Content-Type']; // Let browser set multipart/form-data
       
-      const response = await fetch(`${API_BASE_URL}/safety-guides/`, {
+      const response = await fetch(`${this.baseUrl}/safety-guides/`, {
         method: 'POST',
         headers: headers,
         body: formData
@@ -748,7 +748,7 @@ async createSafetyGuide(formData) {
         try {
           errorData = JSON.parse(errorText);
         } catch {
-          errorData = { message: errorText };
+          errorData = { message: errorText || 'Failed to create safety guide' };
         }
         
         // Create proper error message from Django validation errors
@@ -762,10 +762,14 @@ async createSafetyGuide(formData) {
               errors.push(`${field}: ${fieldErrors}`);
             }
           });
-          message = errors.join('; ');
+          if (errors.length > 0) {
+            message = errors.join('; ');
+          }
         }
         
-        throw new ApiError(message, response.status, errorData);
+        const error = new Error(message);
+        error.response = { status: response.status, data: errorData };
+        throw error;
       }
       
       return await response.json();
@@ -782,6 +786,7 @@ async createSafetyGuide(formData) {
   }
 }
 
+// Enhanced updateSafetyGuide with proper file handling
 async updateSafetyGuide(id, formData) {
   try {
     console.log(`Updating safety guide ${id}...`);
@@ -794,7 +799,7 @@ async updateSafetyGuide(id, formData) {
       const headers = this.getHeaders();
       delete headers['Content-Type'];
       
-      const response = await fetch(`${API_BASE_URL}/safety-guides/${id}/`, {
+      const response = await fetch(`${this.baseUrl}/safety-guides/${id}/`, {
         method: 'PATCH',
         headers: headers,
         body: formData
@@ -808,7 +813,7 @@ async updateSafetyGuide(id, formData) {
         try {
           errorData = JSON.parse(errorText);
         } catch {
-          errorData = { message: errorText };
+          errorData = { message: errorText || 'Failed to update safety guide' };
         }
         
         let message = 'Update failed';
@@ -821,10 +826,14 @@ async updateSafetyGuide(id, formData) {
               errors.push(`${field}: ${fieldErrors}`);
             }
           });
-          message = errors.join('; ');
+          if (errors.length > 0) {
+            message = errors.join('; ');
+          }
         }
         
-        throw new ApiError(message, response.status, errorData);
+        const error = new Error(message);
+        error.response = { status: response.status, data: errorData };
+        throw error;
       }
       
       return await response.json();
@@ -845,7 +854,89 @@ async deleteSafetyGuide(id) {
   return this.request(`/safety-guides/${id}/`, { method: 'DELETE' });
 }
 
-// Safety Guide Statistics
+// Updated: Update specific attachment slot (1-5)
+async updateSafetyGuideAttachment(guideId, attachmentSlot, file = null, name = null, description = null) {
+  try {
+    const formData = new FormData();
+    formData.append('attachment_slot', attachmentSlot);
+    
+    if (file) {
+      formData.append('file', file);
+    }
+    if (name !== null) {
+      formData.append('name', name);
+    }
+    if (description !== null) {
+      formData.append('description', description);
+    }
+    
+    const headers = this.getHeaders();
+    delete headers['Content-Type'];
+    
+    const response = await fetch(`${this.baseUrl}/safety-guides/${guideId}/update_attachment/`, {
+      method: 'POST',
+      headers: headers,
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || 'Failed to update attachment' };
+      }
+      
+      const error = new Error(errorData.message || 'Update failed');
+      error.response = { status: response.status, data: errorData };
+      throw error;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update attachment error:', error);
+    throw error;
+  }
+}
+
+// Updated: Delete specific attachment slot
+async deleteSafetyGuideAttachment(guideId, attachmentSlot) {
+  try {
+    return await this.request(`/safety-guides/${guideId}/delete_attachment/`, {
+      method: 'DELETE',
+      body: { attachment_slot: attachmentSlot }
+    });
+  } catch (error) {
+    console.error('Delete attachment error:', error);
+    throw error;
+  }
+}
+
+// Updated: Get all attachments for a safety guide (unified view)
+async getSafetyGuideAttachments(guideId) {
+  try {
+    return this.request(`/safety-guides/${guideId}/attachments/`);
+  } catch (error) {
+    console.error('Get attachments error:', error);
+    throw error;
+  }
+}
+
+// New: Reorder attachments within a safety guide
+async reorderSafetyGuideAttachments(guideId, newOrder) {
+  try {
+    return await this.request(`/safety-guides/${guideId}/reorder_attachments/`, {
+      method: 'POST',
+      body: { attachment_order: newOrder }
+    });
+  } catch (error) {
+    console.error('Reorder attachments error:', error);
+    throw error;
+  }
+}
+
+// Safety Guide Statistics with better error handling
 async getSafetyGuideStats() {
   try {
     return await this.request('/safety-guides/stats/');
@@ -857,11 +948,21 @@ async getSafetyGuideStats() {
       const response = await this.request('/safety-guides/?page_size=1000'); // Get all guides
       const guides = response.results || [];
       
+      // Calculate recent guides (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
       const stats = {
         total: response.count || guides.length,
         published: guides.filter(g => g.is_published).length,
         featured: guides.filter(g => g.is_featured).length,
         drafts: guides.filter(g => !g.is_published).length,
+        recent: guides.filter(g => {
+          const createdDate = new Date(g.created_at);
+          return createdDate >= thirtyDaysAgo;
+        }).length,
+        total_attachments: guides.reduce((sum, g) => sum + (g.attachment_count || 0), 0),
+        guides_with_attachments: guides.filter(g => g.attachment_count > 0).length,
         by_category: guides.reduce((acc, guide) => {
           acc[guide.category] = (acc[guide.category] || 0) + 1;
           return acc;
@@ -869,13 +970,7 @@ async getSafetyGuideStats() {
         by_audience: guides.reduce((acc, guide) => {
           acc[guide.target_audience] = (acc[guide.target_audience] || 0) + 1;
           return acc;
-        }, {}),
-        recent: guides.filter(g => {
-          const createdDate = new Date(g.created_at);
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          return createdDate >= thirtyDaysAgo;
-        }).length
+        }, {})
       };
       
       return stats;
@@ -887,15 +982,17 @@ async getSafetyGuideStats() {
         published: 0,
         featured: 0,
         drafts: 0,
+        recent: 0,
+        total_attachments: 0,
+        guides_with_attachments: 0,
         by_category: {},
-        by_audience: {},
-        recent: 0
+        by_audience: {}
       };
     }
   }
 }
 
-// Bulk Operations
+// Enhanced bulk operations
 async bulkUpdateSafetyGuides(ids, updateData) {
   try {
     return await this.request('/safety-guides/bulk_update/', {
@@ -907,7 +1004,9 @@ async bulkUpdateSafetyGuides(ids, updateData) {
     });
   } catch (error) {
     console.error('Bulk update safety guides error:', error);
-    // Fallback to individual updates
+    
+    // Fallback to individual updates if bulk endpoint fails
+    console.log('Falling back to individual updates...');
     const results = [];
     const errors = [];
     
@@ -916,22 +1015,33 @@ async bulkUpdateSafetyGuides(ids, updateData) {
         await this.updateSafetyGuide(id, updateData);
         results.push({ id, success: true });
       } catch (err) {
+        console.error(`Failed to update guide ${id}:`, err);
         errors.push({ id, success: false, error: err.message });
       }
     }
     
     return {
+      message: `Bulk update completed with ${results.length} successes and ${errors.length} failures`,
+      updated_count: results.length,
+      total_requested: ids.length,
       successful: results,
-      failed: errors,
-      totalProcessed: ids.length,
-      successCount: results.length,
-      failureCount: errors.length
+      failed: errors
     };
   }
 }
 
+// Updated: Use new bulk delete endpoint
 async bulkDeleteSafetyGuides(ids) {
   try {
+    // Try the bulk delete endpoint first
+    return await this.request('/safety-guides/bulk_delete/', {
+      method: 'POST',
+      body: { guide_ids: ids }
+    });
+  } catch (error) {
+    console.error('Bulk delete endpoint failed, falling back to individual deletes:', error);
+    
+    // Fallback to individual deletes
     const results = [];
     const errors = [];
     
@@ -939,25 +1049,23 @@ async bulkDeleteSafetyGuides(ids) {
       try {
         await this.deleteSafetyGuide(id);
         results.push({ id, success: true });
-      } catch (error) {
-        errors.push({ id, success: false, error: error.message });
+      } catch (deleteError) {
+        console.error(`Failed to delete guide ${id}:`, deleteError);
+        errors.push({ id, success: false, error: deleteError.message });
       }
     }
     
     return {
+      message: `Bulk delete completed with ${results.length} successes and ${errors.length} failures`,
+      deleted_count: results.length,
+      total_requested: ids.length,
       successful: results,
-      failed: errors,
-      totalProcessed: ids.length,
-      successCount: results.length,
-      failureCount: errors.length
+      failed: errors
     };
-  } catch (error) {
-    console.error('Bulk delete safety guides error:', error);
-    throw error;
   }
 }
 
-// Duplicate Safety Guide
+// Enhanced duplicate functionality
 async duplicateSafetyGuide(id) {
   try {
     console.log(`Duplicating safety guide ${id}...`);
@@ -970,25 +1078,39 @@ async duplicateSafetyGuide(id) {
       console.log('Duplicate endpoint not available, creating manual copy...');
       
       const original = await this.getSafetyGuide(id);
+      const originalData = original.data || original;
       
       // Create a copy with modified title and reset certain fields
       const duplicateData = {
-        title: `${original.title} (Copy)`,
-        title_rw: original.title_rw ? `${original.title_rw} (Copy)` : '',
-        title_fr: original.title_fr ? `${original.title_fr} (Copy)` : '',
-        content: original.content,
-        content_rw: original.content_rw || '',
-        content_fr: original.content_fr || '',
-        category: original.category,
-        target_audience: original.target_audience,
-        featured_image: original.featured_image || '',
-        attachments: original.attachments || null,
-        disaster_types: original.disaster_types || [],
+        title: `${originalData.title} (Copy)`,
+        title_rw: originalData.title_rw ? `${originalData.title_rw} (Copy)` : '',
+        title_fr: originalData.title_fr ? `${originalData.title_fr} (Copy)` : '',
+        content: originalData.content,
+        content_rw: originalData.content_rw || '',
+        content_fr: originalData.content_fr || '',
+        category: originalData.category,
+        target_audience: originalData.target_audience,
+        disaster_types: originalData.disaster_types || [],
+        legacy_attachments: originalData.legacy_attachments || null, // Legacy JSON attachments
         is_featured: false, // New copies shouldn't be featured by default
         is_published: false, // New copies should be drafts by default
-        display_order: (original.display_order || 0) + 1
+        display_order: (originalData.display_order || 0) + 1
       };
       
+      // Copy attachment file references (same files, not duplicating the actual files)
+      for (let i = 1; i <= 5; i++) {
+        const attachmentField = `attachment_${i}`;
+        const nameField = `attachment_${i}_name`;
+        const descField = `attachment_${i}_description`;
+        
+        if (originalData[attachmentField]) {
+          duplicateData[attachmentField] = originalData[attachmentField];
+          duplicateData[nameField] = originalData[nameField] || '';
+          duplicateData[descField] = originalData[descField] || '';
+        }
+      }
+      
+      // Create the duplicate
       return await this.createSafetyGuide(duplicateData);
     }
   } catch (error) {
@@ -997,7 +1119,7 @@ async duplicateSafetyGuide(id) {
   }
 }
 
-// Export Safety Guides
+// Export functionality
 async exportSafetyGuides(format = 'json', filters = {}) {
   try {
     const params = new URLSearchParams({ 
@@ -1005,9 +1127,157 @@ async exportSafetyGuides(format = 'json', filters = {}) {
       export_format: format 
     }).toString();
     
-    return await this.request(`/safety-guides/export/?${params}`);
+    const response = await fetch(`${this.baseUrl}/safety-guides/export/?${params}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+    }
+    
+    // Handle different response types
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else if (contentType && contentType.includes('text/csv')) {
+      const blob = await response.blob();
+      return { blob, filename: this.getFilenameFromResponse(response) || `safety_guides_${Date.now()}.csv` };
+    } else {
+      // For other formats, return as blob
+      const blob = await response.blob();
+      return { blob, filename: this.getFilenameFromResponse(response) || `safety_guides_${Date.now()}.${format}` };
+    }
   } catch (error) {
     console.error('Export safety guides error:', error);
+    throw error;
+  }
+}
+
+// Helper method to extract filename from response headers
+getFilenameFromResponse(response) {
+  const disposition = response.headers.get('content-disposition');
+  if (disposition && disposition.includes('attachment')) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      return filenameMatch[1].replace(/['"]/g, '');
+    }
+  }
+  return null;
+}
+
+// New: Toggle featured status
+async toggleSafetyGuideFeatured(id) {
+  try {
+    const guide = await this.getSafetyGuide(id);
+    const guideData = guide.data || guide;
+    
+    return await this.updateSafetyGuide(id, {
+      is_featured: !guideData.is_featured
+    });
+  } catch (error) {
+    console.error('Toggle featured error:', error);
+    throw error;
+  }
+}
+
+// New: Toggle published status
+async toggleSafetyGuidePublished(id) {
+  try {
+    const guide = await this.getSafetyGuide(id);
+    const guideData = guide.data || guide;
+    
+    return await this.updateSafetyGuide(id, {
+      is_published: !guideData.is_published
+    });
+  } catch (error) {
+    console.error('Toggle published error:', error);
+    throw error;
+  }
+}
+
+// New: Search safety guides with advanced filters
+async searchSafetyGuides(searchTerm, filters = {}) {
+  try {
+    const params = {
+      search: searchTerm,
+      ...filters
+    };
+    
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/safety-guides/?${query}`);
+  } catch (error) {
+    console.error('Search safety guides error:', error);
+    throw error;
+  }
+}
+
+// New: Helper methods for working with attachment slots
+getAttachmentSlotFromUrl(url, guide) {
+  // Helper to determine which attachment slot a URL corresponds to
+  for (let i = 1; i <= 5; i++) {
+    const attachmentUrl = guide[`attachment_${i}_url`];
+    if (attachmentUrl === url) {
+      return i;
+    }
+  }
+  return null;
+}
+
+// New: Get available attachment slots for a guide
+getAvailableAttachmentSlots(guide) {
+  const availableSlots = [];
+  for (let i = 1; i <= 5; i++) {
+    if (!guide[`attachment_${i}`]) {
+      availableSlots.push(i);
+    }
+  }
+  return availableSlots;
+}
+
+// New: Get occupied attachment slots for a guide
+getOccupiedAttachmentSlots(guide) {
+  const occupiedSlots = [];
+  for (let i = 1; i <= 5; i++) {
+    if (guide[`attachment_${i}`]) {
+      occupiedSlots.push({
+        slot: i,
+        file: guide[`attachment_${i}`],
+        url: guide[`attachment_${i}_url`],
+        name: guide[`attachment_${i}_name`] || '',
+        description: guide[`attachment_${i}_description`] || '',
+        size_display: guide[`attachment_${i}_size_display`]
+      });
+    }
+  }
+  return occupiedSlots;
+}
+
+// New: Upload file to first available slot
+async uploadToFirstAvailableSlot(guideId, file, name = null, description = null) {
+  try {
+    // Get the guide to check available slots
+    const guide = await this.getSafetyGuide(guideId);
+    const guideData = guide.data || guide;
+    
+    const availableSlots = this.getAvailableAttachmentSlots(guideData);
+    
+    if (availableSlots.length === 0) {
+      throw new Error('No available attachment slots (maximum 5 attachments)');
+    }
+    
+    const firstAvailableSlot = availableSlots[0];
+    
+    return await this.updateSafetyGuideAttachment(
+      guideId, 
+      firstAvailableSlot.toString(), 
+      file, 
+      name || file.name, 
+      description
+    );
+  } catch (error) {
+    console.error('Upload to first available slot error:', error);
     throw error;
   }
 }
