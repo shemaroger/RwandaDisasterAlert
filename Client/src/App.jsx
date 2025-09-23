@@ -42,6 +42,9 @@ import EditSafetyGuide from './pages/admin/EditSafetyGuide';
 import ViewSafetyGuide from './pages/admin/ViewSafetyGuide';
 import AlertDeliveries from './pages/admin/AlertDeliveries';
 
+import PublicSafetyGuides from './pages/citizen/PublicSafetyGuides';
+import PublicSafetyGuideDetail from './pages/citizen/PublicSafetyGuideDetail';
+
 
 
 // Other pages
@@ -470,11 +473,11 @@ function AppRoutes() {
 />
 
 {/* Optional: Public safety guide routes (if needed) */}
-{/* <Route
+<Route
   path="/safety-guides/public"
   element={
     <Layout>
-      <PublicSafetyGuideList />
+      <PublicSafetyGuides />
     </Layout>
   }
 />
@@ -483,10 +486,10 @@ function AppRoutes() {
   path="/safety-guides/public/:id"
   element={
     <Layout>
-      <PublicSafetyGuideView />
+      <PublicSafetyGuideDetail />
     </Layout>
   }
-/> */}
+/>
 
       <Route
   path="/admin/deliveries"

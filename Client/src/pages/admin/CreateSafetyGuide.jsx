@@ -12,7 +12,8 @@ import {
   Upload,
   FileText,
   CheckCircle,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,7 +27,7 @@ const CreateSafetyGuide = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   
-  // Form data
+  // Form data with attachment slots
   const [formData, setFormData] = useState({
     title: '',
     title_rw: '',
@@ -38,6 +39,22 @@ const CreateSafetyGuide = () => {
     target_audience: 'general',
     disaster_types: [],
     featured_image: null,
+    // Attachment slots (1-5)
+    attachment_1: null,
+    attachment_1_name: '',
+    attachment_1_description: '',
+    attachment_2: null,
+    attachment_2_name: '',
+    attachment_2_description: '',
+    attachment_3: null,
+    attachment_3_name: '',
+    attachment_3_description: '',
+    attachment_4: null,
+    attachment_4_name: '',
+    attachment_4_description: '',
+    attachment_5: null,
+    attachment_5_name: '',
+    attachment_5_description: '',
     is_featured: false,
     is_published: true,
     display_order: 0
@@ -47,9 +64,8 @@ const CreateSafetyGuide = () => {
   
   // File upload refs and preview states
   const featuredImageRef = useRef(null);
-  const attachmentsRef = useRef(null);
+  const attachmentRefs = useRef([]);
   const [imagePreview, setImagePreview] = useState('');
-  const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [createdGuideId, setCreatedGuideId] = useState(null);
   
   // Tab state for multilingual content
@@ -79,6 +95,8 @@ const CreateSafetyGuide = () => {
 
   useEffect(() => {
     loadDisasterTypes();
+    // Initialize attachment refs
+    attachmentRefs.current = Array(5).fill(null).map((_, i) => attachmentRefs.current[i] || React.createRef());
   }, []);
 
   const loadDisasterTypes = async () => {
@@ -148,37 +166,50 @@ const CreateSafetyGuide = () => {
     setError(null);
   };
 
-  const handleAttachmentsUpload = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const handleAttachmentUpload = (slotNumber, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
     const maxSize = 10 * 1024 * 1024; // 10MB
-    const validFiles = [];
-    const errors = [];
 
-    files.forEach(file => {
-      if (file.size > maxSize) {
-        errors.push(`File "${file.name}" is too large. Maximum size is 10MB.`);
-        return;
-      }
-      validFiles.push(file);
-    });
-
-    if (errors.length > 0) {
-      setError(errors.join('\n'));
+    if (file.size > maxSize) {
+      setError(`File "${file.name}" is too large. Maximum size is 10MB.`);
       return;
     }
 
-    if (validFiles.length > 0) {
-      setAttachmentFiles(prev => [...prev, ...validFiles]);
-      setError(null);
-    }
+    // Store the file in the appropriate slot
+    setFormData(prev => ({
+      ...prev,
+      [`attachment_${slotNumber}`]: file,
+      [`attachment_${slotNumber}_name`]: file.name,
+      [`attachment_${slotNumber}_description`]: ''
+    }));
 
-    e.target.value = '';
+    setError(null);
+    e.target.value = ''; // Reset input
   };
 
-  const removeAttachment = (index) => {
-    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+  const removeAttachment = (slotNumber) => {
+    setFormData(prev => ({
+      ...prev,
+      [`attachment_${slotNumber}`]: null,
+      [`attachment_${slotNumber}_name`]: '',
+      [`attachment_${slotNumber}_description`]: ''
+    }));
+  };
+
+  const updateAttachmentName = (slotNumber, name) => {
+    setFormData(prev => ({
+      ...prev,
+      [`attachment_${slotNumber}_name`]: name
+    }));
+  };
+
+  const updateAttachmentDescription = (slotNumber, description) => {
+    setFormData(prev => ({
+      ...prev,
+      [`attachment_${slotNumber}_description`]: description
+    }));
   };
 
   const validateForm = () => {
@@ -202,28 +233,6 @@ const CreateSafetyGuide = () => {
     
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  };
-
-  const uploadAttachments = async (guideId) => {
-    if (attachmentFiles.length === 0) return;
-
-    setUploadProgress({ current: 0, total: attachmentFiles.length });
-    
-    for (let i = 0; i < attachmentFiles.length; i++) {
-      try {
-        const file = attachmentFiles[i];
-        
-        // Use the new API method for uploading attachments
-        await apiService.uploadSafetyGuideAttachment(guideId, file, file.name, '');
-
-        setUploadProgress({ current: i + 1, total: attachmentFiles.length });
-      } catch (err) {
-        console.error(`Failed to upload ${attachmentFiles[i].name}:`, err);
-        // Continue with other files even if one fails
-      }
-    }
-    
-    setUploadProgress(null);
   };
 
   const handleSubmit = async (e) => {
@@ -270,9 +279,26 @@ const CreateSafetyGuide = () => {
         submitData.append('disaster_types', typeId);
       });
       
-      // Add featured image if present (now using proper ImageField)
+      // Add featured image if present
       if (formData.featured_image) {
         submitData.append('featured_image', formData.featured_image);
+      }
+
+      // Add attachment files and their metadata
+      for (let i = 1; i <= 5; i++) {
+        const file = formData[`attachment_${i}`];
+        const name = formData[`attachment_${i}_name`];
+        const description = formData[`attachment_${i}_description`];
+
+        if (file) {
+          submitData.append(`attachment_${i}`, file);
+          if (name) {
+            submitData.append(`attachment_${i}_name`, name);
+          }
+          if (description) {
+            submitData.append(`attachment_${i}_description`, description);
+          }
+        }
       }
 
       console.log('Creating safety guide...');
@@ -289,17 +315,11 @@ const CreateSafetyGuide = () => {
       const createdGuide = response.data || response;
       setCreatedGuideId(createdGuide.id);
       
-      // Upload attachments if any
-      if (attachmentFiles.length > 0) {
-        console.log('Uploading attachments...');
-        await uploadAttachments(createdGuide.id);
-      }
-      
-      setSuccess('Safety guide created successfully!');
+      setSuccess('Safety guide created successfully with all attachments!');
       
       // Redirect after a short delay to show success message
       setTimeout(() => {
-        navigate('/safety-guides/admin', { 
+        navigate('/safety-guides', { 
           state: { message: 'Safety guide created successfully!' }
         });
       }, 2000);
@@ -344,6 +364,94 @@ const CreateSafetyGuide = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const getAttachedFilesCount = () => {
+    let count = 0;
+    for (let i = 1; i <= 5; i++) {
+      if (formData[`attachment_${i}`]) count++;
+    }
+    return count;
+  };
+
+  const renderAttachmentSlot = (slotNumber) => {
+    const file = formData[`attachment_${slotNumber}`];
+    const name = formData[`attachment_${slotNumber}_name`];
+    const description = formData[`attachment_${slotNumber}_description`];
+
+    return (
+      <div key={slotNumber} className="border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-gray-900">Attachment {slotNumber}</h4>
+          {file && (
+            <button
+              type="button"
+              onClick={() => removeAttachment(slotNumber)}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Remove attachment"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {!file ? (
+          <div>
+            <input
+              ref={el => attachmentRefs.current[slotNumber - 1] = el}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.avi,.mov,.wmv,.flv,.webm,.mp3,.wav,.ogg,.aac,.zip,.rar,.7z,.tar,.gz"
+              onChange={(e) => handleAttachmentUpload(slotNumber, e)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => attachmentRefs.current[slotNumber - 1]?.click()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-gray-500 hover:text-gray-600"
+            >
+              <Upload className="w-5 h-5" />
+              Choose File
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+              <FileText className="w-5 h-5 text-gray-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => updateAttachmentName(slotNumber, e.target.value)}
+                placeholder="Enter display name for this file"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Description (optional)
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => updateAttachmentDescription(slotNumber, e.target.value)}
+                placeholder="Enter description for this file"
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -352,7 +460,7 @@ const CreateSafetyGuide = () => {
           <div className="flex items-center justify-between">
             <div>
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-                <Link to="/safety-guides/admin" className="hover:text-gray-700 flex items-center gap-1">
+                <Link to="/safety-guides" className="hover:text-gray-700 flex items-center gap-1">
                   <ArrowLeft className="w-4 h-4" />
                   Safety Guides
                 </Link>
@@ -386,11 +494,6 @@ const CreateSafetyGuide = () => {
                   <CheckCircle className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
                   <div>
                     <p className="text-green-800 font-medium">{success}</p>
-                    {attachmentFiles.length > 0 && uploadProgress && (
-                      <p className="text-green-600 text-sm mt-1">
-                        Uploading attachments: {uploadProgress.current}/{uploadProgress.total}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -403,27 +506,6 @@ const CreateSafetyGuide = () => {
                   <AlertTriangle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
                   <div>
                     <p className="text-red-800 whitespace-pre-line">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Upload Progress */}
-            {uploadProgress && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex">
-                  <RefreshCw className="w-5 h-5 text-blue-500 mr-3 mt-0.5 animate-spin" />
-                  <div>
-                    <p className="text-blue-800">Uploading attachments...</p>
-                    <div className="mt-2 bg-blue-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-blue-600 text-sm mt-1">
-                      {uploadProgress.current} of {uploadProgress.total} files uploaded
-                    </p>
                   </div>
                 </div>
               </div>
@@ -666,66 +748,26 @@ const CreateSafetyGuide = () => {
               </div>
             </div>
 
-            {/* Attachments */}
+            {/* Attachments - New Slot-Based System */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Additional Attachments</h3>
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-lg font-semibold text-gray-900">Attachments</h3>
+                <span className="text-sm text-gray-500">
+                  {getAttachedFilesCount()}/5 slots used
+                </span>
+              </div>
               
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Upload Additional Files
-                </label>
-                <div className="flex items-center gap-4 mb-2">
-                  <input
-                    ref={attachmentsRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.avi,.mov,.wmv,.flv,.webm,.mp3,.wav,.ogg,.aac,.zip,.rar,.7z,.tar,.gz"
-                    onChange={handleAttachmentsUpload}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => attachmentsRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Choose Files
-                  </button>
-                  <span className="text-sm text-gray-500">Documents, images, videos up to 10MB each</span>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <div className="flex">
+                  <Info className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <p className="text-blue-800 text-sm">
+                    You can upload up to 5 attachments. Each file can be up to 10MB. Supported formats: documents (PDF, DOC, TXT), images, videos, audio files, and archives.
+                  </p>
                 </div>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <div className="flex">
-                    <Info className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                    <p className="text-blue-800 text-sm">
-                      Attachments will be uploaded after the safety guide is created. You can also add more attachments later by editing the guide.
-                    </p>
-                  </div>
-                </div>
-                
-                {attachmentFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-900">Selected Files ({attachmentFiles.length}):</h4>
-                    {attachmentFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FileText className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <span className="text-sm text-gray-900">{file.name}</span>
-                            <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeAttachment(index)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              </div>
+              
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5].map(slotNumber => renderAttachmentSlot(slotNumber))}
               </div>
             </div>
 
