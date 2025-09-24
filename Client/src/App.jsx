@@ -23,7 +23,6 @@ import SafetyCheckin from './pages/safety/SafetyCheckin';
 import EmergencyContacts from './pages/safety/EmergencyContacts';
 import EmergencyGuide from './pages/safety/EmergencyGuide';
 
-
 import LocationManagement from './pages/admin/LocationManagement';
 import DisasterTypes from './pages/admin/DisasterTypes';
 import AlertsManagement from './pages/admin/AlertsManagement';
@@ -45,12 +44,49 @@ import AlertDeliveries from './pages/admin/AlertDeliveries';
 import PublicSafetyGuides from './pages/citizen/PublicSafetyGuides';
 import PublicSafetyGuideDetail from './pages/citizen/PublicSafetyGuideDetail';
 
-
-
 // Other pages
 import NotFound from './pages/NotFound';
 import Unauthorized from './pages/Unauthorized';
 import './App.css';
+
+// Layout wrapper component that provides user context and notifications
+function AppLayout({ children }) {
+  const { user, logout } = useAuth();
+  
+  // Mock notifications - replace with your actual notification service
+  const notifications = [];
+  
+  // Mock handlers - replace with your actual implementations
+  const handlePageChange = (page) => {
+    console.log('Page changed to:', page);
+  };
+  
+  const handleLanguageChange = (language) => {
+    console.log('Language changed to:', language);
+  };
+  
+  const handleEmergencyAlert = () => {
+    console.log('Emergency alert triggered');
+  };
+  
+  const handleQuickAction = (actionType) => {
+    console.log('Quick action:', actionType);
+  };
+  
+  return (
+    <Layout
+      user={user}
+      notifications={notifications}
+      onPageChange={handlePageChange}
+      onLogout={logout}
+      onLanguageChange={handleLanguageChange}
+      onEmergencyAlert={handleEmergencyAlert}
+      onQuickAction={handleQuickAction}
+    >
+      {children}
+    </Layout>
+  );
+}
 
 // Wrapper component to provide user context to UserManagement
 function UserManagementWrapper() {
@@ -67,7 +103,7 @@ function DashboardRedirect() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-red-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -92,9 +128,9 @@ function AppRoutes() {
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <DashboardRedirect />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         } 
       />
@@ -111,14 +147,14 @@ function AppRoutes() {
       <Route path="/emergency-guide" element={<EmergencyGuide />} />
       <Route path="/emergency-contacts" element={<EmergencyContacts />} />
 
-      {/* User Management Routes - Updated for RwandaDisasterAlert */}
+      {/* User Management Routes */}
       <Route 
         path="/users" 
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <UserManagementWrapper />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         } 
       />
@@ -127,65 +163,65 @@ function AppRoutes() {
         path="/admin/users" 
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <UserManagementWrapper />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         } 
       />
+      
       <Route 
         path="/admin/disaster-types" 
         element={
-          <ProtectedRoute >
-            <Layout>
+          <ProtectedRoute>
+            <AppLayout>
               <DisasterTypes />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
+      
       <Route
-    path="/admin/alerts"
-    element={
-      <ProtectedRoute>
-        <Layout>
-          <AlertsManagement />
-        </Layout>
-      </ProtectedRoute>
-    }
-  />
+        path="/admin/alerts"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <AlertsManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-  {/* Create new alert page */}
-  <Route
-    path="/admin/alerts/create"
-    element={
-      <ProtectedRoute>
-        <Layout>
-          <CreateAlert />
-        </Layout>
-      </ProtectedRoute>
-    }
-  />
+      <Route
+        path="/admin/alerts/create"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <CreateAlert />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-  {/* Edit existing alert page */}
-  <Route
-    path="/admin/alerts/edit/:id"
-    element={
-      <ProtectedRoute>
-        <Layout>
-          <EditAlert />
-        </Layout>
-      </ProtectedRoute>
-    }
-  />
+      <Route
+        path="/admin/alerts/edit/:id"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <EditAlert />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       {/* ==================== CITIZEN ROUTES ==================== */}
       <Route
         path="/citizen/dashboard"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <CitizenDashboard />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -194,9 +230,9 @@ function AppRoutes() {
         path="/citizen/safety/checkin"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <SafetyCheckin />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -206,9 +242,9 @@ function AppRoutes() {
         path="/operator/dashboard"
         element={
           <ProtectedRoute requiredUserType="operator">
-            <Layout>
+            <AppLayout>
               <OperatorDashboard />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -218,9 +254,9 @@ function AppRoutes() {
         path="/admin/dashboard"
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <AdminDashboard />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -230,9 +266,9 @@ function AppRoutes() {
         path="/safety/checkin"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <SafetyCheckin />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -241,9 +277,9 @@ function AppRoutes() {
         path="/emergency/contacts"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <EmergencyContacts />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -252,23 +288,22 @@ function AppRoutes() {
         path="/emergency/guide"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <EmergencyGuide />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
       {/* ==================== RWANDADISASTERALERT SPECIFIC ROUTES ==================== */}
       
-      {/* Alert Management Routes - Admin and Authority */}
       <Route
         path="/alerts"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <Layout>
+            <AppLayout>
               <div>Alert Management Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -277,274 +312,259 @@ function AppRoutes() {
         path="/alerts/create"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <Layout>
+            <AppLayout>
               <div>Create Alert Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Incident Management Routes - All user types can view, Admin/Authority/Operator can manage */}
+      {/* Incident Management Routes */}
       <Route
-      path="/incidents"
+        path="/incidents"
         element={
-           <ProtectedRoute>
-            <Layout>
-        <IncidentsManagement />
-          </Layout>
-         </ProtectedRoute>
-              }
-                />
+          <ProtectedRoute>
+            <AppLayout>
+              <IncidentsManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-     {/* Citizen Incident List - View their own reports */}
       <Route
-  path="/incidents/citizen/reports"
-  element={
-    <ProtectedRoute requiredUserType="citizen">
-      <Layout>
-        <CitizenIncidentReport />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+        path="/incidents/citizen/reports"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <AppLayout>
+              <CitizenIncidentReport />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/incidents/citizen/my-reports"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <IncidentListPage citizenView={true} />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Citizen Incident Detail View */}
       <Route
         path="/incidents/citizen/:id/view"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <IncidentDetailPage citizenView={true} />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Citizen Incident Edit - Citizens can edit their own reports if not yet processed */}
       <Route
         path="/incidents/citizen/:id/edit"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <IncidentEditPage citizenView={true} />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Admin/Operator Incident List - View all incidents */}
       <Route
         path="/incidents/admin/list"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <Layout>
+            <AppLayout>
               <IncidentListPage />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Admin/Operator Incident Detail View */}
       <Route
         path="/incidents/admin/:id/view"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <Layout>
+            <AppLayout>
               <IncidentDetailPage />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Admin/Operator Incident Edit */}
       <Route
         path="/incidents/admin/:id/edit"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <Layout>
+            <AppLayout>
               <IncidentEditPage />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Incident Export - Admin/Operator only */}
       <Route
         path="/incidents/export"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
-            <Layout>
+            <AppLayout>
               <IncidentExportPage />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Public Incident Reporting - No auth required */}
       <Route
         path="/report-incident"
         element={
-          <Layout>
+          <AppLayout>
             <CitizenIncidentReport />
-          </Layout>
+          </AppLayout>
         }
       />
-      {/* Location Management Routes - Admin and Authority */}
 
-<Route
-  path="/locations"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <LocationManagement  />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+      <Route
+        path="/locations"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <LocationManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-
-
-      {/* Emergency Contacts Routes - All users can view */}
       <Route
         path="/emergency-contacts"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <EmergencyContacts />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
       {/* Safety Guide Admin Routes */}
-<Route
-  path="/safety-guides"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <SafetyGuideList />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/safety-guides/admin/create"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <CreateSafetyGuide />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/safety-guides/admin/:id/edit"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <EditSafetyGuide />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/safety-guides/admin/:id/view"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <ViewSafetyGuide />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-
-{/* Optional: Public safety guide routes (if needed) */}
-<Route
-  path="/safety-guides/public"
-  element={
-    <Layout>
-      <PublicSafetyGuides />
-    </Layout>
-  }
-/>
-
-<Route
-  path="/safety-guides/public/:id"
-  element={
-    <Layout>
-      <PublicSafetyGuideDetail />
-    </Layout>
-  }
-/>
+      <Route
+        path="/safety-guides"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <SafetyGuideList />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
-  path="/admin/deliveries"
-  element={
-    <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
-      <Layout>
-        <AlertDeliveries />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+        path="/safety-guides/admin/create"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <CreateSafetyGuide />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
-{/* Also update the legacy deliveries route */}
-<Route
-  path="/deliveries"
-  element={
-    <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
-      <Layout>
-        <AlertDeliveries />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-      {/* Analytics Routes - Admin, Authority, Operator */}
+      <Route
+        path="/safety-guides/admin/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <EditSafetyGuide />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/safety-guides/admin/:id/view"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ViewSafetyGuide />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Public safety guide routes with full-width layout */}
+      <Route
+        path="/safety-guides/public"
+        element={
+          <AppLayout>
+            <PublicSafetyGuides />
+          </AppLayout>
+        }
+      />
+
+      <Route
+        path="/safety-guides/public/:id"
+        element={
+          <AppLayout>
+            <PublicSafetyGuideDetail />
+          </AppLayout>
+        }
+      />
+
+      <Route
+        path="/admin/deliveries"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+            <AppLayout>
+              <AlertDeliveries />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/deliveries"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+            <AppLayout>
+              <AlertDeliveries />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/analytics"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "authority", "operator"]}>
-            <Layout>
+            <AppLayout>
               <div>Analytics Dashboard Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Notification Templates Routes - Admin and Authority */}
       <Route
         path="/notification-templates"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <Layout>
+            <AppLayout>
               <div>Notification Templates Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* Alert Response Routes - Citizens */}
       <Route
         path="/alerts/my-responses"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <div>My Alert Responses Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -553,23 +573,21 @@ function AppRoutes() {
         path="/alerts/respond"
         element={
           <ProtectedRoute requiredUserType="citizen">
-            <Layout>
+            <AppLayout>
               <SafetyCheckin />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
       {/* ==================== ADMIN-ONLY SYSTEM ROUTES ==================== */}
-      
-      {/* System Settings Routes */}
       <Route
         path="/admin/settings"
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <div>System Settings Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -578,21 +596,20 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <div>System Settings Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* System Health Routes */}
       <Route
         path="/system/health"
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <div>System Health Monitoring Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -602,9 +619,9 @@ function AppRoutes() {
         path="/profile"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <div>User Profile Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -613,40 +630,34 @@ function AppRoutes() {
         path="/profile/preferences"
         element={
           <ProtectedRoute>
-            <Layout>
+            <AppLayout>
               <div>Notification Preferences Coming Soon</div>
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      
-
-      {/* Legacy user management route */}
       <Route 
         path="/user/management" 
         element={
           <ProtectedRoute requiredUserType="admin">
-            <Layout>
+            <AppLayout>
               <UserManagementWrapper />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         } 
       />
 
       {/* ==================== ERROR ROUTES ==================== */}
-      
-      {/* Unauthorized access */}
       <Route path="/unauthorized" element={<Unauthorized />} />
 
-      {/* Catch-all route for 404 - with layout for authenticated users */}
       <Route
         path="*"
         element={
           <ProtectedRoute showUnauthorized={false}>
-            <Layout>
+            <AppLayout>
               <NotFound />
-            </Layout>
+            </AppLayout>
           </ProtectedRoute>
         }
       />
