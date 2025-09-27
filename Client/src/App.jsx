@@ -665,16 +665,6 @@ function AppRoutes() {
   );
 }
 
-function App() {
-  return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          <AppRoutes />
-        </div>
-      </Router>
-    </AuthProvider>
-  );
-}
+
 
 export default App;
