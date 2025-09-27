@@ -1,4 +1,4 @@
-// contexts/AuthContext.jsx
+// contexts/AuthContext.jsx - Enhanced version with complete state management
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService, { ApiError } from '../services/api';
 
@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Clear all browser storage completely
+  // Enhanced clearAllStorage function with comprehensive cleanup
   const clearAllStorage = () => {
     try {
       // Clear localStorage
@@ -30,14 +30,45 @@ export const AuthProvider = ({ children }) => {
       // Clear sessionStorage
       sessionStorage.clear();
       
-      // Clear cookies
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      // Clear specific items that might persist across sessions
+      const itemsToClear = [
+        'auth_token',
+        'refresh_token', 
+        'user_data',
+        'remember_user',
+        'react-router-location',
+        'navigation_state',
+        'navigationState',
+        'lastVisitedPath',
+        'redirectAfterLogin'
+      ];
+      
+      itemsToClear.forEach(item => {
+        localStorage.removeItem(item);
+        sessionStorage.removeItem(item);
       });
       
-      console.log('All browser storage cleared');
+      // Enhanced cookie clearing for multiple domain/path combinations
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+        
+        // Clear for different path and domain combinations
+        const clearOptions = [
+          "",
+          ";path=/",
+          ";path=/;domain=" + window.location.hostname,
+          ";path=/;domain=." + window.location.hostname.split('.').slice(-2).join('.')
+        ];
+        
+        clearOptions.forEach(option => {
+          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT" + option;
+        });
+      });
+      
+      console.log('Enhanced storage cleanup completed');
     } catch (error) {
-      console.warn('Error clearing storage:', error);
+      console.warn('Error during enhanced storage cleanup:', error);
     }
   };
 
@@ -94,14 +125,20 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Login function - updated for RwandaDisasterAlert API
+  // Enhanced login function with complete state management
   const login = async (username, password, rememberMe = false) => {
     try {
       setLoading(true);
       setError('');
       
-      // Clear any existing data first
+      // Complete cleanup before new login to prevent state pollution
       clearAllStorage();
+      setUser(null);
+      
+      // Clear any existing navigation state that might cause redirect issues
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
 
       const response = await apiService.login(username, password);
       
@@ -222,13 +259,13 @@ export const AuthProvider = ({ children }) => {
       case 'authority':
         return '/authority/dashboard';
       case 'citizen':
-        return '/citizen/dashboard'; // Citizens use the general dashboard
+        return '/citizen/dashboard'; // Citizens use the citizen dashboard
       default:
         return '/dashboard';
     }
   };
 
-  // Logout function
+  // Enhanced logout function with complete state and navigation reset
   const logout = async () => {
     try {
       console.log('Logout initiated for user:', user?.username);
@@ -241,12 +278,20 @@ export const AuthProvider = ({ children }) => {
       // Continue with logout even if backend call fails
       console.warn('Backend logout failed, continuing with client logout:', error);
     } finally {
-      // Always clear all client state and storage
+      // Complete state and navigation reset
+      
+      // Clear all client state and storage
       clearAllStorage();
       setUser(null);
       setError('');
+      setLoading(false);
       
-      console.log('Logout completed - all data cleared');
+      // Clear any React Router state that might contain redirect info
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', '/login');
+      }
+      
+      console.log('Logout completed - all data and navigation state cleared');
       
       // Return logout info for components to handle navigation
       return {
@@ -266,6 +311,12 @@ export const AuthProvider = ({ children }) => {
     apiService.logoutSync();
     setUser(null);
     setError('');
+    setLoading(false);
+    
+    // Clear navigation state
+    if (window.history.replaceState) {
+      window.history.replaceState(null, '', '/login');
+    }
     
     return {
       success: true,

@@ -3,7 +3,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 
 // Auth pages
@@ -668,15 +667,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <div className="App">
-            <AppRoutes />
-          </div>
-        </Router>
-      </AuthProvider>
-    </ErrorBoundary>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <AppRoutes />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
