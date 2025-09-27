@@ -40,6 +40,7 @@ import CreateSafetyGuide from './pages/admin/CreateSafetyGuide';
 import EditSafetyGuide from './pages/admin/EditSafetyGuide';
 import ViewSafetyGuide from './pages/admin/ViewSafetyGuide';
 import AlertDeliveries from './pages/admin/AlertDeliveries';
+import ActiveAlerts from './pages/citizen/ActiveAlerts';
 
 import PublicSafetyGuides from './pages/citizen/PublicSafetyGuides';
 import PublicSafetyGuideDetail from './pages/citizen/PublicSafetyGuideDetail';
@@ -563,7 +564,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="citizen">
             <AppLayout>
-              <div>My Alert Responses Coming Soon</div>
+              <ActiveAlerts/>
             </AppLayout>
           </ProtectedRoute>
         }

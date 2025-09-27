@@ -161,10 +161,18 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Main media directory
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_URL = '/uploads/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
+
+# Uploads directory
+UPLOADS_URL = '/uploads/'
+UPLOADS_ROOT = BASE_DIR / 'uploads'
+
+# Safety guides directory
+SAFETY_GUIDES_URL = '/safety_guides/'
+SAFETY_GUIDES_ROOT = BASE_DIR / 'uploads' / 'safety_guides'
 
 
 # Default primary key field type

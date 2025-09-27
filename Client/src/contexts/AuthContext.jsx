@@ -222,7 +222,7 @@ export const AuthProvider = ({ children }) => {
       case 'authority':
         return '/authority/dashboard';
       case 'citizen':
-        return '/dashboard'; // Citizens use the general dashboard
+        return '/citizen/dashboard'; // Citizens use the general dashboard
       default:
         return '/dashboard';
     }

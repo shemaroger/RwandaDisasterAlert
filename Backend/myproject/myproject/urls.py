@@ -10,13 +10,13 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),  
 ]
 
-# Serve media files in development
+# Serve media and static files
 if settings.DEBUG:
+    # Serve main media directory
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Serve uploads directory
+    urlpatterns += static(settings.UPLOADS_URL, document_root=settings.UPLOADS_ROOT)
+    # Serve safety guides directory
+    urlpatterns += static(settings.SAFETY_GUIDES_URL, document_root=settings.SAFETY_GUIDES_ROOT)
+    # Serve static files
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-# Serve media files in production
-else:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-
-
