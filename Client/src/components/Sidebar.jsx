@@ -1,4 +1,3 @@
-// components/Sidebar.jsx
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -347,6 +346,7 @@ const Sidebar = ({
 
   return (
     <>
+      {/* Overlay for mobile/tablet */}
       {sidebarOpen && (isMobile || isTablet) && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300"
@@ -354,12 +354,13 @@ const Sidebar = ({
         />
       )}
 
+      {/* Sidebar Container */}
       <div className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isMobile ? 'w-80' : isTablet ? 'w-72' : 'w-72'}`}>
         
         {/* Sidebar Container with Gradient Background */}
-        <div className="h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-r border-slate-700/50">
+        <div className="h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-r border-slate-700/50 flex flex-col">
           
           {/* Logo Header */}
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
@@ -392,226 +393,221 @@ const Sidebar = ({
             )}
           </div>
 
-          <div className="flex flex-col h-full overflow-hidden">
-            {/* Quick Actions for Admin/Authority */}
-            {(user?.user_type === 'admin' || user?.user_type === 'authority') && (
-              <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
-                <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Quick Actions
-                </h3>
-                <div className="space-y-2">
-                  {quickActions.map((action) => (
-                    <button
-                      key={action.action}
-                      onClick={() => handleQuickAction(action.action)}
-                      className={`w-full ${action.color} text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 group transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation`}
-                      title={action.description}
-                    >
-                      <action.icon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                      <span className="font-medium">{action.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Emergency Contacts for Citizens */}
-            {user?.user_type === 'citizen' && (
-              <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
-                <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Emergency Contacts
-                </h3>
-                <div className="space-y-2">
-                  <a 
-                    href="tel:912" 
-                    className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
-                  >
-                    <Phone className="h-4 w-4" />
-                    <span className="font-medium">Call 912 - Emergency</span>
-                  </a>
-                  <a 
-                    href="tel:+250788000000" 
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
-                  >
-                    <Building2 className="h-4 w-4" />
-                    <span className="font-medium">MINEMA Operations</span>
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Safety Status for Citizens */}
-            {user?.user_type === 'citizen' && (
-              <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
-                <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                  Safety Status
-                </h3>
-                <button
-                  onClick={() => handleNavigation('/alerts/respond')}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
-                >
-                  <Activity className="h-4 w-4" />
-                  <span className="font-medium">Report I'm Safe</span>
-                </button>
-              </div>
-            )}
-
-            {/* Navigation Menu */}
-            <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600">
+          {/* Quick Actions for Admin/Authority */}
+          {(user?.user_type === 'admin' || user?.user_type === 'authority') && (
+            <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
               <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                Navigation
-              </h3>
-              {navigationItems.map((item) => {
-                const isActive = currentPage === item.id;
-                const hasSubItems = item.subItems && item.subItems.length > 0;
-                const isExpanded = expandedSections[item.id];
-                
-                return (
-                  <div key={item.id}>
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => hasSubItems ? toggleSection(item.id) : handleNavigation(item.path)}
-                        className={`flex-1 group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 touch-manipulation ${
-                          isActive
-                            ? 'bg-gradient-to-r from-red-600/20 to-red-500/20 border border-red-500/30 text-red-300 shadow-lg backdrop-blur-sm'
-                            : 'text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md'
-                        }`}
-                      >
-                        <item.icon className={`mr-3 h-5 w-5 transition-colors ${
-                          isActive ? 'text-red-400' : 'text-slate-400 group-hover:text-slate-300'
-                        }`} />
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center justify-between">
-                            <span>{item.name}</span>
-                            {item.badge && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
-                                {item.badge}
-                              </span>
-                            )}
-                          </div>
-                          {item.description && (
-                            <p className="text-xs text-slate-400 mt-0.5">{item.description}</p>
-                          )}
-                        </div>
-                      </button>
-                      {hasSubItems && (
-                        <button
-                          onClick={() => toggleSection(item.id)}
-                          className="p-2 text-slate-400 hover:text-slate-300 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    
-                    {hasSubItems && isExpanded && (
-                      <div className="ml-8 mt-1 space-y-1">
-                        {item.subItems.map((subItem, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleNavigation(subItem.path)}
-                            className="w-full group flex items-center px-3 py-2 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-lg transition-all duration-200 touch-manipulation"
-                          >
-                            <subItem.icon className="mr-3 h-4 w-4 text-slate-500 group-hover:text-slate-400" />
-                            <div className="flex-1 text-left">
-                              <span>{subItem.name}</span>
-                              {subItem.description && (
-                                <p className="text-xs text-slate-500 mt-0.5">{subItem.description}</p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
-
-            {/* System Status */}
-            <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
-              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                System Status
+                Quick Actions
               </h3>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">SMS Gateway</span>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
-                    <span className="text-green-400 text-xs font-medium">Online</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Push Service</span>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
-                    <span className="text-green-400 text-xs font-medium">Active</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Email Service</span>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
-                    <span className="text-green-400 text-xs font-medium">Operational</span>
-                  </div>
-                </div>
-                {user?.user_type === 'citizen' && user?.district && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Your District</span>
-                    <span className="text-slate-200 text-xs font-medium">{user.district}</span>
-                  </div>
-                )}
+                {quickActions.map((action) => (
+                  <button
+                    key={action.action}
+                    onClick={() => handleQuickAction(action.action)}
+                    className={`w-full ${action.color} text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 group transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation`}
+                    title={action.description}
+                  >
+                    <action.icon className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">{action.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
+          )}
 
-            {/* User Profile */}
-            <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
-                  {user?.user_type === 'admin' ? (
-                    <Shield className="h-5 w-5 text-red-400" />
-                  ) : user?.user_type === 'authority' ? (
-                    <AlertTriangle className="h-5 w-5 text-red-400" />
-                  ) : user?.user_type === 'operator' ? (
-                    <Users className="h-5 w-5 text-red-400" />
-                  ) : (
-                    <Heart className="h-5 w-5 text-red-400" />
+          {/* Emergency Contacts for Citizens */}
+          {user?.user_type === 'citizen' && (
+            <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                Emergency Contacts
+              </h3>
+              <div className="space-y-2">
+                <a 
+                  href="tel:912" 
+                  className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
+                >
+                  <Phone className="h-4 w-4" />
+                  <span className="font-medium">Call 912 - Emergency</span>
+                </a>
+                <a 
+                  href="tel:+250788000000" 
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium">MINEMA Operations</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Safety Status for Citizens */}
+          {user?.user_type === 'citizen' && (
+            <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                Safety Status
+              </h3>
+              <button
+                onClick={() => handleNavigation('/alerts/respond')}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-sm py-2.5 px-3 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
+              >
+                <Activity className="h-4 w-4" />
+                <span className="font-medium">Report I'm Safe</span>
+              </button>
+            </div>
+          )}
+
+          {/* Navigation Menu */}
+          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600">
+            {navigationItems.map((item) => {
+              const isActive = currentPage === item.id;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isExpanded = expandedSections[item.id];
+              
+              return (
+                <div key={item.id}>
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => hasSubItems ? toggleSection(item.id) : handleNavigation(item.path)}
+                      className={`flex-1 group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 touch-manipulation ${
+                        isActive
+                          ? 'bg-gradient-to-r from-red-600/20 to-red-500/20 border border-red-500/30 text-red-300 shadow-lg backdrop-blur-sm'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-700/50 hover:shadow-md'
+                      }`}
+                    >
+                      <item.icon className={`mr-3 h-5 w-5 transition-colors ${
+                        isActive ? 'text-red-400' : 'text-slate-400 group-hover:text-slate-300'
+                      }`} />
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center justify-between">
+                          <span>{item.name}</span>
+                          {item.badge && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-slate-400 mt-0.5">{item.description}</p>
+                        )}
+                      </div>
+                    </button>
+                    {hasSubItems && (
+                      <button
+                        onClick={() => toggleSection(item.id)}
+                        className="p-2 text-slate-400 hover:text-slate-300 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {hasSubItems && isExpanded && (
+                    <div className="ml-8 mt-1 space-y-1">
+                      {item.subItems.map((subItem, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleNavigation(subItem.path)}
+                          className="w-full group flex items-center px-3 py-2 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-lg transition-all duration-200 touch-manipulation"
+                        >
+                          <subItem.icon className="mr-3 h-4 w-4 text-slate-500 group-hover:text-slate-400" />
+                          <div className="flex-1 text-left">
+                            <span>{subItem.name}</span>
+                            {subItem.description && (
+                              <p className="text-xs text-slate-500 mt-0.5">{subItem.description}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    {user?.first_name} {user?.last_name}
-                  </p>
-                  <p className="text-xs text-slate-400 truncate capitalize">
-                    {user?.user_type === 'admin' ? 'Administrator' :
-                     user?.user_type === 'authority' ? 'Authority' :
-                     user?.user_type === 'operator' ? 'Operator' : 'Citizen'}
-                    {user?.district && ` • ${user.district}`}
-                  </p>
+              );
+            })}
+          </nav>
+
+          {/* System Status */}
+          <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+              System Status
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">SMS Gateway</span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
+                  <span className="text-green-400 text-xs font-medium">Online</span>
                 </div>
               </div>
-              {user?.is_verified !== undefined && (
-                <div className="mt-3 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Account Status:</span>
-                  <div className="flex items-center space-x-1">
-                    <div className={`w-2 h-2 rounded-full shadow-sm ${
-                      user.is_verified 
-                        ? 'bg-green-400 shadow-green-400/50' 
-                        : 'bg-amber-400 shadow-amber-400/50'
-                    }`}></div>
-                    <span className={`font-medium ${
-                      user.is_verified ? 'text-green-400' : 'text-amber-400'
-                    }`}>
-                      {user.is_verified ? 'Verified' : 'Pending'}
-                    </span>
-                  </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Push Service</span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
+                  <span className="text-green-400 text-xs font-medium">Active</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Email Service</span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-sm shadow-green-400/50"></div>
+                  <span className="text-green-400 text-xs font-medium">Operational</span>
+                </div>
+              </div>
+              {user?.user_type === 'citizen' && user?.district && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Your District</span>
+                  <span className="text-slate-200 text-xs font-medium">{user.district}</span>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* User Profile */}
+          <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
+                {user?.user_type === 'admin' ? (
+                  <Shield className="h-5 w-5 text-red-400" />
+                ) : user?.user_type === 'authority' ? (
+                  <AlertTriangle className="h-5 w-5 text-red-400" />
+                ) : user?.user_type === 'operator' ? (
+                  <Users className="h-5 w-5 text-red-400" />
+                ) : (
+                  <Heart className="h-5 w-5 text-red-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user?.first_name} {user?.last_name}
+                </p>
+                <p className="text-xs text-slate-400 truncate capitalize">
+                  {user?.user_type === 'admin' ? 'Administrator' :
+                   user?.user_type === 'authority' ? 'Authority' :
+                   user?.user_type === 'operator' ? 'Operator' : 'Citizen'}
+                  {user?.district && ` • ${user.district}`}
+                </p>
+              </div>
+            </div>
+            {user?.is_verified !== undefined && (
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <span className="text-slate-400">Account Status:</span>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-2 h-2 rounded-full shadow-sm ${
+                    user.is_verified 
+                      ? 'bg-green-400 shadow-green-400/50' 
+                      : 'bg-amber-400 shadow-amber-400/50'
+                  }`}></div>
+                  <span className={`font-medium ${
+                    user.is_verified ? 'text-green-400' : 'text-amber-400'
+                  }`}>
+                    {user.is_verified ? 'Verified' : 'Pending'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
