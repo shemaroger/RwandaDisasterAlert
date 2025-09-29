@@ -8,14 +8,14 @@ import {
 
 const Home = () => {
   return (
-    <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 via-red-900 to-slate-900">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-red-900 to-slate-900">
       {/* Background Pattern */}
       <div className="absolute inset-0 w-full h-full">
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-900/80 via-red-900/60 to-slate-900/80" />
       </div>
 
       {/* Animated Background Elements */}
-      <div className="absolute inset-0 w-full h-full overflow-hidden">
+      <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -36,7 +36,7 @@ const Home = () => {
       </div>
 
       {/* Main Container */}
-      <div className="relative z-10 fixed inset-0 flex flex-col">
+      <div className="relative z-10 flex flex-col min-h-screen">
         
         {/* Header */}
         <header className="bg-red-600/90 backdrop-blur-sm text-white border-b border-red-500/50">
@@ -70,103 +70,117 @@ const Home = () => {
         </header>
 
         {/* Main Content */}
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-6xl">
+        <div className="flex-1 py-8">
+          <div className="max-w-6xl mx-auto px-4">
             
             {/* Hero Section */}
-            <div className="text-center mb-8">
-              <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-700/20 backdrop-blur-sm border border-red-400/30 mb-4 shadow-2xl">
+            <div className="text-center mb-12">
+              <div className="mb-8">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-700/20 backdrop-blur-sm border border-red-400/30 mb-6 shadow-2xl">
                   <AlertTriangle className="w-10 h-10 text-red-400" />
                 </div>
               </div>
-              <h2 className="text-4xl font-bold text-white mb-4">
+              <h2 className="text-5xl font-bold text-white mb-6">
                 Stay Safe, Stay Informed
               </h2>
-              <p className="text-lg text-slate-300 mb-6 max-w-3xl mx-auto">
+              <p className="text-xl text-slate-300 mb-8 max-w-4xl mx-auto leading-relaxed">
                 Rwanda's official emergency alert system connecting citizens, emergency responders, 
                 and government agencies for effective disaster management and public safety.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
                 <Link
                   to="/signup"
-                  className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-all duration-300 transform hover:scale-105 flex items-center shadow-xl"
+                  className="bg-red-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-red-700 transition-all duration-300 transform hover:scale-105 flex items-center shadow-2xl text-lg"
                 >
                   Get Started
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-3 h-6 w-6" />
                 </Link>
                 <Link
                   to="/emergency-guide"
-                  className="border border-red-400/50 text-red-300 bg-red-500/10 hover:bg-red-500/20 px-6 py-3 rounded-lg font-semibold transition-all duration-300 backdrop-blur-sm"
+                  className="border border-red-400/50 text-red-300 bg-red-500/10 hover:bg-red-500/20 px-8 py-4 rounded-xl font-semibold transition-all duration-300 backdrop-blur-sm text-lg"
                 >
                   Emergency Guide
                 </Link>
               </div>
             </div>
 
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl text-center">
-                <div className="bg-red-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 border border-red-400/30">
-                  <Bell className="h-6 w-6 text-red-400" />
-                </div>
-                <h4 className="text-lg font-semibold text-white mb-2">Instant Alerts</h4>
-                <p className="text-slate-300 text-sm">
-                  Receive emergency notifications via SMS, mobile app, and email in multiple languages.
+            {/* Features Section */}
+            <div className="mb-16">
+              <div className="text-center mb-12">
+                <h3 className="text-3xl font-bold text-white mb-4">
+                  Comprehensive Emergency Management
+                </h3>
+                <p className="text-lg text-slate-300">
+                  Multi-channel alerts, real-time coordination, and community safety features
                 </p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl text-center">
-                <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 border border-blue-400/30">
-                  <MapPin className="h-6 w-6 text-blue-400" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl text-center hover:bg-white/15 transition-all duration-300">
+                  <div className="bg-red-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-red-400/30">
+                    <Bell className="h-8 w-8 text-red-400" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-white mb-4">Instant Alerts</h4>
+                  <p className="text-slate-300">
+                    Receive emergency notifications via SMS, mobile app, and email in Kinyarwanda, 
+                    English, or French.
+                  </p>
                 </div>
-                <h4 className="text-lg font-semibold text-white mb-2">Location-Based</h4>
-                <p className="text-slate-300 text-sm">
-                  Get alerts relevant to your district and find nearby emergency shelters.
-                </p>
-              </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl text-center">
-                <div className="bg-green-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 border border-green-400/30">
-                  <Shield className="h-6 w-6 text-green-400" />
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl text-center hover:bg-white/15 transition-all duration-300">
+                  <div className="bg-blue-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-400/30">
+                    <MapPin className="h-8 w-8 text-blue-400" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-white mb-4">Location-Based</h4>
+                  <p className="text-slate-300">
+                    Get alerts relevant to your district and find nearby emergency shelters 
+                    and safe areas.
+                  </p>
                 </div>
-                <h4 className="text-lg font-semibold text-white mb-2">Report & Respond</h4>
-                <p className="text-slate-300 text-sm">
-                  Report incidents, check in as safe, and access emergency resources.
-                </p>
+
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl text-center hover:bg-white/15 transition-all duration-300">
+                  <div className="bg-green-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-green-400/30">
+                    <Shield className="h-8 w-8 text-green-400" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-white mb-4">Report & Respond</h4>
+                  <p className="text-slate-300">
+                    Report incidents, check in as safe, and access emergency resources 
+                    during disasters.
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Emergency Info & Quick Access */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
               
               {/* Emergency Contacts */}
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
-                <h4 className="text-xl font-semibold text-white mb-4 flex items-center">
-                  <Phone className="h-5 w-5 mr-2 text-red-400" />
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl">
+                <h4 className="text-2xl font-semibold text-white mb-6 flex items-center">
+                  <Phone className="h-6 w-6 mr-3 text-red-400" />
                   Emergency Contacts
                 </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-red-500/20 rounded-lg border border-red-400/30">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-red-500/20 rounded-xl border border-red-400/30">
                     <div className="flex items-center">
-                      <Phone className="h-4 w-4 text-red-400 mr-2" />
-                      <span className="font-medium text-white text-sm">Emergency Services</span>
+                      <Phone className="h-6 w-6 text-red-400 mr-3" />
+                      <span className="font-medium text-white">Emergency Services</span>
                     </div>
-                    <span className="text-xl font-bold text-red-400">112</span>
+                    <span className="text-2xl font-bold text-red-400">112</span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-blue-500/20 rounded-lg border border-blue-400/30">
+                  <div className="flex items-center justify-between p-4 bg-blue-500/20 rounded-xl border border-blue-400/30">
                     <div className="flex items-center">
-                      <Shield className="h-4 w-4 text-blue-400 mr-2" />
-                      <span className="font-medium text-white text-sm">MINEMA</span>
+                      <Shield className="h-6 w-6 text-blue-400 mr-3" />
+                      <span className="font-medium text-white">MINEMA Operations</span>
                     </div>
                     <span className="text-lg font-bold text-blue-400">+250-788-000-000</span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-green-500/20 rounded-lg border border-green-400/30">
+                  <div className="flex items-center justify-between p-4 bg-green-500/20 rounded-xl border border-green-400/30">
                     <div className="flex items-center">
-                      <Heart className="h-4 w-4 text-green-400 mr-2" />
-                      <span className="font-medium text-white text-sm">Health Emergency</span>
+                      <Heart className="h-6 w-6 text-green-400 mr-3" />
+                      <span className="font-medium text-white">Health Emergency</span>
                     </div>
                     <span className="text-lg font-bold text-green-400">+250-788-111-222</span>
                   </div>
@@ -174,57 +188,95 @@ const Home = () => {
                 
                 <Link
                   to="/emergency-contacts"
-                  className="block w-full mt-4 bg-slate-600/50 hover:bg-slate-600/70 text-white text-center py-2 rounded-lg font-medium transition-all duration-200 backdrop-blur-sm text-sm border border-slate-500/50"
+                  className="block w-full mt-6 bg-slate-600/50 hover:bg-slate-600/70 text-white text-center py-3 rounded-xl font-medium transition-all duration-200 backdrop-blur-sm border border-slate-500/50"
                 >
                   View All Emergency Contacts
                 </Link>
               </div>
 
               {/* Quick Access */}
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
-                <h4 className="text-xl font-semibold text-white mb-4 flex items-center">
-                  <Zap className="h-5 w-5 mr-2 text-yellow-400" />
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl">
+                <h4 className="text-2xl font-semibold text-white mb-6 flex items-center">
+                  <Zap className="h-6 w-6 mr-3 text-yellow-400" />
                   Quick Access
                 </h4>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <Link
                     to="/emergency-guide"
-                    className="block bg-blue-500/20 hover:bg-blue-500/30 text-white p-3 rounded-lg transition-all duration-200 group border border-blue-400/30"
+                    className="block bg-blue-500/20 hover:bg-blue-500/30 text-white p-4 rounded-xl transition-all duration-200 group border border-blue-400/30"
                   >
                     <div className="flex items-center">
-                      <Zap className="w-5 h-5 mr-3 text-blue-400 group-hover:scale-110 transition-transform" />
+                      <Zap className="w-8 h-8 mr-4 text-blue-400 group-hover:scale-110 transition-transform" />
                       <div>
-                        <h5 className="font-semibold text-sm">Emergency Guide</h5>
-                        <p className="text-blue-200 text-xs">Learn emergency procedures</p>
+                        <h5 className="font-semibold text-lg">Emergency Guide</h5>
+                        <p className="text-blue-200">Learn what to do before, during, and after emergencies</p>
                       </div>
                     </div>
                   </Link>
 
                   <Link
                     to="/safety/checkin"
-                    className="block bg-green-500/20 hover:bg-green-500/30 text-white p-3 rounded-lg transition-all duration-200 group border border-green-400/30"
+                    className="block bg-green-500/20 hover:bg-green-500/30 text-white p-4 rounded-xl transition-all duration-200 group border border-green-400/30"
                   >
                     <div className="flex items-center">
-                      <CheckCircle className="w-5 h-5 mr-3 text-green-400 group-hover:scale-110 transition-transform" />
+                      <CheckCircle className="w-8 h-8 mr-4 text-green-400 group-hover:scale-110 transition-transform" />
                       <div>
-                        <h5 className="font-semibold text-sm">Safety Check-in</h5>
-                        <p className="text-green-200 text-xs">Report your safety status</p>
+                        <h5 className="font-semibold text-lg">Safety Check-in</h5>
+                        <p className="text-green-200">Let others know you're safe during emergencies</p>
                       </div>
                     </div>
                   </Link>
 
-                  <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-400/30">
+                  <div className="bg-yellow-500/20 p-4 rounded-xl border border-yellow-400/30">
                     <div className="flex items-start">
-                      <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5 mr-2 flex-shrink-0" />
+                      <AlertTriangle className="h-6 w-6 text-yellow-400 mt-1 mr-3 flex-shrink-0" />
                       <div>
-                        <h5 className="text-sm font-semibold text-yellow-300">System Status</h5>
-                        <div className="flex items-center mt-1">
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                          <span className="text-xs text-yellow-200">All systems operational</span>
+                        <h5 className="font-semibold text-yellow-300 mb-2">System Status</h5>
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-3"></div>
+                          <span className="text-yellow-200">All systems operational</span>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Features Section */}
+            <div className="mb-16">
+              <div className="text-center mb-12">
+                <h3 className="text-3xl font-bold text-white mb-4">
+                  Always Ready for Emergencies
+                </h3>
+                <p className="text-lg text-slate-300">
+                  Our system operates 24/7 to ensure you receive critical information when it matters most
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl text-center">
+                  <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
+                  <h5 className="text-lg font-semibold text-white mb-2">Multi-language</h5>
+                  <p className="text-slate-300 text-sm">Kinyarwanda, English, French support</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl text-center">
+                  <Radio className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                  <h5 className="text-lg font-semibold text-white mb-2">Network Coverage</h5>
+                  <p className="text-slate-300 text-sm">Connected to all Rwanda telecom networks</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl text-center">
+                  <MapPin className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+                  <h5 className="text-lg font-semibold text-white mb-2">Real-time Monitoring</h5>
+                  <p className="text-slate-300 text-sm">Weather and disaster monitoring</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl text-center">
+                  <Users className="h-12 w-12 text-orange-400 mx-auto mb-4" />
+                  <h5 className="text-lg font-semibold text-white mb-2">MINEMA Coordination</h5>
+                  <p className="text-slate-300 text-sm">Direct coordination with emergency services</p>
                 </div>
               </div>
             </div>

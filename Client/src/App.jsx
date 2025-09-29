@@ -112,7 +112,7 @@ function DashboardRedirect() {
   }
   
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
   
   // Use the getRedirectPath function from AuthContext
@@ -124,7 +124,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Default route - redirect to dashboard */}
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Login />} />
       <Route 
         path="/dashboard" 
         element={
