@@ -3,17 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    
+    <!-- SVG Favicon matching sidebar logo -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23ef4444;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23b91c1c;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='10' fill='url(%23grad)'/%3E%3Cpath d='M24 14 L32 28 L16 28 Z' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cline x1='24' y1='20' x2='24' y2='24' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='26.5' r='1' fill='white'/%3E%3C/svg%3E" />
+    
+    <!-- PNG Fallback -->
+    <link rel="alternate icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     
-    <title>Rwanda Disaster Alert</title>
+    <title>MINEMA Alert - Rwanda Disaster Management System</title>
 
     <!-- SEO -->
-    <meta name="description" content="Rwanda Disaster Alert - Real-time alerts and updates on disasters in Rwanda." />
-    <meta property="og:title" content="Rwanda Disaster Alert" />
-    <meta property="og:description" content="Stay informed with real-time alerts and safety information in Rwanda." />
+    <meta name="description" content="MINEMA Alert - Rwanda's official disaster management and emergency alert system. Real-time alerts, incident reporting, and safety information." />
+    <meta name="keywords" content="Rwanda, MINEMA, disaster management, emergency alerts, disaster response, incident reporting" />
+    <meta property="og:title" content="MINEMA Alert - Rwanda Disaster Management" />
+    <meta property="og:description" content="Official disaster management system for Rwanda. Stay informed with real-time emergency alerts and safety information." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/social-preview.png" />
+    <meta name="theme-color" content="#dc2626" />
 
     <!-- Basic Styling Reset -->
     <style>
@@ -23,9 +32,16 @@
         box-sizing: border-box;
       }
       body {
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         background: #f8f9fa;
         color: #212529;
+      }
+      #root {
+        min-height: 100vh;
       }
     </style>
   </head>

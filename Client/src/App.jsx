@@ -41,6 +41,8 @@ import EditSafetyGuide from './pages/admin/EditSafetyGuide';
 import ViewSafetyGuide from './pages/admin/ViewSafetyGuide';
 import AlertDeliveries from './pages/admin/AlertDeliveries';
 import ActiveAlerts from './pages/citizen/ActiveAlerts';
+import DisasterAnalyticsReport from './pages/admin/DisasterAnalyticsReport';
+import CitizenReportPage from './pages/citizen/CitizenReportPage';
 
 import PublicSafetyGuides from './pages/citizen/PublicSafetyGuides';
 import PublicSafetyGuideDetail from './pages/citizen/PublicSafetyGuideDetail';
@@ -342,7 +344,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
+<Route
+  path="/citizen/my-report"
+  element={
+    <ProtectedRoute requiredUserType="citizen">
+      <AppLayout>
+        <CitizenReportPage />
+      </AppLayout>
+    </ProtectedRoute>
+  }
+/>
       <Route
         path="/incidents/citizen/my-reports"
         element={
@@ -538,15 +549,15 @@ function AppRoutes() {
       />
 
       <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority", "operator"]}>
-            <AppLayout>
-              <div>Analytics Dashboard Coming Soon</div>
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
+  path="/analytics"
+  element={
+    <ProtectedRoute requiredUserTypes={["admin"]}>
+      <AppLayout>
+        <DisasterAnalyticsReport />
+      </AppLayout>
+    </ProtectedRoute>
+  }
+/>
 
       <Route
         path="/notification-templates"

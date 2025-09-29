@@ -134,11 +134,8 @@ const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) =
       case 'admin':
         window.location.href = '/admin/dashboard';
         break;
-      case 'operator':
-        window.location.href = '/operator/dashboard';
-        break;
       case 'citizen':
-        window.location.href = '/dashboard';
+        window.location.href = '/citizen/dashboard';
         break;
       default:
         window.location.href = '/dashboard';

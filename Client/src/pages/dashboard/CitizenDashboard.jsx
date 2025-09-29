@@ -1,759 +1,222 @@
-// pages/dashboard/CitizenDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  AlertTriangle, Bell, Shield, MapPin, Phone, FileText,
-  CheckCircle, Clock, Navigation, Heart, Thermometer,
-  Cloud, Users, Plus, Eye, RefreshCw, Radio, Zap,
-  BarChart2, Activity, AlertCircle, Check, AlertOctagon,
-  UserCheck, UserPlus, UserMinus, TrendingUp, TrendingDown
-} from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { Bar, Line, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import apiService from '../../services/api';
+import { AlertTriangle, Shield, BookOpen, Activity } from 'lucide-react';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 const CitizenDashboard = () => {
-  const { user } = useAuth();
-  const [currentAlerts, setCurrentAlerts] = useState([]);
-  const [myIncidents, setMyIncidents] = useState([]);
-  const [nearbyShelters, setNearbyShelters] = useState([]);
-  const [weatherData, setWeatherData] = useState({
-    temperature: '--',
-    humidity: '--',
-    conditions: 'Loading weather data...',
-    windSpeed: '--',
-    uvIndex: '--',
-    alerts: 0
+  const [activeAlerts, setActiveAlerts] = useState([]);
+  const [incidentReports, setIncidentReports] = useState([]);
+  const [safetyGuides, setSafetyGuides] = useState([]);
+  const [loading, setLoading] = useState({
+    alerts: true,
+    incidents: true,
+    guides: true,
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [citizenStats, setCitizenStats] = useState({
-    totalAlertsReceived: 0,
-    alertsResponded: 0,
-    responseRate: 0,
-    totalIncidentsReported: 0,
-    incidentsResolved: 0,
-    safetyCheckIns: 0,
-    engagementScore: 0,
-    recentActivity: [],
-    alertResponseTrend: [],
-    incidentReportTrend: [],
+  const [error, setError] = useState({
+    alerts: null,
+    incidents: null,
+    guides: null,
   });
 
+  // Fetch data from API
   useEffect(() => {
-    loadDashboardData();
-
-    // Set up auto-refresh every 2 minutes for citizen alerts
-    const interval = setInterval(() => {
-      loadDashboardData();
-    }, 120000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log('Loading citizen dashboard data...');
-
-      // Load data concurrently
-      const promises = [];
-
-      // 1. Get current active alerts for the user's area
-      console.log('Fetching active alerts...');
-      promises.push(
-        apiService.getPublicActiveAlerts()
-          .then(response => {
-            console.log('Active alerts response:', response);
-            const alerts = Array.isArray(response) ? response : (response?.results || []);
-            setCurrentAlerts(alerts);
-            return { success: true, type: 'alerts', count: alerts.length };
-          })
-          .catch(err => {
-            console.error('Failed to fetch active alerts:', err);
-            // Fallback to regular alerts endpoint
-            return apiService.getActiveAlerts()
-              .then(response => {
-                const alerts = Array.isArray(response) ? response : (response?.results || []);
-                setCurrentAlerts(alerts);
-                return { success: true, type: 'alerts', count: alerts.length };
-              })
-              .catch(() => {
-                setCurrentAlerts([]);
-                return { success: false, type: 'alerts', error: err.message };
-              });
-          })
-      );
-
-      // 2. Get user's incident reports if user is authenticated
-      if (user?.id) {
-        console.log('Fetching user incidents...');
-        promises.push(
-          apiService.getMyIncidentReports()
-            .then(response => {
-              console.log('My incidents response:', response);
-              const incidents = Array.isArray(response) ? response : (response?.results || []);
-              setMyIncidents(incidents.slice(0, 3)); // Show only first 3
-              return { success: true, type: 'incidents', count: incidents.length };
-            })
-            .catch(err => {
-              console.error('Failed to fetch my incidents:', err);
-              // Fallback: try general incidents endpoint filtered by user
-              return apiService.getIncidents({ created_by: user.id, page_size: 3 })
-                .then(response => {
-                  const incidents = Array.isArray(response) ? response : (response?.results || []);
-                  setMyIncidents(incidents);
-                  return { success: true, type: 'incidents', count: incidents.length };
-                })
-                .catch(() => {
-                  setMyIncidents([]);
-                  return { success: false, type: 'incidents', error: err.message };
-                });
-            })
-        );
-      } else {
-        setMyIncidents([]);
-        promises.push(Promise.resolve({ success: true, type: 'incidents', count: 0 }));
+    const fetchData = async () => {
+      try {
+        // Fetch active alerts
+        const alerts = await apiService.getPublicActiveAlerts();
+        setActiveAlerts(alerts.results || []);
+      } catch (err) {
+        setError(prev => ({ ...prev, alerts: err.message }));
+      } finally {
+        setLoading(prev => ({ ...prev, alerts: false }));
       }
 
-      // 3. Get nearby emergency shelters/contacts
-      console.log('Fetching emergency contacts...');
-      promises.push(
-        apiService.getPublicEmergencyContacts({ contact_type: 'shelter', page_size: 4 })
-          .then(response => {
-            console.log('Emergency contacts response:', response);
-            const contacts = Array.isArray(response) ? response : (response?.results || []);
-            // Transform emergency contacts to shelter format
-            const shelters = contacts.map(contact => ({
-              id: contact.id,
-              name: contact.name,
-              address: contact.address || contact.location_name || 'Address not available',
-              capacity: contact.capacity || 200, // Default capacity
-              occupancy: Math.floor(Math.random() * (contact.capacity || 200) * 0.3), // Mock occupancy
-              distance: contact.distance || `${Math.floor(Math.random() * 10) + 1}.${Math.floor(Math.random() * 9)}km`
-            }));
-            setNearbyShelters(shelters);
-            return { success: true, type: 'shelters', count: shelters.length };
-          })
-          .catch(err => {
-            console.error('Failed to fetch emergency contacts:', err);
-            // Provide fallback shelter data
-            setNearbyShelters([
-              {
-                id: 1,
-                name: "Gasabo Emergency Center",
-                address: "KG 15 Ave, Gasabo",
-                capacity: 500,
-                occupancy: 45,
-                distance: "2.3 km"
-              },
-              {
-                id: 2,
-                name: "Kimisagara Community Hall",
-                address: "Kimisagara Sector",
-                capacity: 300,
-                occupancy: 12,
-                distance: "4.1 km"
-              }
-            ]);
-            return { success: false, type: 'shelters', error: err.message };
-          })
-      );
-
-      // 4. Get citizen statistics
-      if (user?.id) {
-        console.log('Fetching citizen statistics...');
-        promises.push(
-          Promise.all([
-            apiService.getMyAlertResponses(),
-            apiService.getMyIncidentReports(),
-            apiService.getPublicActiveAlerts(),
-          ])
-          .then(([responses, incidents, alerts]) => {
-            const totalAlerts = alerts?.length || 0;
-            const respondedAlerts = responses?.length || 0;
-            const responseRate = totalAlerts > 0 ? Math.round((respondedAlerts / totalAlerts) * 100) : 0;
-            const totalIncidents = incidents?.length || 0;
-            const resolvedIncidents = incidents?.filter(i => i.status === 'resolved')?.length || 0;
-            const safetyCheckIns = Math.floor(Math.random() * 10) + 1; // Mock data
-            const engagementScore = Math.min(100, responseRate + (resolvedIncidents / totalIncidents * 50) + (safetyCheckIns * 2));
-
-            // Mock recent activity
-            const recentActivity = [
-              { id: 1, type: 'alert_response', title: 'Responded to flood alert', time: '2 hours ago' },
-              { id: 2, type: 'incident_report', title: 'Reported road accident', time: '1 day ago' },
-              { id: 3, type: 'safety_checkin', title: 'Confirmed safety after storm', time: '3 days ago' },
-            ];
-
-            // Mock trends
-            const alertResponseTrend = [
-              { date: 'Mon', value: Math.max(0, responseRate - 10) },
-              { date: 'Tue', value: Math.max(0, responseRate - 5) },
-              { date: 'Wed', value: responseRate },
-              { date: 'Thu', value: Math.min(100, responseRate + 5) },
-              { date: 'Fri', value: Math.min(100, responseRate + 10) },
-            ];
-
-            const incidentReportTrend = [
-              { date: 'Jan', value: Math.max(0, totalIncidents - 2) },
-              { date: 'Feb', value: Math.max(0, totalIncidents - 1) },
-              { date: 'Mar', value: totalIncidents },
-              { date: 'Apr', value: totalIncidents + 1 },
-              { date: 'May', value: totalIncidents + 2 },
-            ];
-
-            setCitizenStats({
-              totalAlertsReceived: totalAlerts,
-              alertsResponded: respondedAlerts,
-              responseRate,
-              totalIncidentsReported: totalIncidents,
-              incidentsResolved: resolvedIncidents,
-              safetyCheckIns,
-              engagementScore,
-              recentActivity,
-              alertResponseTrend,
-              incidentReportTrend,
-            });
-
-            return { success: true, type: 'stats' };
-          })
-          .catch(err => {
-            console.error('Failed to fetch citizen stats:', err);
-            return { success: false, type: 'stats', error: err.message };
-          })
-        );
+      try {
+        // Fetch citizen's incident reports
+        const incidents = await apiService.getMyIncidentReports();
+        setIncidentReports(incidents.results || []);
+      } catch (err) {
+        setError(prev => ({ ...prev, incidents: err.message }));
+      } finally {
+        setLoading(prev => ({ ...prev, incidents: false }));
       }
 
-      // Wait for all API calls to complete
-      const results = await Promise.allSettled(promises);
+      try {
+        // Fetch public safety guides (with fallback)
+        const guides = await apiService.getPublicSafetyTips().catch(() => ({ results: [] }));
+        // Process the guides data to match the structure in PublicSafetyGuides
+        const processedGuides = Array.isArray(guides.results) ? guides.results : [];
+        setSafetyGuides(processedGuides);
+      } catch (err) {
+        setError(prev => ({ ...prev, guides: err.message }));
+      } finally {
+        setLoading(prev => ({ ...prev, guides: false }));
+      }
+    };
 
-      console.log('Dashboard load results:', results);
+    fetchData();
+  }, []);
 
-      // Mock weather data (since external weather API integration would be needed)
-      setWeatherData({
-        temperature: Math.floor(Math.random() * 10) + 20, // 20-30°C
-        humidity: Math.floor(Math.random() * 30) + 60, // 60-90%
-        conditions: "Partly cloudy with chance of rain",
-        windSpeed: Math.floor(Math.random() * 20) + 5, // 5-25 km/h
-        uvIndex: Math.floor(Math.random() * 8) + 1, // 1-8
-        alerts: currentAlerts.length
-      });
+  // Prepare data for charts
+  const alertTypes = [...new Set(activeAlerts.map(alert => alert.alert_type))];
+  const alertCounts = alertTypes.map(type =>
+    activeAlerts.filter(alert => alert.alert_type === type).length
+  );
 
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Dashboard load error:', error);
-      setError(`Failed to load dashboard: ${error.message}`);
+  const incidentDates = [...new Set(incidentReports.map(incident => new Date(incident.created_at).toLocaleDateString()))];
+  const incidentCounts = incidentDates.map(date =>
+    incidentReports.filter(incident => new Date(incident.created_at).toLocaleDateString() === date).length
+  );
 
-      // Set empty fallback data
-      setCurrentAlerts([]);
-      setMyIncidents([]);
-      setNearbyShelters([]);
-    } finally {
-      setLoading(false);
-    }
+  // Process safety guides data for the pie chart
+  const guideCategories = safetyGuides.length > 0
+    ? [...new Set(safetyGuides.map(guide => guide.category || 'Uncategorized'))]
+    : ['No Data'];
+  const guideCounts = guideCategories.map(category =>
+    safetyGuides.filter(guide => (guide.category || 'Uncategorized') === category).length
+  );
+
+  // Chart data
+  const activeAlertsData = {
+    labels: alertTypes.length > 0 ? alertTypes : ['No Data'],
+    datasets: [
+      {
+        label: 'Active Alerts by Type',
+        data: alertTypes.length > 0 ? alertCounts : [1],
+        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 1,
+      },
+    ],
   };
 
-  // ... (keep all your existing helper functions: getSeverityColor, getStatusColor, formatTimeAgo, getAlertTitle, getAlertMessage)
+  const incidentReportsData = {
+    labels: incidentDates.length > 0 ? incidentDates : ['No Data'],
+    datasets: [
+      {
+        label: 'Incident Reports Over Time',
+        data: incidentDates.length > 0 ? incidentCounts : [1],
+        fill: false,
+        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        tension: 0.1,
+      },
+    ],
+  };
 
-  if (loading && currentAlerts.length === 0) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
+  const safetyGuidesData = {
+    labels: guideCategories,
+    datasets: [
+      {
+        label: 'Safety Guides by Category',
+        data: guideCounts.length > 0 ? guideCounts : [1],
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.7)',
+          'rgba(54, 162, 235, 0.7)',
+          'rgba(255, 206, 86, 0.7)',
+          'rgba(75, 192, 192, 0.7)',
+        ],
+      },
+    ],
+  };
+
+  // Chart options
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' },
+      title: { display: true, font: { size: 16 } },
+    },
+  };
+
+  // Helper function to render a chart or fallback
+  const renderChart = (Component, data, title, icon, loadingKey, errorKey) => {
+    if (loading[loadingKey]) return <div className="p-4 text-center">Loading {title}...</div>;
+    if (error[errorKey]) return <div className="p-4 text-center text-red-500">Error loading {title}: {error[errorKey]}</div>;
+    return <Component data={data} options={chartOptions} />;
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome, {user?.first_name || 'Citizen'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Stay informed about emergencies in {user?.district || 'your'} District
-          </p>
-          <div className="flex items-center mt-2 text-sm text-gray-500">
-            <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
-            <button
-              onClick={loadDashboardData}
-              disabled={loading}
-              className={`ml-3 text-blue-600 hover:text-blue-700 ${loading ? 'animate-spin' : ''}`}
-              title="Refresh data"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+        <Shield className="mr-2 text-red-500" /> Citizen Dashboard
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Active Alerts Chart */}
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <AlertTriangle className="mr-2 text-red-500" /> Active Alerts
+          </h2>
+          {renderChart(Bar, activeAlertsData, 'Active Alerts', AlertTriangle, 'alerts', 'alerts')}
+        </div>
+
+        {/* Incident Reports Chart */}
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <Activity className="mr-2 text-blue-500" /> Incident Reports
+          </h2>
+          {renderChart(Line, incidentReportsData, 'Incident Reports', Activity, 'incidents', 'incidents')}
+        </div>
+
+        {/* Safety Guides Chart */}
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <BookOpen className="mr-2 text-green-500" /> Safety Guides
+          </h2>
+          {renderChart(Pie, safetyGuidesData, 'Safety Guides', BookOpen, 'guides', 'guides')}
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-            <p className="text-red-700">{error}</p>
-            <button
-              onClick={loadDashboardData}
-              className="ml-auto text-red-600 hover:text-red-800 text-sm font-medium"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Citizen Statistics Summary */}
-      {user?.id && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Bell className="w-6 h-6 text-blue-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-500">Alerts Received</p>
-                <p className="text-2xl font-bold text-gray-900">{citizenStats.totalAlertsReceived}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center">
-              <AlertOctagon className="w-6 h-6 text-green-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-500">Alerts Responded</p>
-                <p className="text-2xl font-bold text-gray-900">{citizenStats.alertsResponded}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center">
-              <Activity className="w-6 h-6 text-purple-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-500">Response Rate</p>
-                <p className="text-2xl font-bold text-gray-900">{citizenStats.responseRate}%</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center">
-              <CheckCircle className="w-6 h-6 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-500">Engagement Score</p>
-                <p className="text-2xl font-bold text-gray-900">{citizenStats.engagementScore}/100</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link
-          to="/incidents/citizen/reports"
-          className="bg-red-600 hover:bg-red-700 text-white p-6 rounded-lg transition-colors group"
-        >
-          <div className="flex items-center">
-            <Plus className="w-8 h-8 mr-3 group-hover:scale-110 transition-transform" />
-            <div>
-              <h3 className="font-semibold">Report Emergency</h3>
-              <p className="text-sm opacity-90">Submit incident report</p>
-            </div>
-          </div>
-        </Link>
-        <Link
-          to="/safety/checkin"
-          className="bg-green-600 hover:bg-green-700 text-white p-6 rounded-lg transition-colors group"
-        >
-          <div className="flex items-center">
-            <CheckCircle className="w-8 h-8 mr-3 group-hover:scale-110 transition-transform" />
-            <div>
-              <h3 className="font-semibold">Safety Check-in</h3>
-              <p className="text-sm opacity-90">Confirm you're safe</p>
-            </div>
-          </div>
-        </Link>
-        <Link
-          to="/emergency-contacts"
-          className="bg-blue-600 hover:bg-blue-700 text-white p-6 rounded-lg transition-colors group"
-        >
-          <div className="flex items-center">
-            <Shield className="w-8 h-8 mr-3 group-hover:scale-110 transition-transform" />
-            <div>
-              <h3 className="font-semibold">Find Help</h3>
-              <p className="text-sm opacity-90">Emergency contacts</p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Current Alerts */}
-      <div className="bg-white rounded-lg shadow border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Bell className="w-5 h-5 mr-2 text-red-600" />
-              Active Alerts for Your Area
-            </h2>
-            {currentAlerts.length > 0 && (
-              <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full">
-                {currentAlerts.length} Active
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {currentAlerts.length > 0 ? (
-            currentAlerts.map((alert) => (
-              <div key={alert.id} className="px-6 py-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <AlertTriangle className={`w-5 h-5 ${
-                        alert.severity === 'extreme' || alert.severity === 'emergency' ? 'text-red-600' :
-                        alert.severity === 'severe' || alert.severity === 'warning' ? 'text-orange-600' :
-                        alert.severity === 'moderate' || alert.severity === 'watch' ? 'text-yellow-600' : 'text-blue-600'
-                      }`} />
-                      <h3 className="font-medium text-gray-900">
-                        {getAlertTitle(alert)}
-                      </h3>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(alert.severity)}`}>
-                        {alert.severity || 'info'}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 mb-2">
-                      {getAlertMessage(alert)}
-                    </p>
-                    <div className="flex items-center text-xs text-gray-500 space-x-4">
-                      {alert.disaster_type_name && <span>Type: {alert.disaster_type_name}</span>}
-                      <span>Issued: {formatTimeAgo(alert.created_at || alert.issued_at)}</span>
-                      {alert.expires_at && (
-                        <span>Expires: {formatTimeAgo(alert.expires_at)}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="px-6 py-8 text-center">
-              <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Active Alerts</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                All clear in your area. Stay vigilant and prepared.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weather Information */}
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Cloud className="w-5 h-5 mr-2 text-blue-600" />
-              Weather Conditions
-            </h2>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="text-center">
-                <Thermometer className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{weatherData.temperature}°C</p>
-                <p className="text-sm text-gray-600">Temperature</p>
-              </div>
-              <div className="text-center">
-                <Cloud className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{weatherData.humidity}%</p>
-                <p className="text-sm text-gray-600">Humidity</p>
-              </div>
-            </div>
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Conditions:</strong> {weatherData.conditions}
-              </p>
-              <p className="text-sm text-blue-700 mt-1">
-                Wind: {weatherData.windSpeed} km/h | UV Index: {weatherData.uvIndex}
-              </p>
-              {weatherData.alerts > 0 && (
-                <p className="text-sm text-red-700 mt-1 font-medium">
-                  ⚠️ {weatherData.alerts} weather alert(s) active
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* My Incidents */}
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <FileText className="w-5 h-5 mr-2 text-gray-600" />
-                My Reports
-              </h2>
-              <Link
-                to="/incidents/citizen"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View All
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {myIncidents.length > 0 ? (
-              myIncidents.map((incident) => (
-                <div key={incident.id} className="px-6 py-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="font-medium text-gray-900">{incident.title}</h3>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(incident.status)}`}>
-                          {incident.status?.replace('_', ' ') || 'submitted'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{incident.description}</p>
-                      <div className="flex items-center text-xs text-gray-500 space-x-3">
-                        <span className="capitalize">{incident.report_type || incident.incident_type || 'report'}</span>
-                        <span>Reported: {formatTimeAgo(incident.created_at)}</span>
-                      </div>
-                    </div>
-                    <Link
-                      to={`/incidents/citizen/${incident.id}/view`}
-                      className="text-gray-400 hover:text-gray-600"
-                      title="View details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="px-6 py-8 text-center">
-                <FileText className="mx-auto h-12 w-12 text-gray-300" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No Reports</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  You haven't submitted any incident reports yet.
-                </p>
-                <Link
-                  to="/incidents/citizen/reports"
-                  className="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-                >
-                  Submit First Report
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Citizen Activity Trends */}
-      {user?.id && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <BarChart2 className="w-5 h-5 mr-2 text-purple-600" />
-                Alert Response Trend
-              </h2>
-            </div>
-            <div className="h-48 flex items-end space-x-2">
-              {citizenStats.alertResponseTrend.map((item, index) => (
-                <div key={index} className="flex flex-col items-center flex-1">
-                  <div
-                    className="w-full bg-blue-200 rounded-t-lg"
-                    style={{ height: `${item.value}%` }}
-                  ></div>
-                  <span className="text-xs text-gray-500 mt-1">{item.date}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <BarChart2 className="w-5 h-5 mr-2 text-purple-600" />
-                Incident Report Trend
-              </h2>
-            </div>
-            <div className="h-48 flex items-end space-x-2">
-              {citizenStats.incidentReportTrend.map((item, index) => (
-                <div key={index} className="flex flex-col items-center flex-1">
-                  <div
-                    className="w-full bg-green-200 rounded-t-lg"
-                    style={{ height: `${Math.min(100, item.value * 20)}%` }}
-                  ></div>
-                  <span className="text-xs text-gray-500 mt-1">{item.date}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Activity */}
-      {user?.id && (
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-gray-600" />
-              Recent Activity
-            </h2>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {citizenStats.recentActivity.length > 0 ? (
-              citizenStats.recentActivity.map((activity) => (
-                <div key={activity.id} className="px-6 py-4">
-                  <div className="flex items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        {activity.type === 'alert_response' && (
-                          <AlertOctagon className="w-5 h-5 text-blue-600" />
-                        )}
-                        {activity.type === 'incident_report' && (
-                          <FileText className="w-5 h-5 text-gray-600" />
-                        )}
-                        {activity.type === 'safety_checkin' && (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        )}
-                        <div>
-                          <h3 className="font-medium text-gray-900">{activity.title}</h3>
-                          <p className="text-sm text-gray-500">{activity.time}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="px-6 py-8 text-center">
-                <Activity className="mx-auto h-12 w-12 text-gray-300" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No Recent Activity</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Your activity will appear here as you interact with the system.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Nearby Shelters */}
-      <div className="bg-white rounded-lg shadow border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Shield className="w-5 h-5 mr-2 text-green-600" />
-              Nearby Emergency Resources
-            </h2>
-            <Link
-              to="/emergency-contacts"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              View All
-            </Link>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-          {nearbyShelters.slice(0, 4).map((shelter) => (
-            <div key={shelter.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-medium text-gray-900">{shelter.name}</h3>
-                  <p className="text-sm text-gray-600 flex items-center mt-1">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {shelter.address}
-                  </p>
-                </div>
-                <span className="text-sm text-blue-600 font-medium">{shelter.distance}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Users className="w-4 h-4 mr-1" />
-                  <span>{shelter.occupancy}/{shelter.capacity}</span>
-                </div>
-                <div className="text-right">
-                  <div className={`text-sm font-medium ${
-                    shelter.occupancy / shelter.capacity < 0.7 ? 'text-green-600' :
-                    shelter.occupancy / shelter.capacity < 0.9 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {Math.round((1 - shelter.occupancy / shelter.capacity) * 100)}% Available
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Emergency Contacts */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Phone className="w-5 h-5 mr-2 text-red-600" />
-          Emergency Contacts
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-white rounded-lg border border-red-200">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Phone className="w-6 h-6 text-red-600" />
-            </div>
-            <h3 className="font-medium text-gray-900">Emergency Services</h3>
-            <p className="text-2xl font-bold text-red-600 mt-1">112</p>
-            <p className="text-xs text-gray-600">Police, Fire, Medical</p>
-          </div>
-
-          <div className="text-center p-4 bg-white rounded-lg border border-blue-200">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Shield className="w-6 h-6 text-blue-600" />
-            </div>
-            <h3 className="font-medium text-gray-900">MINEMA Operations</h3>
-            <p className="text-lg font-bold text-blue-600 mt-1">+250-788-000-000</p>
-            <p className="text-xs text-gray-600">Disaster Management</p>
-          </div>
-
-          <div className="text-center p-4 bg-white rounded-lg border border-green-200">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Heart className="w-6 h-6 text-green-600" />
-            </div>
-            <h3 className="font-medium text-gray-900">Health Emergency</h3>
-            <p className="text-lg font-bold text-green-600 mt-1">+250-788-111-222</p>
-            <p className="text-xs text-gray-600">Medical Emergency</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Safety Tips */}
-      <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Zap className="w-5 h-5 mr-2 text-blue-600" />
-          Emergency Preparedness Tips
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <h3 className="font-medium text-blue-900 mb-2">Before Emergency:</h3>
-            <ul className="space-y-1 text-blue-800">
-              <li>• Keep emergency kit ready (water, food, medicine)</li>
-              <li>• Know evacuation routes from your area</li>
-              <li>• Register for alert notifications</li>
-            </ul>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div className="bg-white p-4 rounded-lg shadow-md flex items-center">
+          <div className="bg-red-100 p-3 rounded-full mr-4">
+            <AlertTriangle className="text-red-500" />
           </div>
           <div>
-            <h3 className="font-medium text-blue-900 mb-2">During Emergency:</h3>
-            <ul className="space-y-1 text-blue-800">
-              <li>• Follow official instructions immediately</li>
-              <li>• Stay calm and help others if safe to do so</li>
-              <li>• Report incidents through this app</li>
-            </ul>
+            <p className="text-gray-500">Active Alerts</p>
+            <p className="text-2xl font-bold">
+              {loading.alerts ? '...' : error.alerts ? 'Error' : activeAlerts.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-md flex items-center">
+          <div className="bg-blue-100 p-3 rounded-full mr-4">
+            <Activity className="text-blue-500" />
+          </div>
+          <div>
+            <p className="text-gray-500">Your Reports</p>
+            <p className="text-2xl font-bold">
+              {loading.incidents ? '...' : error.incidents ? 'Error' : incidentReports.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-md flex items-center">
+          <div className="bg-green-100 p-3 rounded-full mr-4">
+            <BookOpen className="text-green-500" />
+          </div>
+          <div>
+            <p className="text-gray-500">Safety Guides</p>
+            <p className="text-2xl font-bold">
+              {loading.guides ? '...' : error.guides ? 'Error' : safetyGuides.length}
+            </p>
           </div>
         </div>
       </div>

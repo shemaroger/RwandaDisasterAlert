@@ -53,7 +53,7 @@ const Sidebar = ({
     if (path.includes('/incidents')) return 'incidents';
     if (path.includes('/locations')) return 'locations';
     if (path.includes('/emergency-contacts')) return 'emergency-contacts';
-    if (path.includes('/safety-guides/admin') || (path.includes('/safety-guides') && (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator'))) return 'safety-guides-admin';
+    if (path.includes('/safety-guides/admin') || (path.includes('/safety-guides') && user?.user_type === 'admin')) return 'safety-guides-admin';
     if (path.includes('/safety-guides/public') || (path.includes('/safety-guides') && user?.user_type === 'citizen')) return 'safety-guides-public';
     if (path.includes('/safety-guides')) return 'safety-guides';
     if (path.includes('/users')) return 'users';
@@ -77,7 +77,7 @@ const Sidebar = ({
         path: '/dashboard',
         icon: Home,
         description: 'Overview and statistics',
-        userTypes: ['admin', 'operator', 'authority', 'citizen']
+        userTypes: ['admin', 'citizen']
       }
     ];
 
@@ -88,8 +88,8 @@ const Sidebar = ({
         path: '/admin/alerts',
         icon: AlertTriangle,
         description: 'Create and manage alerts',
-        badge: user?.user_type === 'admin' ? 'Admin' : null,
-        userTypes: ['admin', 'authority', 'operator']
+        badge: 'Admin',
+        userTypes: ['admin']
       }
     ];
 
@@ -112,10 +112,19 @@ const Sidebar = ({
             icon: List,
             description: 'View your incident reports',
             userTypes: ['citizen']
-          }
+          },
+//           {
+//   name: 'My Report',
+//   id: 'my-report',
+//   path: '/citizen/my-report',
+//   icon: BarChart3,
+//   description: 'View your activity report',
+//   userTypes: ['citizen']
+// }
         ];
+        
       } else {
-        // Admin, operator, authority
+        // Admin only
         return [
           {
             name: 'All Incidents',
@@ -123,9 +132,8 @@ const Sidebar = ({
             path: '/incidents/admin/list',
             icon: FileText,
             description: 'View and manage all incidents',
-            userTypes: ['admin', 'authority', 'operator']
+            userTypes: ['admin']
           },
-        
         ];
       }
     };
@@ -144,7 +152,7 @@ const Sidebar = ({
           }
         ];
       } else {
-        // Admin, operator, authority get admin interface
+        // Admin gets admin interface
         return [
           {
             name: 'Safety Guides',
@@ -153,7 +161,7 @@ const Sidebar = ({
             icon: BookOpenCheck,
             description: 'Manage safety guides',
             badge: 'Admin',
-            userTypes: ['admin', 'authority', 'operator'],
+            userTypes: ['admin'],
             subItems: [
               {
                 name: 'All Guides',
@@ -173,10 +181,6 @@ const Sidebar = ({
       }
     };
 
-    const emergencyNavigation = [
-      
-    ];
-
     const managementNavigation = [
       {
         name: 'User Management',
@@ -186,15 +190,14 @@ const Sidebar = ({
         description: 'Manage system users',
         userTypes: ['admin']
       },
-      {
-        name: 'Location Management',
-        id: 'locations',
-        path: '/locations',
-        icon: MapPin,
-        description: 'Rwanda districts and sectors',
-        userTypes: ['admin', 'authority']
-      },
-     
+      // {
+      //   name: 'Location Management',
+      //   id: 'locations',
+      //   path: '/locations',
+      //   icon: MapPin,
+      //   description: 'Rwanda districts and sectors',
+      //   userTypes: ['admin']
+      // },
     ];
     
     const analyticsNavigation = [
@@ -204,22 +207,19 @@ const Sidebar = ({
         path: '/analytics',
         icon: BarChart3,
         description: 'Performance metrics',
-        userTypes: ['admin', 'authority', 'operator']
+        userTypes: ['admin']
       },
-      
     ];
 
     const adminNavigation = [
-    
       {
         name: 'Disaster Types',
         id: 'disaster-types',
         path: '/admin/disaster-types',
         icon: Zap,
         description: 'Manage disaster categories',
-        userTypes: ['admin', 'authority']
+        userTypes: ['admin']
       },
-    
     ];
 
     // Citizen-specific additional navigation
@@ -232,33 +232,24 @@ const Sidebar = ({
         description: 'Your alert responses',
         userTypes: ['citizen']
       },
-      
     ];
 
     let navigation = [...baseNavigation];
 
-    // Add alerts for admin/authority/operator
-    if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
+    // Add alerts for admin only
+    if (user?.user_type === 'admin') {
       navigation = [...navigation, ...alertNavigation];
     }
 
     // Add incident navigation based on user type
     navigation = [...navigation, ...getIncidentNavigation()];
 
-    // Add emergency navigation for all users
-    navigation = [...navigation, ...emergencyNavigation];
-
     // Add safety guides navigation based on user type
     navigation = [...navigation, ...getSafetyGuidesNavigation()];
 
-    // Add management navigation for admin/authority/operator
-    if (user?.user_type === 'admin' || user?.user_type === 'authority' || user?.user_type === 'operator') {
-      navigation = [...navigation, ...managementNavigation, ...analyticsNavigation];
-    }
-
-    // Add admin-only navigation
+    // Add management navigation for admin only
     if (user?.user_type === 'admin') {
-      navigation = [...navigation, ...adminNavigation];
+      navigation = [...navigation, ...managementNavigation, ...analyticsNavigation, ...adminNavigation];
     }
 
     // Add citizen-specific navigation
@@ -309,11 +300,11 @@ const Sidebar = ({
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isMobile ? 'w-80' : isTablet ? 'w-72' : 'w-72'}`}>
         
-        {/* Sidebar Container with Gradient Background */}
-        <div className="h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-r border-slate-700/50">
+        {/* Sidebar Container with Gradient Background - Full Height */}
+        <div className="h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-r border-slate-700/50 flex flex-col">
           
-          {/* Logo Header */}
-          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
+          {/* Logo Header - Fixed at top */}
+          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex items-center space-x-3">
               {/* Logo */}
               <div className="relative">
@@ -343,10 +334,9 @@ const Sidebar = ({
             )}
           </div>
 
-          <div className="flex flex-col h-full overflow-hidden">
-           
-
-            {/* Navigation Menu */}
+          {/* Scrollable Content Area */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Navigation Menu - Scrollable */}
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600">
               {navigationItems.map((item) => {
                 const isActive = currentPage === item.id;
@@ -419,8 +409,8 @@ const Sidebar = ({
               })}
             </nav>
 
-            {/* System Status */}
-            <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
+            {/* System Status - Fixed above user profile */}
+            <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 flex-shrink-0">
               <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
                 System Status
               </h3>
@@ -455,16 +445,12 @@ const Sidebar = ({
               </div>
             </div>
 
-            {/* User Profile */}
-            <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
+            {/* User Profile - Fixed at bottom */}
+            <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
                   {user?.user_type === 'admin' ? (
                     <Shield className="h-5 w-5 text-red-400" />
-                  ) : user?.user_type === 'authority' ? (
-                    <AlertTriangle className="h-5 w-5 text-red-400" />
-                  ) : user?.user_type === 'operator' ? (
-                    <Users className="h-5 w-5 text-red-400" />
                   ) : (
                     <Heart className="h-5 w-5 text-red-400" />
                   )}
@@ -474,9 +460,7 @@ const Sidebar = ({
                     {user?.first_name} {user?.last_name}
                   </p>
                   <p className="text-xs text-slate-400 truncate capitalize">
-                    {user?.user_type === 'admin' ? 'Administrator' :
-                     user?.user_type === 'authority' ? 'Authority' :
-                     user?.user_type === 'operator' ? 'Operator' : 'Citizen'}
+                    {user?.user_type === 'admin' ? 'Administrator' : 'Citizen'}
                     {user?.district && ` • ${user.district}`}
                   </p>
                 </div>
