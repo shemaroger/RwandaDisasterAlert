@@ -27,7 +27,13 @@ SECRET_KEY = 'django-insecure-fni7@qun-l+pr0kyymha9mfa6dohu=(&@+bd^k1putm^j=91^@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.8.107',  # Add your IP here
+    '10.0.2.2',        # For Android emulator
+    '*',               # Optional: Allow all (development only!)
+]
 
 AUTH_USER_MODEL = "myapp.User"
 # Application definition
@@ -84,12 +90,16 @@ REST_FRAMEWORK = {
 
 WSGI_APPLICATION = 'myproject.wsgi.application'
 
+# CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Your Vite dev server
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.8.107:19000",
+    "http://192.168.8.107:8000",
 ]
 
-CORS_ALLOW_CREDENTIALS = True
+# Or for development, temporarily use:
+CORS_ALLOW_ALL_ORIGINS = True  # Easy for development
 
 # Allowed headers (add any custom headers you use)
 CORS_ALLOW_HEADERS = [
@@ -277,7 +287,7 @@ CACHES = {
 }
 
 # Additional Django settings
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 # Security settings for production
 if config('DEBUG', default=True, cast=bool) == False:
