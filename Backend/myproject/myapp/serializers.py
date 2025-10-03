@@ -470,3 +470,64 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
             'available_variables', 'is_active', 'created_by', 'created_by_name',
             'created_at', 'updated_at'
         ]
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Message
+        fields = ['id', 'chat_room', 'sender', 'content', 'is_read', 'timestamp']
+        read_only_fields = ['id', 'timestamp']
+
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    user1 = UserSerializer(read_only=True)
+    user2 = UserSerializer(read_only=True)
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+    other_user = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatRoom
+        fields = ['id', 'user1', 'user2', 'created_at', 'last_message', 'unread_count', 'other_user']
+        read_only_fields = ['id', 'created_at']
+    
+    def get_last_message(self, obj):
+        last_message = obj.messages.order_by('-timestamp').first()
+        if last_message:
+            # Use a helper method to get display name
+            sender_name = self.get_user_display_name(last_message.sender)
+            return {
+                'content': last_message.content,
+                'timestamp': last_message.timestamp,
+                'sender': sender_name,
+                'sender_id': last_message.sender.id
+            }
+        return None
+    
+    def get_unread_count(self, obj):
+        current_user = self.context.get('request').user
+        return obj.messages.filter(is_read=False).exclude(sender=current_user).count()
+    
+    def get_other_user(self, obj):
+        current_user = self.context.get('request').user
+        other_user = obj.get_other_user(current_user)
+        return UserSerializer(other_user).data
+    
+    def get_user_display_name(self, user):
+        """
+        Helper method to get user display name with fallbacks
+        """
+        # Try different display name options in order of preference
+        if hasattr(user, 'display_name') and user.display_name:
+            return user.display_name
+        elif user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}".strip()
+        elif user.first_name:
+            return user.first_name
+        elif user.last_name:
+            return user.last_name
+        elif hasattr(user, 'profile') and hasattr(user.profile, 'full_name') and user.profile.full_name:
+            return user.profile.full_name
+        else:
+            return user.username or user.email or f"User {user.id}"

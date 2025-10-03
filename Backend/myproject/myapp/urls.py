@@ -18,6 +18,8 @@ router.register(r'incidents', IncidentReportViewSet, basename='incidentreport')
 router.register(r'emergency-contacts', EmergencyContactViewSet, basename='emergencycontact')
 router.register(r'safety-guides', SafetyGuideViewSet, basename='safetyguide')
 router.register(r'notification-templates', NotificationTemplateViewSet, basename='notificationtemplate')
+router.register(r'chats', ChatViewSet, basename='chat')
+router.register(r'messages', MessageViewSet, basename='message')
 # router.register(r'safety-guide-attachments', SafetyGuideAttachmentViewSet, basename='safetyguideattachment')
 
 

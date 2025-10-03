@@ -15,11 +15,176 @@ import {
   Download,
   RefreshCw,
   ArrowLeft,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/api';
+
+// Resolution Modal Component
+const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!notes.trim()) {
+      setError('Please provide resolution notes');
+      return;
+    }
+
+    if (notes.trim().length < 10) {
+      setError('Resolution notes must be at least 10 characters');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await onSubmit(notes.trim());
+      setNotes('');
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to submit resolution notes');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      setNotes('');
+      setError('');
+      onClose();
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      handleSubmit();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        onClick={handleClose}
+      />
+
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full">
+          <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Resolve Incident
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Mark this incident as resolved
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4 border">
+              <p className="text-sm font-medium text-gray-700 mb-1">
+                Incident
+              </p>
+              <p className="text-gray-900">{incidentTitle}</p>
+            </div>
+
+            <div>
+              <label 
+                htmlFor="resolution-notes" 
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Resolution Notes <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="resolution-notes"
+                rows={6}
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  setError('');
+                }}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                placeholder="Describe how the incident was resolved, actions taken, and any follow-up required..."
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Minimum 10 characters. Press Ctrl+Enter to submit quickly.
+              </p>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-blue-900 mb-2">
+                Guidelines for Resolution Notes:
+              </p>
+              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <li>Describe the actions taken to resolve the incident</li>
+                <li>Include any resources deployed or personnel involved</li>
+                <li>Note any remaining concerns or follow-up required</li>
+                <li>Mention if the reporter was contacted/satisfied</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+            <button
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !notes.trim()}
+              className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Resolving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Mark as Resolved
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Helper function to construct media URLs
 const getMediaUrl = (mediaPath) => {
@@ -45,6 +210,7 @@ const IncidentDetailPage = ({ citizenView = false }) => {
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -126,10 +292,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
             alert('This incident cannot be resolved in its current status.');
             return;
           }
-          const notes = prompt('Resolution notes:');
-          if (notes === null) return; // User cancelled
-          response = await apiService.resolveIncident(id, notes);
-          break;
+          // Open modal instead of prompt
+          setShowResolutionModal(true);
+          return; // Don't continue execution
         default:
           return;
       }
@@ -140,6 +305,24 @@ const IncidentDetailPage = ({ citizenView = false }) => {
     } catch (err) {
       console.error('Status update error:', err);
       alert(`Failed to update incident status: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleResolveSubmit = async (notes) => {
+    try {
+      console.log('Submitting resolution with notes:', notes);
+      const response = await apiService.resolveIncident(id, notes);
+      console.log('Resolution response:', response);
+      
+      const updatedIncident = response.data || response;
+      setIncident(prev => ({ ...prev, ...updatedIncident }));
+      
+      // Success feedback
+      alert('Incident resolved successfully!');
+    } catch (err) {
+      console.error('Resolution error:', err);
+      // Re-throw error to be caught by modal
+      throw new Error(err.message || 'Failed to resolve incident');
     }
   };
 
@@ -690,6 +873,14 @@ const IncidentDetailPage = ({ citizenView = false }) => {
           </div>
         </div>
       </div>
+
+      {/* Resolution Modal */}
+      <ResolutionModal
+        isOpen={showResolutionModal}
+        onClose={() => setShowResolutionModal(false)}
+        onSubmit={handleResolveSubmit}
+        incidentTitle={incident.title}
+      />
     </div>
   );
 };

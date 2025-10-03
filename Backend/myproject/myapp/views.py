@@ -7,10 +7,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Q, Count, Prefetch
+from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import PermissionDenied
 from datetime import timedelta
 from .models import *
 from .serializers import *
@@ -2393,3 +2395,183 @@ class ForceUpdateCheckView(APIView):
         return Response(response)
     
 # https://www.youtube.com/watch?v=cpvFzFHZTXI    
+
+class ChatViewSet(viewsets.ModelViewSet):
+    """Chat management viewset"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Get chat rooms for current user"""
+        user = self.request.user
+        return ChatRoom.objects.filter(
+            Q(user1=user) | Q(user2=user)
+        ).order_by('-created_at')
+    
+    def get_serializer_class(self):
+        return ChatRoomSerializer
+    
+    @action(detail=False, methods=['post'])
+    def start_chat(self, request):
+        """Start or get existing chat with another user"""
+        try:
+            other_user_id = request.data.get('user_id')
+            
+            # Validation
+            if not other_user_id:
+                return Response({
+                    'error': 'User ID is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get the other user
+            try:
+                other_user = User.objects.get(id=other_user_id)
+            except User.DoesNotExist:
+                return Response({
+                    'error': 'User not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if trying to chat with self
+            if other_user == request.user:
+                return Response({
+                    'error': 'Cannot chat with yourself'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Use atomic transaction to prevent race conditions
+            with transaction.atomic():
+                # Use the model method to get or create chat room
+                chat_room = ChatRoom.get_or_create_chat_room(request.user, other_user)
+            
+            logger.info(f"Chat room {'created' if chat_room.created_at else 'retrieved'} between {request.user.id} and {other_user_id}")
+            
+            serializer = ChatRoomSerializer(chat_room, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except ValueError as e:
+            logger.error(f"ValueError in start_chat: {str(e)}")
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in start_chat: {str(e)}", exc_info=True)
+            return Response({
+                'error': 'An unexpected error occurred. Please try again.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        """Get messages for a chat room"""
+        try:
+            chat_room = self.get_object()
+            
+            # Verify user has access to this chat room
+            if request.user not in [chat_room.user1, chat_room.user2]:
+                return Response({
+                    'error': 'Access denied'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            messages = chat_room.messages.order_by('timestamp')
+            
+            # Mark messages as read for current user (only messages from other user)
+            unread_messages = messages.filter(is_read=False).exclude(sender=request.user)
+            if unread_messages.exists():
+                unread_messages.update(is_read=True)
+            
+            serializer = MessageSerializer(messages, many=True)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Error getting messages: {str(e)}", exc_info=True)
+            return Response({
+                'error': 'Failed to load messages'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def send_message(self, request, pk=None):
+        """Send a message to a chat room"""
+        try:
+            chat_room = self.get_object()
+            
+            # Verify user has access to this chat room
+            if request.user not in [chat_room.user1, chat_room.user2]:
+                return Response({
+                    'error': 'Access denied'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            content = request.data.get('content', '').strip()
+            
+            if not content:
+                return Response({
+                    'error': 'Message content is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create message
+            message = Message.objects.create(
+                chat_room=chat_room,
+                sender=request.user,
+                content=content
+            )
+            
+            logger.info(f"Message sent by {request.user.id} to chat room {chat_room.id}")
+            
+            serializer = MessageSerializer(message)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Error sending message: {str(e)}", exc_info=True)
+            return Response({
+                'error': 'Failed to send message'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark all messages in chat room as read"""
+        try:
+            chat_room = self.get_object()
+            
+            # Verify user has access to this chat room
+            if request.user not in [chat_room.user1, chat_room.user2]:
+                return Response({
+                    'error': 'Access denied'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Mark all unread messages from other user as read
+            updated_count = chat_room.messages.filter(
+                is_read=False
+            ).exclude(sender=request.user).update(is_read=True)
+            
+            logger.info(f"Marked {updated_count} messages as read for user {request.user.id}")
+            
+            return Response({
+                'message': f'{updated_count} messages marked as read'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error marking messages as read: {str(e)}", exc_info=True)
+            return Response({
+                'error': 'Failed to mark messages as read'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """Message management viewset"""
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Get messages for chat rooms user is part of"""
+        user = self.request.user
+        chat_rooms = ChatRoom.objects.filter(
+            Q(user1=user) | Q(user2=user)
+        )
+        return Message.objects.filter(chat_room__in=chat_rooms).order_by('-timestamp')
+    
+    def perform_create(self, serializer):
+        """Set sender to current user and validate chat room access"""
+        chat_room = serializer.validated_data['chat_room']
+        
+        # Verify user has access to this chat room
+        if self.request.user not in [chat_room.user1, chat_room.user2]:
+            raise PermissionDenied("Access denied to this chat room")
+        
+        serializer.save(sender=self.request.user)

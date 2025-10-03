@@ -21,7 +21,6 @@ import apiService from '../../services/api';
 
 const IncidentListPage = ({ citizenView = false }) => {
   const { user } = useAuth();
-  // Initialize with empty array to prevent .map errors
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,8 +54,6 @@ const IncidentListPage = ({ citizenView = false }) => {
   };
 
   useEffect(() => {
-    console.log('IncidentListPage mounted with citizenView:', citizenView);
-    console.log('Current user:', user);
     loadIncidents();
   }, [pagination.page, searchTerm, filters, citizenView, user]);
 
@@ -72,62 +69,38 @@ const IncidentListPage = ({ citizenView = false }) => {
         ...filters
       };
 
-      console.log('Loading incidents with params:', params);
-      console.log('citizenView:', citizenView);
-
       let response;
       
       if (citizenView && user?.user_type === 'citizen') {
-        // For citizens, use the regular incidents endpoint 
-        // The backend ViewSet already filters by reporter for citizens
-        console.log('Fetching citizen reports via regular endpoint...');
         response = await apiService.getIncidents(params);
       } else {
-        // Use the general incidents endpoint for admin/operator
-        console.log('Fetching all incidents...');
         response = await apiService.getIncidents(params);
       }
 
-      console.log('Raw API response:', response);
-      console.log('Response type:', typeof response);
-      console.log('Response keys:', response ? Object.keys(response) : 'null');
-
-      // Handle your Django REST framework pagination structure
       let incidentData = [];
       let totalCount = 0;
 
       if (response) {
         if (Array.isArray(response)) {
-          // Direct array response
           incidentData = response;
           totalCount = response.length;
         } else if (response.results && Array.isArray(response.results)) {
-          // DRF pagination format: { count: X, next: null, previous: null, results: [...] }
           incidentData = response.results;
           totalCount = response.count || response.results.length;
         } else if (response.data && Array.isArray(response.data)) {
-          // Alternative data structure
           incidentData = response.data;
           totalCount = response.count || response.total || response.data.length;
         } else {
-          // Fallback - check if it's a single incident object
           if (response.id && response.title) {
             incidentData = [response];
             totalCount = 1;
           } else {
-            console.warn('Unexpected API response structure:', response);
             incidentData = [];
             totalCount = 0;
           }
         }
       }
 
-      console.log('Final processed incidents:', incidentData);
-      console.log('Is array:', Array.isArray(incidentData));
-      console.log('Length:', incidentData.length);
-      console.log('First incident:', incidentData[0]);
-
-      // Always ensure we set an array
       setIncidents(Array.isArray(incidentData) ? incidentData : []);
       setPagination(prev => ({
         ...prev,
@@ -135,15 +108,7 @@ const IncidentListPage = ({ citizenView = false }) => {
       }));
 
     } catch (err) {
-      console.error('Load incidents error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        status: err.status,
-        response: err.response
-      });
-      
       setError(`Failed to load incidents: ${err.message || 'Unknown error'}`);
-      // Always set empty array on error
       setIncidents([]);
     } finally {
       setLoading(false);
@@ -159,7 +124,6 @@ const IncidentListPage = ({ citizenView = false }) => {
       await apiService.deleteIncident(incidentId);
       setIncidents(prev => prev.filter(incident => incident.id !== incidentId));
     } catch (err) {
-      console.error('Delete incident error:', err);
       alert('Failed to delete incident');
     }
   };
@@ -179,14 +143,12 @@ const IncidentListPage = ({ citizenView = false }) => {
           return;
       }
       
-      // Update the incident in the list
       setIncidents(prev => 
         prev.map(incident => 
           incident.id === incidentId ? { ...incident, ...response } : incident
         )
       );
     } catch (err) {
-      console.error('Status change error:', err);
       alert('Failed to update incident status');
     }
   };
@@ -213,24 +175,12 @@ const IncidentListPage = ({ citizenView = false }) => {
     return citizenView ? '/incidents/citizen/reports' : '/report-incident';
   };
 
-  // Debug render
-  console.log('Rendering with:', { 
-    loading, 
-    incidents: incidents.length, 
-    error, 
-    citizenView,
-    user: user?.username 
-  });
-
   if (loading && incidents.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
           <p className="text-gray-600">Loading incidents...</p>
-          <p className="text-sm text-gray-400">
-            {citizenView ? 'Loading your reports...' : 'Loading all incidents...'}
-          </p>
         </div>
       </div>
     );
@@ -274,13 +224,6 @@ const IncidentListPage = ({ citizenView = false }) => {
           </div>
         </div>
       </div>
-
-      {/* Debug Info - Remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
-          Debug: citizenView={citizenView.toString()}, user={user?.username}, incidents={incidents.length}, loading={loading.toString()}
-        </div>
-      )}
 
       {/* Filters and Search */}
       {!citizenView && (
@@ -458,7 +401,6 @@ const IncidentListPage = ({ citizenView = false }) => {
                           <Eye className="w-4 h-4" />
                         </Link>
                         
-                        {/* Citizens can only edit if status is submitted */}
                         {(citizenView ? incident.status === 'submitted' : true) && (
                           <Link
                             to={getEditPath(incident.id)}

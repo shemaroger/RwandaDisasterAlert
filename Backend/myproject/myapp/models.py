@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.validators import RegexValidator, FileExtensionValidator
@@ -711,3 +712,68 @@ class NotificationTemplate(models.Model):
 
     def __str__(self):
         return self.name
+
+class ChatRoom(models.Model):
+    """
+    Represents a one-to-one chat room (conversation) between two users.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_user1')
+    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_user2')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        # Remove unique_together as it doesn't handle bidirectional properly
+        # We'll handle uniqueness in the view logic instead
+        pass
+    
+    def __str__(self):
+        user1_name = self.user1.get_full_name() or self.user1.username or self.user1.email or f"User {self.user1.id}"
+        user2_name = self.user2.get_full_name() or self.user2.username or self.user2.email or f"User {self.user2.id}"
+        return f"Chat between {user1_name} and {user2_name}"
+    
+    def get_other_user(self, user):
+        """Get the other user in this chat room."""
+        return self.user2 if self.user1 == user else self.user1
+    
+    @classmethod
+    def get_or_create_chat_room(cls, user1, user2):
+        """
+        Get existing chat room or create new one between two users.
+        Handles bidirectional relationship properly.
+        """
+        if user1.id == user2.id:
+            raise ValueError("Cannot create chat room with same user")
+        
+        # Ensure consistent ordering to avoid duplicates
+        if user1.id > user2.id:
+            user1, user2 = user2, user1
+        
+        # Try to find existing chat room (bidirectional)
+        chat_room = cls.objects.filter(
+            Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1)
+        ).first()
+        
+        if not chat_room:
+            # Create new chat room with consistent ordering
+            chat_room = cls.objects.create(user1=user1, user2=user2)
+        
+        return chat_room
+
+
+class Message(models.Model):
+    """
+    Represents a single message within a ChatRoom.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['timestamp']
+    
+    def __str__(self):
+        return f"{self.sender.get_full_name() or self.sender.username}: {self.content[:30]}"    
