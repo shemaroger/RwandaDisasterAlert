@@ -3,6 +3,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -2405,10 +2406,39 @@ class ChatViewSet(viewsets.ModelViewSet):
         user = self.request.user
         return ChatRoom.objects.filter(
             Q(user1=user) | Q(user2=user)
-        ).order_by('-created_at')
+        ).select_related('user1', 'user2').order_by('-updated_at')
     
     def get_serializer_class(self):
         return ChatRoomSerializer
+    
+    @action(detail=False, methods=['get'])
+    def available_users(self, request):
+        """
+        Get list of users available for chat.
+        Citizens can only chat with operators and admins.
+        Operators and admins can chat with anyone.
+        """
+        user = request.user
+        
+        if user.user_type == 'citizen':
+            # Citizens can only chat with operators and admins
+            users = User.objects.filter(
+                user_type__in=['operator', 'admin'],
+                is_active=True
+            ).exclude(id=user.id).order_by('first_name', 'last_name', 'username')
+            
+        elif user.user_type in ['operator', 'admin']:
+            # Operators and admins can chat with anyone
+            users = User.objects.filter(
+                is_active=True
+            ).exclude(id=user.id).order_by('user_type', 'first_name', 'last_name', 'username')
+            
+        else:
+            # Default: no users available
+            users = User.objects.none()
+        
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def start_chat(self, request):
@@ -2424,7 +2454,7 @@ class ChatViewSet(viewsets.ModelViewSet):
             
             # Get the other user
             try:
-                other_user = User.objects.get(id=other_user_id)
+                other_user = User.objects.get(id=other_user_id, is_active=True)
             except User.DoesNotExist:
                 return Response({
                     'error': 'User not found'
@@ -2436,12 +2466,19 @@ class ChatViewSet(viewsets.ModelViewSet):
                     'error': 'Cannot chat with yourself'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
+            # Permission check: Citizens can only chat with operators/admins
+            if request.user.user_type == 'citizen':
+                if other_user.user_type not in ['operator', 'admin']:
+                    return Response({
+                        'error': 'Citizens can only chat with operators and administrators'
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
             # Use atomic transaction to prevent race conditions
             with transaction.atomic():
                 # Use the model method to get or create chat room
                 chat_room = ChatRoom.get_or_create_chat_room(request.user, other_user)
             
-            logger.info(f"Chat room {'created' if chat_room.created_at else 'retrieved'} between {request.user.id} and {other_user_id}")
+            logger.info(f"Chat room accessed between {request.user.id} and {other_user_id}")
             
             serializer = ChatRoomSerializer(chat_room, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -2470,7 +2507,7 @@ class ChatViewSet(viewsets.ModelViewSet):
                     'error': 'Access denied'
                 }, status=status.HTTP_403_FORBIDDEN)
             
-            messages = chat_room.messages.order_by('timestamp')
+            messages = chat_room.messages.select_related('sender').order_by('timestamp')
             
             # Mark messages as read for current user (only messages from other user)
             unread_messages = messages.filter(is_read=False).exclude(sender=request.user)
@@ -2505,6 +2542,13 @@ class ChatViewSet(viewsets.ModelViewSet):
                     'error': 'Message content is required'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
+            # Validate message length
+            MAX_MESSAGE_LENGTH = 5000
+            if len(content) > MAX_MESSAGE_LENGTH:
+                return Response({
+                    'error': f'Message too long (max {MAX_MESSAGE_LENGTH} characters)'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             # Create message
             message = Message.objects.create(
                 chat_room=chat_room,
@@ -2516,6 +2560,11 @@ class ChatViewSet(viewsets.ModelViewSet):
             
             serializer = MessageSerializer(message)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except ValueError as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
             logger.error(f"Error sending message: {str(e)}", exc_info=True)
@@ -2543,7 +2592,8 @@ class ChatViewSet(viewsets.ModelViewSet):
             logger.info(f"Marked {updated_count} messages as read for user {request.user.id}")
             
             return Response({
-                'message': f'{updated_count} messages marked as read'
+                'message': f'{updated_count} messages marked as read',
+                'count': updated_count
             })
             
         except Exception as e:
@@ -2553,8 +2603,11 @@ class ChatViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class MessageViewSet(viewsets.ModelViewSet):
-    """Message management viewset"""
+class MessageViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Message management viewset - READ ONLY
+    All message creation should go through ChatViewSet.send_message
+    """
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -2564,14 +2617,47 @@ class MessageViewSet(viewsets.ModelViewSet):
         chat_rooms = ChatRoom.objects.filter(
             Q(user1=user) | Q(user2=user)
         )
-        return Message.objects.filter(chat_room__in=chat_rooms).order_by('-timestamp')
+        return Message.objects.filter(
+            chat_room__in=chat_rooms
+        ).select_related('sender', 'chat_room').order_by('-timestamp')
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def analytics_dashboard(request):
+    """Get dashboard analytics"""
+    time_range = request.GET.get('timeRange', 'today')
     
-    def perform_create(self, serializer):
-        """Set sender to current user and validate chat room access"""
-        chat_room = serializer.validated_data['chat_room']
-        
-        # Verify user has access to this chat room
-        if self.request.user not in [chat_room.user1, chat_room.user2]:
-            raise PermissionDenied("Access denied to this chat room")
-        
-        serializer.save(sender=self.request.user)
+    # Calculate date range
+    now = timezone.now()
+    if time_range == 'today':
+        start_date = now.replace(hour=0, minute=0, second=0)
+    elif time_range == 'week':
+        start_date = now - timedelta(days=7)
+    else:  # month
+        start_date = now - timedelta(days=30)
+    
+    # Get counts
+    active_alerts = Alert.objects.filter(status='active').count()
+    pending_incidents = IncidentReport.objects.filter(
+        status__in=['submitted', 'under_review']
+    ).count()
+    resolved_today = IncidentReport.objects.filter(
+        status='resolved',
+        resolved_at__gte=start_date
+    ).count()
+    active_users = User.objects.filter(
+        is_active=True,
+        last_login__gte=now - timedelta(days=30)
+    ).count()
+    
+    return Response({
+        'active_alerts': active_alerts,
+        'pending_incidents': pending_incidents,
+        'resolved_today': resolved_today,
+        'active_users': active_users,
+        'avg_response_time': '8.5 min',  # Calculate based on your logic
+        'alerts_change': 0,
+        'incidents_change': 0,
+        'resolved_change': 0,
+        'users_change': 0
+    })

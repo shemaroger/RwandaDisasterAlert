@@ -199,6 +199,163 @@ class ApiService {
     return this.request(`/users/${id}/`, { method: 'DELETE' });
   }
 
+// Add these methods to your ApiService class
+
+// -------- Chat / Messaging --------
+
+/**
+ * Get all chat rooms for the current user
+ * @param {Object} params - Query parameters (page, limit, etc.)
+ * @returns {Promise<Object>} List of chat rooms
+ */
+async getChatRooms(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/chats/${query ? `?${query}` : ''}`);
+}
+
+/**
+ * Get a specific chat room by ID
+ * @param {string} chatRoomId - UUID of the chat room
+ * @returns {Promise<Object>} Chat room details
+ */
+async getChatRoom(chatRoomId) {
+  return this.request(`/chats/${chatRoomId}/`);
+}
+
+/**
+ * Start a new chat or get existing chat with another user
+ * @param {string|number} userId - ID of the user to chat with
+ * @returns {Promise<Object>} Chat room data
+ */
+async startChat(userId) {
+  return this.request('/chats/start_chat/', {
+    method: 'POST',
+    body: { user_id: userId }
+  });
+}
+
+/**
+ * Get all messages for a specific chat room
+ * @param {string} chatRoomId - UUID of the chat room
+ * @param {Object} params - Query parameters (page, limit, etc.)
+ * @returns {Promise<Array>} List of messages
+ */
+async getChatMessages(chatRoomId, params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/chats/${chatRoomId}/messages/${query ? `?${query}` : ''}`);
+}
+
+/**
+ * Send a message to a chat room
+ * @param {string} chatRoomId - UUID of the chat room
+ * @param {string} content - Message content
+ * @returns {Promise<Object>} Created message
+ */
+async sendMessage(chatRoomId, content) {
+  return this.request(`/chats/${chatRoomId}/send_message/`, {
+    method: 'POST',
+    body: { content }
+  });
+}
+
+/**
+ * Mark all messages in a chat room as read
+ * @param {string} chatRoomId - UUID of the chat room
+ * @returns {Promise<Object>} Success message with count
+ */
+async markMessagesAsRead(chatRoomId) {
+  return this.request(`/chats/${chatRoomId}/mark_read/`, {
+    method: 'POST'
+  });
+}
+
+/**
+ * Delete a chat room (if implemented on backend)
+ * @param {string} chatRoomId - UUID of the chat room
+ * @returns {Promise<void>}
+ */
+async deleteChatRoom(chatRoomId) {
+  return this.request(`/chats/${chatRoomId}/`, {
+    method: 'DELETE'
+  });
+}
+
+/**
+ * Get unread message count across all chats
+ * @returns {Promise<Object>} Object with unread count
+ */
+async getUnreadMessageCount() {
+  return this.request('/chats/unread_count/');
+}
+
+/**
+ * Search messages in all chat rooms
+ * @param {string} searchQuery - Search term
+ * @param {Object} params - Additional query parameters
+ * @returns {Promise<Array>} List of matching messages
+ */
+async searchMessages(searchQuery, params = {}) {
+  const query = new URLSearchParams({
+    search: searchQuery,
+    ...params
+  }).toString();
+  return this.request(`/messages/${query ? `?${query}` : ''}`);
+}
+
+/**
+ * Get a specific message by ID
+ * @param {string} messageId - UUID of the message
+ * @returns {Promise<Object>} Message details
+ */
+async getMessage(messageId) {
+  return this.request(`/messages/${messageId}/`);
+}
+
+/**
+ * Update a message (if editing is allowed)
+ * @param {string} messageId - UUID of the message
+ * @param {string} content - Updated message content
+ * @returns {Promise<Object>} Updated message
+ */
+async updateMessage(messageId, content) {
+  return this.request(`/messages/${messageId}/`, {
+    method: 'PATCH',
+    body: { content }
+  });
+}
+
+/**
+ * Delete a message
+ * @param {string} messageId - UUID of the message
+ * @returns {Promise<void>}
+ */
+async deleteMessage(messageId) {
+  return this.request(`/messages/${messageId}/`, {
+    method: 'DELETE'
+  });
+}
+/**
+ * Get users available for chat
+ * Citizens see only operators/admins
+ * Admins/operators see all users
+ */
+async getChatEligibleUsers() {
+  return this.request('/chats/available_users/');
+}
+
+// -------- Real-time helpers (for WebSocket integration) --------
+
+/**
+ * Get WebSocket URL for chat room
+ * @param {string} chatRoomId - UUID of the chat room
+ * @returns {string} WebSocket URL
+ */
+getWebSocketUrl(chatRoomId) {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsBaseUrl = this.baseUrl.replace(/^https?:/, wsProtocol).replace('/api', '');
+  return `${wsBaseUrl}/ws/chat/${chatRoomId}/?token=${this.getToken()}`;
+}
+
   // -------- Locations (Rwanda Administrative Boundaries) --------
   async getLocations(params = {}) {
     const query = new URLSearchParams(params).toString();

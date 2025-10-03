@@ -47,6 +47,10 @@ import CitizenReportPage from './pages/citizen/CitizenReportPage';
 import PublicSafetyGuides from './pages/citizen/PublicSafetyGuides';
 import PublicSafetyGuideDetail from './pages/citizen/PublicSafetyGuideDetail';
 
+import ChatListPage from './pages/Chat/ChatListPage';
+import ChatConversationPage from './pages/Chat/ChatConversationPage';
+import StartNewChatPage from './pages/Chat/StartNewChatPage';
+
 // Other pages
 import NotFound from './pages/NotFound';
 import Unauthorized from './pages/Unauthorized';
@@ -658,6 +662,39 @@ function AppRoutes() {
             </AppLayout>
           </ProtectedRoute>
         } 
+      />
+
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ChatListPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/chat/:id"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ChatConversationPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/chat/new"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <StartNewChatPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
       />
 
       {/* ==================== ERROR ROUTES ==================== */}

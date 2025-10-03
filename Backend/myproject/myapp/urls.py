@@ -87,6 +87,7 @@ urlpatterns = [
     # Mobile app specific endpoints
     path("mobile/app-config/", MobileAppConfigView.as_view(), name="mobile_app_config"),
     path("mobile/force-update-check/", ForceUpdateCheckView.as_view(), name="force_update_check"),
+    path('analytics/', analytics_dashboard, name='analytics'),
     
     # Include router URLs
     path("", include(router.urls)),

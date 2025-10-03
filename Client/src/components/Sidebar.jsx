@@ -51,6 +51,7 @@ const Sidebar = ({
     if (path.includes('/incidents/admin/list')) return 'admin-incidents';
     if (path.includes('/incidents/export')) return 'incidents-export';
     if (path.includes('/incidents')) return 'incidents';
+    if (path.includes('/chat')) return 'chat';
     if (path.includes('/locations')) return 'locations';
     if (path.includes('/emergency-contacts')) return 'emergency-contacts';
     if (path.includes('/safety-guides/admin') || (path.includes('/safety-guides') && user?.user_type === 'admin')) return 'safety-guides-admin';
@@ -77,7 +78,7 @@ const Sidebar = ({
         path: '/dashboard',
         icon: Home,
         description: 'Overview and statistics',
-        userTypes: ['admin', 'citizen']
+        userTypes: ['admin', 'operator', 'citizen']
       }
     ];
 
@@ -88,8 +89,20 @@ const Sidebar = ({
         path: '/admin/alerts',
         icon: AlertTriangle,
         description: 'Create and manage alerts',
-        badge: 'Admin',
-        userTypes: ['admin']
+        badge: 'Staff',
+        userTypes: ['admin', 'operator']
+      }
+    ];
+
+    // Chat/Messages navigation - available to all users
+    const chatNavigation = [
+      {
+        name: 'Messages',
+        id: 'chat',
+        path: '/chat',
+        icon: MessageSquare,
+        description: 'Chat with team members',
+        userTypes: ['admin', 'operator', 'citizen']
       }
     ];
 
@@ -113,18 +126,10 @@ const Sidebar = ({
             description: 'View your incident reports',
             userTypes: ['citizen']
           },
-//           {
-//   name: 'My Report',
-//   id: 'my-report',
-//   path: '/citizen/my-report',
-//   icon: BarChart3,
-//   description: 'View your activity report',
-//   userTypes: ['citizen']
-// }
         ];
         
       } else {
-        // Admin only
+        // Admin and Operator have same access
         return [
           {
             name: 'All Incidents',
@@ -132,7 +137,7 @@ const Sidebar = ({
             path: '/incidents/admin/list',
             icon: FileText,
             description: 'View and manage all incidents',
-            userTypes: ['admin']
+            userTypes: ['admin', 'operator']
           },
         ];
       }
@@ -152,7 +157,7 @@ const Sidebar = ({
           }
         ];
       } else {
-        // Admin gets admin interface
+        // Admin and Operator get admin interface
         return [
           {
             name: 'Safety Guides',
@@ -160,8 +165,8 @@ const Sidebar = ({
             path: '/safety-guides',
             icon: BookOpenCheck,
             description: 'Manage safety guides',
-            badge: 'Admin',
-            userTypes: ['admin'],
+            badge: 'Staff',
+            userTypes: ['admin', 'operator'],
             subItems: [
               {
                 name: 'All Guides',
@@ -188,16 +193,8 @@ const Sidebar = ({
         path: '/users',
         icon: Users,
         description: 'Manage system users',
-        userTypes: ['admin']
+        userTypes: ['admin', 'operator']
       },
-      // {
-      //   name: 'Location Management',
-      //   id: 'locations',
-      //   path: '/locations',
-      //   icon: MapPin,
-      //   description: 'Rwanda districts and sectors',
-      //   userTypes: ['admin']
-      // },
     ];
     
     const analyticsNavigation = [
@@ -207,7 +204,7 @@ const Sidebar = ({
         path: '/analytics',
         icon: BarChart3,
         description: 'Performance metrics',
-        userTypes: ['admin']
+        userTypes: ['admin', 'operator']
       },
     ];
 
@@ -218,7 +215,7 @@ const Sidebar = ({
         path: '/admin/disaster-types',
         icon: Zap,
         description: 'Manage disaster categories',
-        userTypes: ['admin']
+        userTypes: ['admin', 'operator']
       },
     ];
 
@@ -236,10 +233,13 @@ const Sidebar = ({
 
     let navigation = [...baseNavigation];
 
-    // Add alerts for admin only
-    if (user?.user_type === 'admin') {
+    // Add alerts for admin and operator
+    if (user?.user_type === 'admin' || user?.user_type === 'operator') {
       navigation = [...navigation, ...alertNavigation];
     }
+
+    // Add chat navigation for all users
+    navigation = [...navigation, ...chatNavigation];
 
     // Add incident navigation based on user type
     navigation = [...navigation, ...getIncidentNavigation()];
@@ -247,8 +247,8 @@ const Sidebar = ({
     // Add safety guides navigation based on user type
     navigation = [...navigation, ...getSafetyGuidesNavigation()];
 
-    // Add management navigation for admin only
-    if (user?.user_type === 'admin') {
+    // Add management navigation for admin and operator
+    if (user?.user_type === 'admin' || user?.user_type === 'operator') {
       navigation = [...navigation, ...managementNavigation, ...analyticsNavigation, ...adminNavigation];
     }
 
@@ -449,7 +449,7 @@ const Sidebar = ({
             <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
-                  {user?.user_type === 'admin' ? (
+                  {user?.user_type === 'admin' || user?.user_type === 'operator' ? (
                     <Shield className="h-5 w-5 text-red-400" />
                   ) : (
                     <Heart className="h-5 w-5 text-red-400" />
@@ -460,7 +460,7 @@ const Sidebar = ({
                     {user?.first_name} {user?.last_name}
                   </p>
                   <p className="text-xs text-slate-400 truncate capitalize">
-                    {user?.user_type === 'admin' ? 'Administrator' : 'Citizen'}
+                    {user?.user_type === 'admin' ? 'Administrator' : user?.user_type === 'operator' ? 'Operator' : 'Citizen'}
                     {user?.district && ` • ${user.district}`}
                   </p>
                 </div>

@@ -721,16 +721,37 @@ class ChatRoom(models.Model):
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_user1')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_user2')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
     
     class Meta:
-        # Remove unique_together as it doesn't handle bidirectional properly
-        # We'll handle uniqueness in the view logic instead
-        pass
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user1', 'user2']),
+            models.Index(fields=['user2', 'user1']),
+            models.Index(fields=['-updated_at']),
+        ]
     
     def __str__(self):
-        user1_name = self.user1.get_full_name() or self.user1.username or self.user1.email or f"User {self.user1.id}"
-        user2_name = self.user2.get_full_name() or self.user2.username or self.user2.email or f"User {self.user2.id}"
-        return f"Chat between {user1_name} and {user2_name}"
+        try:
+            user1_name = self._get_user_display_name(self.user1)
+            user2_name = self._get_user_display_name(self.user2)
+            return f"Chat between {user1_name} and {user2_name}"
+        except Exception:
+            return f"Chat {self.id}"
+    
+    def _get_user_display_name(self, user):
+        """Helper to safely get user display name"""
+        try:
+            if hasattr(user, 'get_full_name') and user.get_full_name():
+                return user.get_full_name()
+            if user.first_name and user.last_name:
+                return f"{user.first_name} {user.last_name}"
+            if user.first_name:
+                return user.first_name
+            return user.username or user.email or f"User {user.id}"
+        except Exception:
+            return f"User {user.id}"
     
     def get_other_user(self, user):
         """Get the other user in this chat room."""
@@ -749,14 +770,12 @@ class ChatRoom(models.Model):
         if user1.id > user2.id:
             user1, user2 = user2, user1
         
-        # Try to find existing chat room (bidirectional)
-        chat_room = cls.objects.filter(
-            Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1)
-        ).first()
-        
-        if not chat_room:
-            # Create new chat room with consistent ordering
-            chat_room = cls.objects.create(user1=user1, user2=user2)
+        # Use get_or_create which is atomic
+        chat_room, created = cls.objects.get_or_create(
+            user1=user1,
+            user2=user2,
+            defaults={'is_active': True}
+        )
         
         return chat_room
 
@@ -767,13 +786,47 @@ class Message(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
-    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField()
-    is_read = models.BooleanField(default=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:
         ordering = ['timestamp']
+        indexes = [
+            models.Index(fields=['chat_room', 'timestamp']),
+            models.Index(fields=['chat_room', 'is_read']),
+        ]
     
     def __str__(self):
-        return f"{self.sender.get_full_name() or self.sender.username}: {self.content[:30]}"    
+        try:
+            sender_name = self._get_sender_name()
+            content_preview = self.content[:30] + "..." if len(self.content) > 30 else self.content
+            return f"{sender_name}: {content_preview}"
+        except Exception:
+            return f"Message {self.id}"
+    
+    def _get_sender_name(self):
+        """Helper to safely get sender name"""
+        try:
+            if hasattr(self.sender, 'get_full_name') and self.sender.get_full_name():
+                return self.sender.get_full_name()
+            if self.sender.first_name and self.sender.last_name:
+                return f"{self.sender.first_name} {self.sender.last_name}"
+            if self.sender.first_name:
+                return self.sender.first_name
+            return self.sender.username or f"User {self.sender.id}"
+        except Exception:
+            return "Unknown"
+    
+    def save(self, *args, **kwargs):
+        """Override save to update chat room timestamp"""
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        
+        # Update chat room's updated_at when new message is sent
+        if is_new:
+            try:
+                self.chat_room.save(update_fields=['updated_at'])
+            except Exception:
+                pass  # Silently fail if update fails
