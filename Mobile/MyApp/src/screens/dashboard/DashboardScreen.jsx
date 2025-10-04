@@ -15,17 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../../services/api';
 
-interface UserProfile {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number?: string;
-  location?: string;
-  preferred_language?: string;
-}
-
 interface DashboardStats {
   total_alerts_received: number;
   incidents_reported: number;
@@ -34,7 +23,6 @@ interface DashboardStats {
 }
 
 const DashboardScreen = ({ navigation }: any) => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     total_alerts_received: 0,
     incidents_reported: 0,
@@ -43,6 +31,7 @@ const DashboardScreen = ({ navigation }: any) => {
   const [recentAlerts, setRecentAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userName, setUserName] = useState('Citizen');
 
   useEffect(() => {
     loadDashboardData();
@@ -51,11 +40,11 @@ const DashboardScreen = ({ navigation }: any) => {
   const loadDashboardData = async () => {
     try {
       const [profileData, alertsData] = await Promise.all([
-        apiService.getProfile(),
+        apiService.getProfile().catch(() => ({ first_name: 'Citizen' })),
         apiService.getActiveAlerts().catch(() => []),
       ]);
 
-      setProfile(profileData);
+      setUserName(profileData?.first_name || 'Citizen');
       setRecentAlerts(alertsData.slice(0, 3));
 
       // Mock stats - replace with actual API calls
@@ -101,15 +90,6 @@ const DashboardScreen = ({ navigation }: any) => {
     );
   };
 
-  const getLanguageName = (code?: string) => {
-    const languages: Record<string, string> = {
-      rw: 'Kinyarwanda',
-      en: 'English',
-      fr: 'Français',
-    };
-    return languages[code || 'en'] || 'English';
-  };
-
   const StatCard = ({ icon, label, value, color, onPress }: any) => (
     <TouchableOpacity 
       style={styles.statCard}
@@ -141,10 +121,10 @@ const DashboardScreen = ({ navigation }: any) => {
       <StatusBar style="light" />
       <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.gradient}>
         {/* Header */}
-        <View style={styles.header}>
+                  <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{profile?.first_name || 'Citizen'}</Text>
+            <Text style={styles.userName}>{userName}</Text>
           </View>
           <TouchableOpacity 
             style={styles.settingsButton}
@@ -160,38 +140,6 @@ const DashboardScreen = ({ navigation }: any) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EF4444" />
           }
         >
-          {/* Profile Card */}
-          <TouchableOpacity 
-            style={styles.profileCard}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <LinearGradient
-              colors={['rgba(239, 68, 68, 0.1)', 'rgba(220, 38, 38, 0.05)']}
-              style={styles.profileGradient}
-            >
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person" size={32} color="#EF4444" />
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>
-                  {profile?.first_name} {profile?.last_name}
-                </Text>
-                <Text style={styles.profileEmail}>{profile?.email}</Text>
-                <View style={styles.profileMeta}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="call-outline" size={14} color="#94A3B8" />
-                    <Text style={styles.metaText}>{profile?.phone_number || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="language-outline" size={14} color="#94A3B8" />
-                    <Text style={styles.metaText}>{getLanguageName(profile?.preferred_language)}</Text>
-                  </View>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#64748B" />
-            </LinearGradient>
-          </TouchableOpacity>
-
           {/* Statistics */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Activity</Text>
@@ -329,6 +277,9 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -337,6 +288,9 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#94A3B8',
     fontSize: 14,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Space for bottom navigation
   },
   header: {
     flexDirection: 'row',
@@ -364,57 +318,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  profileCard: {
-    marginHorizontal: 20,
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  profileGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  avatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  profileInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: '#94A3B8',
-  },
-  profileMeta: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 4,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#94A3B8',
   },
   section: {
     marginBottom: 24,
