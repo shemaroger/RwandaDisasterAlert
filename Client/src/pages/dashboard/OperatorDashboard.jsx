@@ -1,10 +1,13 @@
-// OperatorDashboard.jsx - Complete with Charts and Better Data Handling
 import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle, Users, MapPin, Clock, CheckCircle, XCircle,
   MessageSquare, FileText, Eye, ArrowUp, ArrowDown, RefreshCw,
-  Download, Target, Radio, TrendingUp, Activity
+  Download, Target, Radio, TrendingUp, Activity, BarChart3
 } from 'lucide-react';
+import {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/api';
@@ -15,45 +18,22 @@ const OperatorDashboard = () => {
   const [timeRange, setTimeRange] = useState('today');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   
   const [stats, setStats] = useState({
     activeAlerts: 0,
     pendingIncidents: 0,
-    resolvedToday: 0,
-    activeUsers: 0,
-    responseTime: '0 min',
+    totalResolved: 0,
     alertsChange: 0,
     incidentsChange: 0,
-    resolvedChange: 0,
-    usersChange: 0
+    resolvedChange: 0
   });
   
   const [recentAlerts, setRecentAlerts] = useState([]);
   const [pendingIncidents, setPendingIncidents] = useState([]);
-  const [error, setError] = useState(null);
-  
-  // Chart data states
-  const [chartData, setChartData] = useState({
-    incidentTrend: {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      submitted: [5, 8, 6, 12, 9, 4, 7],
-      resolved: [4, 6, 8, 10, 11, 5, 6]
-    },
-    alertsByType: {
-      emergency: 5,
-      weather: 8,
-      health: 3,
-      security: 6,
-      other: 2
-    },
-    incidentsByPriority: {
-      p1: 8,
-      p2: 15,
-      p3: 22,
-      p4: 10,
-      p5: 5
-    }
-  });
+  const [incidentTrendData, setIncidentTrendData] = useState([]);
+  const [alertsByTypeData, setAlertsByTypeData] = useState([]);
+  const [responseTimeHistogram, setResponseTimeHistogram] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -64,11 +44,12 @@ const OperatorDashboard = () => {
       setLoading(true);
       setError(null);
       
-      await Promise.all([
-        loadAlerts(),
-        loadIncidents(),
-        loadUsers()
-      ]);
+      console.log('Starting to load dashboard data...');
+      
+      await loadAlerts();
+      await loadIncidents();
+      
+      console.log('Dashboard data loaded successfully');
     } catch (err) {
       console.error('Error loading dashboard:', err);
       setError(err.message || 'Failed to load dashboard data');
@@ -79,6 +60,7 @@ const OperatorDashboard = () => {
 
   const loadAlerts = async () => {
     try {
+      console.log('Loading alerts...');
       const response = await apiService.getAlerts({ 
         limit: 100,
         ordering: '-created_at'
@@ -87,13 +69,14 @@ const OperatorDashboard = () => {
       console.log('Alerts Response:', response);
       
       const allAlerts = Array.isArray(response) ? response : (response.results || []);
+      console.log('Total alerts:', allAlerts.length);
       
-      // Filter active alerts
       const activeAlerts = allAlerts.filter(alert => 
         alert.status === 'active' || alert.status === 'sent'
       );
       
-      // Map recent alerts
+      console.log('Active alerts:', activeAlerts.length);
+      
       setRecentAlerts(activeAlerts.slice(0, 5).map(alert => ({
         id: alert.id,
         type: alert.alert_type || alert.type || 'general',
@@ -105,20 +88,47 @@ const OperatorDashboard = () => {
         affectedPeople: alert.affected_population || alert.affected_count || 0
       })));
       
-      // Update stats
       setStats(prev => ({ 
         ...prev, 
         activeAlerts: activeAlerts.length,
-        alertsChange: 0 // Calculate if you have historical data
+        alertsChange: 0
       }));
+
+      // Process alerts by type for pie chart
+      const alertTypes = {};
+      allAlerts.forEach(alert => {
+        const type = (alert.alert_type || alert.type || 'other').toLowerCase();
+        alertTypes[type] = (alertTypes[type] || 0) + 1;
+      });
+
+      console.log('Alert types:', alertTypes);
+
+      const typeColors = {
+        emergency: '#ef4444',
+        weather: '#f97316',
+        health: '#3b82f6',
+        security: '#8b5cf6',
+        other: '#6b7280'
+      };
+
+      const chartData = Object.entries(alertTypes).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value,
+        color: typeColors[name] || '#6b7280'
+      }));
+
+      console.log('Alerts chart data:', chartData);
+      setAlertsByTypeData(chartData);
     } catch (err) {
       console.error('Error loading alerts:', err);
       setRecentAlerts([]);
+      setAlertsByTypeData([]);
     }
   };
 
   const loadIncidents = async () => {
     try {
+      console.log('Loading incidents...');
       const response = await apiService.getIncidents({
         limit: 100,
         ordering: '-created_at'
@@ -127,20 +137,17 @@ const OperatorDashboard = () => {
       console.log('Incidents Response:', response);
       
       const allIncidents = Array.isArray(response) ? response : (response.results || []);
+      console.log('Total incidents:', allIncidents.length);
       
-      // Filter by status
       const pending = allIncidents.filter(i => 
         i.status === 'submitted' || i.status === 'under_review'
       );
       
-      const resolvedToday = allIncidents.filter(i => {
-        if (i.status !== 'resolved') return false;
-        const resolvedDate = new Date(i.resolved_at || i.updated_at);
-        const today = new Date();
-        return resolvedDate.toDateString() === today.toDateString();
-      });
+      const totalResolved = allIncidents.filter(i => i.status === 'resolved');
       
-      // Map pending incidents
+      console.log('Pending incidents:', pending.length);
+      console.log('Total resolved:', totalResolved.length);
+      
       setPendingIncidents(pending.slice(0, 5).map(incident => ({
         id: incident.id,
         title: incident.title || 'Untitled Incident',
@@ -151,17 +158,78 @@ const OperatorDashboard = () => {
         status: incident.status || 'submitted'
       })));
       
-      // Update stats
       setStats(prev => ({ 
         ...prev, 
         pendingIncidents: pending.length,
-        resolvedToday: resolvedToday.length,
+        totalResolved: totalResolved.length,
         incidentsChange: 0,
         resolvedChange: 0
       }));
+
+      // Process incident trends for bar chart (last 7 days)
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const trendData = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayName = days[date.getDay()];
+        
+        const submitted = allIncidents.filter(inc => {
+          const incDate = new Date(inc.created_at);
+          return incDate.toDateString() === date.toDateString();
+        }).length;
+
+        const resolved = allIncidents.filter(inc => {
+          if (inc.status !== 'resolved') return false;
+          const resDate = new Date(inc.resolved_at || inc.updated_at);
+          return resDate.toDateString() === date.toDateString();
+        }).length;
+
+        trendData.push({ day: dayName, submitted, resolved });
+      }
+
+      console.log('Trend data:', trendData);
+      setIncidentTrendData(trendData);
+
+      // Process response time histogram
+      const resolvedIncidents = allIncidents.filter(i => i.status === 'resolved' && i.created_at && i.resolved_at);
+      console.log('Resolved incidents with timestamps:', resolvedIncidents.length);
+      
+      const timeBuckets = {
+        '0-1h': 0,
+        '1-3h': 0,
+        '3-6h': 0,
+        '6-12h': 0,
+        '12-24h': 0,
+        '24h+': 0
+      };
+
+      resolvedIncidents.forEach(incident => {
+        const created = new Date(incident.created_at);
+        const resolved = new Date(incident.resolved_at);
+        const hours = (resolved - created) / (1000 * 60 * 60);
+
+        if (hours <= 1) timeBuckets['0-1h']++;
+        else if (hours <= 3) timeBuckets['1-3h']++;
+        else if (hours <= 6) timeBuckets['3-6h']++;
+        else if (hours <= 12) timeBuckets['6-12h']++;
+        else if (hours <= 24) timeBuckets['12-24h']++;
+        else timeBuckets['24h+']++;
+      });
+
+      const histogramData = Object.entries(timeBuckets).map(([range, count]) => ({
+        range,
+        count
+      }));
+
+      console.log('Histogram data:', histogramData);
+      setResponseTimeHistogram(histogramData);
     } catch (err) {
       console.error('Error loading incidents:', err);
       setPendingIncidents([]);
+      setIncidentTrendData([]);
+      setResponseTimeHistogram([]);
     }
   };
 
@@ -170,7 +238,6 @@ const OperatorDashboard = () => {
       const response = await apiService.getUsers();
       const users = Array.isArray(response) ? response : (response.results || []);
       
-      // Count active users (is_active = true)
       const activeUsers = users.filter(u => u.is_active).length;
       
       setStats(prev => ({ 
@@ -224,9 +291,47 @@ const OperatorDashboard = () => {
     }
   };
 
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+          <p className="font-semibold text-gray-900 mb-1">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (percent < 0.05) return null; // Don't show label for very small slices
+    
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        className="font-semibold text-sm"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
           <p className="text-gray-600 text-lg">Loading dashboard...</p>
@@ -236,13 +341,13 @@ const OperatorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Operator Dashboard</h1>
-            <p className="text-gray-600">Welcome back, {user?.first_name} {user?.last_name}</p>
+            <p className="text-gray-600">Welcome back, {user?.first_name || 'Operator'} {user?.last_name || ''}</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -287,7 +392,7 @@ const OperatorDashboard = () => {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="bg-red-50 p-3 rounded-lg">
@@ -332,213 +437,100 @@ const OperatorDashboard = () => {
                 </span>
               )}
             </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-1">{stats.resolvedToday}</h3>
-            <p className="text-gray-600 text-sm">Resolved Today</p>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-              {stats.usersChange !== 0 && (
-                <span className={`flex items-center gap-1 text-sm ${stats.usersChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {stats.usersChange > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                  {Math.abs(stats.usersChange)}%
-                </span>
-              )}
-            </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-1">{stats.activeUsers}</h3>
-            <p className="text-gray-600 text-sm">Active Users</p>
-          </div>
-        </div>
-
-        {/* Performance Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <Clock className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Avg Response Time</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.responseTime}</p>
-              </div>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 w-3/4"></div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-teal-50 p-2 rounded-lg">
-                <Target className="w-5 h-5 text-teal-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Resolution Rate</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.resolvedToday > 0 && stats.pendingIncidents >= 0 
-                    ? `${Math.round((stats.resolvedToday / (stats.resolvedToday + stats.pendingIncidents)) * 100)}%`
-                    : '0%'}
-                </p>
-              </div>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-teal-500 to-teal-600"
-                style={{ 
-                  width: stats.resolvedToday > 0 && stats.pendingIncidents >= 0
-                    ? `${Math.round((stats.resolvedToday / (stats.resolvedToday + stats.pendingIncidents)) * 100)}%`
-                    : '0%'
-                }}
-              ></div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-orange-50 p-2 rounded-lg">
-                <Radio className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">System Uptime</p>
-                <p className="text-2xl font-bold text-gray-900">99.8%</p>
-              </div>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-orange-500 to-orange-600 w-full"></div>
-            </div>
+            <h3 className="text-3xl font-bold text-gray-900 mb-1">{stats.totalResolved}</h3>
+            <p className="text-gray-600 text-sm">Total Resolved</p>
           </div>
         </div>
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Incident Trends Chart */}
+          {/* Incident Trends Bar Chart */}
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
-                Incident Trends
+                Incident Trends (Bar Chart)
               </h2>
             </div>
-            <div className="space-y-4">
-              {chartData.incidentTrend.labels.map((label, index) => {
-                const submitted = chartData.incidentTrend.submitted[index];
-                const resolved = chartData.incidentTrend.resolved[index];
-                const maxValue = Math.max(...chartData.incidentTrend.submitted, ...chartData.incidentTrend.resolved);
-                
-                return (
-                  <div key={label} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 font-medium">{label}</span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-red-600 text-xs">Submit: {submitted}</span>
-                        <span className="text-green-600 text-xs">Resolved: {resolved}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
-                        <div 
-                          className="bg-red-500 h-full rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
-                          style={{ width: `${(submitted / maxValue) * 100}%` }}
-                        >
-                          {submitted > 0 && submitted}
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
-                        <div 
-                          className="bg-green-500 h-full rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
-                          style={{ width: `${(resolved / maxValue) * 100}%` }}
-                        >
-                          {resolved > 0 && resolved}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {incidentTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={incidentTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar dataKey="submitted" fill="#ef4444" name="Submitted" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="resolved" fill="#22c55e" name="Resolved" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <p>No data available</p>
+              </div>
+            )}
           </div>
 
-          {/* Alerts by Type Chart */}
+          {/* Alerts by Type Pie Chart */}
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-orange-600" />
-                Alerts by Type
+                Alerts by Type (Pie Chart)
               </h2>
             </div>
-            <div className="space-y-3">
-              {Object.entries(chartData.alertsByType).map(([type, count]) => {
-                const total = Object.values(chartData.alertsByType).reduce((a, b) => a + b, 0);
-                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-                const colors = {
-                  emergency: 'bg-red-500',
-                  weather: 'bg-orange-500',
-                  health: 'bg-blue-500',
-                  security: 'bg-purple-500',
-                  other: 'bg-gray-500'
-                };
-                
-                return (
-                  <div key={type}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700 capitalize">{type}</span>
-                      <span className="text-sm text-gray-600">{count} ({percentage}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className={`h-full ${colors[type]} rounded-full transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {alertsByTypeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={alertsByTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={CustomPieLabel}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {alertsByTypeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <p>No data available</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Incidents by Priority Doughnut */}
+        {/* Response Time Histogram */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Target className="w-5 h-5 text-purple-600" />
-              Incidents by Priority
+              <BarChart3 className="w-5 h-5 text-purple-600" />
+              Response Time Distribution (Histogram)
             </h2>
           </div>
-          <div className="grid grid-cols-5 gap-4">
-            {Object.entries(chartData.incidentsByPriority).map(([priority, count]) => {
-              const total = Object.values(chartData.incidentsByPriority).reduce((a, b) => a + b, 0);
-              const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-              const colors = {
-                p1: 'bg-red-500',
-                p2: 'bg-orange-500',
-                p3: 'bg-yellow-500',
-                p4: 'bg-blue-500',
-                p5: 'bg-gray-500'
-              };
-              const labels = {
-                p1: 'Critical',
-                p2: 'High',
-                p3: 'Medium',
-                p4: 'Low',
-                p5: 'Info'
-              };
-              
-              return (
-                <div key={priority} className="text-center">
-                  <div className={`${colors[priority]} w-full h-32 rounded-lg flex flex-col items-center justify-center text-white mb-2 shadow-lg`}>
-                    <div className="text-3xl font-bold">{count}</div>
-                    <div className="text-xs opacity-90">{percentage}%</div>
-                  </div>
-                  <div className="text-sm font-medium text-gray-700">{labels[priority]}</div>
-                  <div className="text-xs text-gray-500">Priority {priority.replace('p', '')}</div>
-                </div>
-              );
-            })}
-          </div>
+          {responseTimeHistogram.length > 0 ? (
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={responseTimeHistogram}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="range" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" label={{ value: 'Number of Incidents', angle: -90, position: 'insideLeft' }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" fill="#8b5cf6" name="Incidents" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[350px] flex items-center justify-center text-gray-500">
+              <p>No data available</p>
+            </div>
+          )}
         </div>
 
         {/* Lists Section */}
