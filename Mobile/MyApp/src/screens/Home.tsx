@@ -8,6 +8,7 @@ import {
   RefreshControl,
   StyleSheet,
   Linking,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,6 +88,41 @@ const HomeScreen = ({ navigation }: any) => {
                 <Text style={styles.emergencyNumber}>112</Text>
               </View>
               <Ionicons name="call" size={28} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* SOS Button */}
+          <TouchableOpacity 
+            style={styles.sosButton}
+            onPress={() => {
+              Alert.alert(
+                'SOS Emergency',
+                'This will immediately call 112 and send your location to emergency services. Continue?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Send SOS', 
+                    style: 'destructive',
+                    onPress: () => {
+                      // TODO: Send location to backend
+                      Linking.openURL('tel:112');
+                    }
+                  },
+                ]
+              );
+            }}
+            onLongPress={() => {
+              // Quick SOS on long press
+              Linking.openURL('tel:112');
+            }}
+          >
+            <LinearGradient 
+              colors={['#991B1B', '#7F1D1D']} 
+              style={styles.sosGradient}
+            >
+              <Ionicons name="alert-circle" size={40} color="#FFF" />
+              <Text style={styles.sosText}>SOS</Text>
+              <Text style={styles.sosSubtext}>Press for Emergency</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -271,6 +307,34 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#FFF',
+  },
+  sosButton: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#7F1D1D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+  },
+  sosGradient: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  sosText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#FFF',
+    letterSpacing: 4,
+  },
+  sosSubtext: {
+    fontSize: 14,
+    color: '#FCA5A5',
+    fontWeight: '600',
   },
   section: {
     marginBottom: 24,

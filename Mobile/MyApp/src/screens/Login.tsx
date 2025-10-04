@@ -103,16 +103,8 @@ const LoginScreen = ({ navigation, route }: any) => {
         console.log('Remember me enabled');
       }
 
-      Alert.alert('Success', 'You have successfully signed in!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate to main app
-            // Replace this with your actual navigation logic
-            navigation.replace('MainApp');
-          },
-        },
-      ]);
+      // Navigate directly to Dashboard
+      navigation.replace('Dashboard');
     } catch (error: any) {
       let errorMessage = 'An error occurred during sign in. Please try again.';
       
