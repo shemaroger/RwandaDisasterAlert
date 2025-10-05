@@ -55,7 +55,6 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// Placeholder component for screens not yet created
 const PlaceholderScreen = ({ navigation, route }: any) => {
   return (
     <View style={styles.placeholder}>
@@ -82,7 +81,6 @@ export default function App() {
           headerTintColor: '#FFF',
         }}
       >
-        {/* Auth Screens */}
         <Stack.Screen 
           name="Home" 
           component={Home} 
@@ -98,15 +96,11 @@ export default function App() {
           component={Signup} 
           options={{ title: "Create account", headerShown: false }} 
         />
-        
-        {/* Main App Screens */}
         <Stack.Screen 
           name="Dashboard" 
           component={DashboardScreen} 
           options={{ headerShown: false }} 
         />
-        
-        {/* Alert Screens */}
         <Stack.Screen 
           name="Alerts" 
           component={Alerts}
@@ -117,8 +111,6 @@ export default function App() {
           component={PlaceholderScreen}
           options={{ title: "Alert Details" }}
         />
-        
-        {/* Incident Management Screens */}
         <Stack.Screen 
           name="ReportIncident" 
           component={ReportIncident}
@@ -139,8 +131,6 @@ export default function App() {
           component={IncidentDetail}
           options={{ title: "Incident Details" }}
         />
-        
-        {/* Safety Guide Screens */}
         <Stack.Screen 
           name="SafetyGuides" 
           component={SafetyGuides}
@@ -151,9 +141,7 @@ export default function App() {
           component={SafetyGuideDetail}
           options={{ headerShown: false }}
         />
-        
-        {/* Placeholder Screens */}
-        <Stack.Screen 
+        {/* <Stack.Screen 
           name="EmergencyContacts" 
           component={PlaceholderScreen}
           options={{ title: "Emergency Contacts" }}
@@ -167,7 +155,7 @@ export default function App() {
           name="Settings" 
           component={PlaceholderScreen}
           options={{ title: "Settings" }}
-        />
+        /> */}
       </Stack.Navigator>
     </NavigationContainer>
   );
