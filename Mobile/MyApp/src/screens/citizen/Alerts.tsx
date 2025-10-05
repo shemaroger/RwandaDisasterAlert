@@ -13,7 +13,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-// import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import apiService from '../../services/api';
 
 type AlertsProps = {
@@ -73,36 +73,67 @@ const formatTimeRemaining = (expiresAt: string) => {
 const formatCoordinate = (coord: any) => {
   if (!coord) return '';
   const num = parseFloat(coord);
-  return isNaN(num) ? coord : num.toFixed(3);
+  return isNaN(num) ? coord : num.toFixed(4);
+};
+
+const isValidCoordinate = (lat: any, lng: any) => {
+  const latitude = parseFloat(lat);
+  const longitude = parseFloat(lng);
+  return (
+    !isNaN(latitude) &&
+    !isNaN(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 };
 
 // Alert Map Component
 const AlertMap = ({ lat, lng, radiusKm, title }: any) => {
-  // Temporarily disabled - install react-native-maps to enable
-  return (
-    <View style={styles.mapPlaceholder}>
-      <Text style={styles.mapPlaceholderText}>📍 Map View</Text>
-      <Text style={styles.mapPlaceholderCoords}>
-        {lat.toFixed(4)}, {lng.toFixed(4)}
-      </Text>
-      <Text style={styles.mapPlaceholderRadius}>Radius: {radiusKm} km</Text>
-    </View>
-  );
-  
-  /* Uncomment when react-native-maps is installed:
-  if (!lat || !lng) {
+  const [mapError, setMapError] = useState(false);
+
+  // Validate coordinates
+  if (!isValidCoordinate(lat, lng)) {
+    console.log('Invalid coordinates:', { lat, lng });
     return (
       <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapPlaceholderText}>No location data available</Text>
+        <Text style={styles.mapPlaceholderText}>⚠️ Invalid Location</Text>
+        <Text style={styles.mapPlaceholderCoords}>
+          Coordinates: {lat}, {lng}
+        </Text>
+      </View>
+    );
+  }
+
+  // Convert to numbers
+  const latitude = parseFloat(lat);
+  const longitude = parseFloat(lng);
+  const radius = parseFloat(radiusKm) || 5;
+
+  console.log('Rendering map with:', { latitude, longitude, radius });
+
+  // If map failed to load, show placeholder
+  if (mapError) {
+    return (
+      <View style={styles.mapPlaceholder}>
+        <Text style={styles.mapPlaceholderText}>📍 Map View</Text>
+        <Text style={styles.mapPlaceholderCoords}>
+          {formatCoordinate(latitude)}, {formatCoordinate(longitude)}
+        </Text>
+        <Text style={styles.mapPlaceholderRadius}>Radius: {radius} km</Text>
+        <Text style={styles.mapPlaceholderError}>
+          Map failed to load. Check Maps configuration.
+        </Text>
       </View>
     );
   }
 
   const region = {
-    latitude: lat,
-    longitude: lng,
-    latitudeDelta: (radiusKm / 111) * 4,
-    longitudeDelta: (radiusKm / 111) * 4,
+    latitude,
+    longitude,
+    latitudeDelta: (radius / 111) * 4,
+    longitudeDelta: (radius / 111) * 4,
   };
 
   return (
@@ -110,21 +141,25 @@ const AlertMap = ({ lat, lng, radiusKm, title }: any) => {
       style={styles.map}
       provider={PROVIDER_GOOGLE}
       initialRegion={region}
+      region={region}
       scrollEnabled={false}
       zoomEnabled={false}
       pitchEnabled={false}
       rotateEnabled={false}
+      onError={(error) => {
+        console.error('MapView Error:', error);
+        setMapError(true);
+      }}
     >
       <Circle
-        center={{ latitude: lat, longitude: lng }}
-        radius={radiusKm * 1000}
+        center={{ latitude, longitude }}
+        radius={radius * 1000}
         fillColor="rgba(59, 130, 246, 0.2)"
         strokeColor="#3B82F6"
         strokeWidth={2}
       />
     </MapView>
   );
-  */
 };
 
 // Alert Card Component
@@ -137,6 +172,7 @@ const AlertCard = ({
 }: any) => {
   const timeRemaining = formatTimeRemaining(alert.expires_at);
   const isNearExpiry = timeRemaining && timeRemaining.includes('h left') && parseInt(timeRemaining) < 6;
+  const isExpired = timeRemaining === 'Expired';
 
   const severityColors: Record<string, { bg: string; text: string }> = {
     extreme: { bg: '#FEE2E2', text: '#991B1B' },
@@ -145,7 +181,7 @@ const AlertCard = ({
     minor: { bg: '#DBEAFE', text: '#1E40AF' },
   };
 
-  const color = severityColors[alert.severity] || { bg: '#F3F4F6', text: '#374151' };
+  const color = severityColors[alert.severity?.toLowerCase()] || { bg: '#F3F4F6', text: '#374151' };
 
   const handleResend = () => {
     Alert.alert(
@@ -182,22 +218,26 @@ const AlertCard = ({
               {alert.title}
             </Text>
             <View style={styles.alertMeta}>
-              <Text style={styles.alertMetaText}>{alert.disaster_type_name}</Text>
+              <Text style={styles.alertMetaText}>{alert.disaster_type_name || 'Alert'}</Text>
               <Text style={styles.alertMetaSeparator}>•</Text>
               <Text style={[styles.alertSeverity, { color: color.text }]}>
-                {alert.severity}
+                {alert.severity || 'moderate'}
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.alertStatus}>
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>Active</Text>
+          <View style={[styles.activeBadge, isExpired && styles.expiredBadge]}>
+            <Text style={[styles.activeBadgeText, isExpired && styles.expiredBadgeText]}>
+              {isExpired ? 'Expired' : 'Active'}
+            </Text>
           </View>
-          {timeRemaining && (
+          {timeRemaining && !isExpired && (
             <View style={[styles.timeBadge, isNearExpiry && styles.timeWarning]}>
-              <Text style={styles.timeBadgeText}>{timeRemaining}</Text>
+              <Text style={[styles.timeBadgeText, isNearExpiry && styles.timeWarningText]}>
+                {timeRemaining}
+              </Text>
             </View>
           )}
           <Text style={styles.timeAgo}>{formatTimeAgo(alert.issued_at)}</Text>
@@ -223,9 +263,9 @@ const AlertCard = ({
           </View>
           <View style={styles.miniMap}>
             <AlertMap
-              lat={parseFloat(alert.center_lat)}
-              lng={parseFloat(alert.center_lng)}
-              radiusKm={parseFloat(alert.radius_km || 10)}
+              lat={alert.center_lat}
+              lng={alert.center_lng}
+              radiusKm={alert.radius_km || 5}
               title={alert.title}
             />
           </View>
@@ -262,7 +302,7 @@ const AlertCard = ({
           <Text style={styles.viewButtonText}>👁️ View Details</Text>
         </TouchableOpacity>
 
-        {canManageAlerts && (
+        {canManageAlerts && !isExpired && (
           <View style={styles.adminActions}>
             <TouchableOpacity style={styles.iconButton} onPress={handleResend}>
               <Text style={styles.iconButtonText}>🔄</Text>
@@ -281,6 +321,8 @@ const AlertCard = ({
 const ViewAlertModal = ({ visible, alert, onClose, onResend, onCancel, canManage }: any) => {
   if (!alert) return null;
 
+  const isExpired = formatTimeRemaining(alert.expires_at) === 'Expired';
+
   const severityColors: Record<string, { bg: string; text: string }> = {
     extreme: { bg: '#FEE2E2', text: '#991B1B' },
     severe: { bg: '#FED7AA', text: '#9A3412' },
@@ -288,11 +330,45 @@ const ViewAlertModal = ({ visible, alert, onClose, onResend, onCancel, canManage
     minor: { bg: '#DBEAFE', text: '#1E40AF' },
   };
 
-  const color = severityColors[alert.severity] || { bg: '#F3F4F6', text: '#374151' };
+  const color = severityColors[alert.severity?.toLowerCase()] || { bg: '#F3F4F6', text: '#374151' };
+
+  const handleResend = () => {
+    Alert.alert(
+      'Resend Notifications',
+      'Resend failed notifications for this alert?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Resend', 
+          onPress: () => {
+            onResend(alert.id);
+            onClose();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Alert',
+      'Are you sure you want to cancel this alert? This action cannot be undone.',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive', 
+          onPress: () => {
+            onCancel(alert.id);
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <ScrollView style={styles.modalContainer}>
+      <View style={styles.modalContainer}>
         {/* Modal Header */}
         <View style={styles.modalHeader}>
           <View style={styles.modalHeaderContent}>
@@ -304,11 +380,13 @@ const ViewAlertModal = ({ visible, alert, onClose, onResend, onCancel, canManage
               <View style={styles.modalBadges}>
                 <View style={[styles.modalBadge, { backgroundColor: color.bg }]}>
                   <Text style={[styles.modalBadgeText, { color: color.text }]}>
-                    {alert.severity}
+                    {alert.severity || 'moderate'}
                   </Text>
                 </View>
-                <View style={styles.modalActiveBadge}>
-                  <Text style={styles.modalActiveBadgeText}>Active</Text>
+                <View style={[styles.modalActiveBadge, isExpired && styles.modalExpiredBadge]}>
+                  <Text style={[styles.modalActiveBadgeText, isExpired && styles.modalExpiredBadgeText]}>
+                    {isExpired ? 'Expired' : 'Active'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -319,96 +397,98 @@ const ViewAlertModal = ({ visible, alert, onClose, onResend, onCancel, canManage
         </View>
 
         {/* Modal Content */}
-        <View style={styles.modalContent}>
-          {/* Message */}
-          <View style={styles.modalSection}>
-            <Text style={styles.modalSectionTitle}>Alert Message</Text>
-            <Text style={styles.modalMessage}>{alert.message}</Text>
+        <ScrollView style={styles.modalScrollView}>
+          <View style={styles.modalContent}>
+            {/* Message */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Alert Message</Text>
+              <Text style={styles.modalMessage}>{alert.message}</Text>
+            </View>
+
+            {/* Time Info */}
+            <View style={styles.modalTimeGrid}>
+              <View style={styles.modalTimeItem}>
+                <Text style={styles.modalTimeLabel}>Issued</Text>
+                <Text style={styles.modalTimeValue}>{formatDateTime(alert.issued_at)}</Text>
+                <Text style={styles.modalTimeAgo}>{formatTimeAgo(alert.issued_at)}</Text>
+              </View>
+              <View style={styles.modalTimeItem}>
+                <Text style={styles.modalTimeLabel}>Expires</Text>
+                <Text style={styles.modalTimeValue}>{formatDateTime(alert.expires_at)}</Text>
+                <Text style={styles.modalTimeAgo}>{formatTimeRemaining(alert.expires_at)}</Text>
+              </View>
+              <View style={styles.modalTimeItem}>
+                <Text style={styles.modalTimeLabel}>Priority</Text>
+                <Text style={styles.modalPriority}>{alert.priority_score || 'N/A'}</Text>
+              </View>
+            </View>
+
+            {/* Map */}
+            {(alert.center_lat || alert.center_lng) && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Geographic Targeting</Text>
+                <Text style={styles.modalGeoCoords}>
+                  {formatCoordinate(alert.center_lat)}, {formatCoordinate(alert.center_lng)}
+                  {alert.radius_km && ` (${alert.radius_km} km radius)`}
+                </Text>
+                <View style={styles.modalMap}>
+                  <AlertMap
+                    lat={alert.center_lat}
+                    lng={alert.center_lng}
+                    radiusKm={alert.radius_km || 5}
+                    title={alert.title}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Response Stats */}
+            {alert.response_stats && Object.values(alert.response_stats).some((val: any) => val > 0) && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>👥 Citizen Responses</Text>
+                <View style={styles.modalStatsGrid}>
+                  <View style={styles.modalStatCard}>
+                    <Text style={styles.modalStatValue}>{alert.response_stats.safe || 0}</Text>
+                    <Text style={styles.modalStatLabel}>Safe</Text>
+                  </View>
+                  <View style={styles.modalStatCard}>
+                    <Text style={styles.modalStatValue}>{alert.response_stats.need_help || 0}</Text>
+                    <Text style={styles.modalStatLabel}>Need Help</Text>
+                  </View>
+                  <View style={styles.modalStatCard}>
+                    <Text style={styles.modalStatValue}>{alert.response_stats.acknowledged || 0}</Text>
+                    <Text style={styles.modalStatLabel}>Acknowledged</Text>
+                  </View>
+                  <View style={styles.modalStatCard}>
+                    <Text style={styles.modalStatValue}>{alert.response_stats.total || 0}</Text>
+                    <Text style={styles.modalStatLabel}>Total</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Admin Actions */}
+            {canManage && !isExpired && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Quick Actions</Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalActionButton}
+                    onPress={handleResend}
+                  >
+                    <Text style={styles.modalActionButtonText}>🔄 Resend Failed</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, styles.modalActionButtonDanger]}
+                    onPress={handleCancel}
+                  >
+                    <Text style={styles.modalActionButtonText}>❌ Cancel Alert</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
-
-          {/* Time Info */}
-          <View style={styles.modalTimeGrid}>
-            <View style={styles.modalTimeItem}>
-              <Text style={styles.modalTimeLabel}>Issued</Text>
-              <Text style={styles.modalTimeValue}>{formatDateTime(alert.issued_at)}</Text>
-              <Text style={styles.modalTimeAgo}>{formatTimeAgo(alert.issued_at)}</Text>
-            </View>
-            <View style={styles.modalTimeItem}>
-              <Text style={styles.modalTimeLabel}>Expires</Text>
-              <Text style={styles.modalTimeValue}>{formatDateTime(alert.expires_at)}</Text>
-              <Text style={styles.modalTimeAgo}>{formatTimeRemaining(alert.expires_at)}</Text>
-            </View>
-            <View style={styles.modalTimeItem}>
-              <Text style={styles.modalTimeLabel}>Priority</Text>
-              <Text style={styles.modalPriority}>{alert.priority_score}</Text>
-            </View>
-          </View>
-
-          {/* Map */}
-          {(alert.center_lat || alert.center_lng) && (
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Geographic Targeting</Text>
-              <Text style={styles.modalGeoCoords}>
-                {formatCoordinate(alert.center_lat)}, {formatCoordinate(alert.center_lng)}
-                {alert.radius_km && ` (${alert.radius_km} km radius)`}
-              </Text>
-              <View style={styles.modalMap}>
-                <AlertMap
-                  lat={parseFloat(alert.center_lat)}
-                  lng={parseFloat(alert.center_lng)}
-                  radiusKm={parseFloat(alert.radius_km || 10)}
-                  title={alert.title}
-                />
-              </View>
-            </View>
-          )}
-
-          {/* Response Stats */}
-          {alert.response_stats && Object.values(alert.response_stats).some((val: any) => val > 0) && (
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>👥 Citizen Responses</Text>
-              <View style={styles.modalStatsGrid}>
-                <View style={styles.modalStatCard}>
-                  <Text style={styles.modalStatValue}>{alert.response_stats.safe || 0}</Text>
-                  <Text style={styles.modalStatLabel}>Safe</Text>
-                </View>
-                <View style={styles.modalStatCard}>
-                  <Text style={styles.modalStatValue}>{alert.response_stats.need_help || 0}</Text>
-                  <Text style={styles.modalStatLabel}>Need Help</Text>
-                </View>
-                <View style={styles.modalStatCard}>
-                  <Text style={styles.modalStatValue}>{alert.response_stats.acknowledged || 0}</Text>
-                  <Text style={styles.modalStatLabel}>Acknowledged</Text>
-                </View>
-                <View style={styles.modalStatCard}>
-                  <Text style={styles.modalStatValue}>{alert.response_stats.total || 0}</Text>
-                  <Text style={styles.modalStatLabel}>Total</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Admin Actions */}
-          {canManage && (
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Quick Actions</Text>
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalActionButton}
-                  onPress={() => onResend(alert.id)}
-                >
-                  <Text style={styles.modalActionButtonText}>🔄 Resend Failed</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalActionButton, styles.modalActionButtonDanger]}
-                  onPress={() => onCancel(alert.id)}
-                >
-                  <Text style={styles.modalActionButtonText}>❌ Cancel Alert</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
+        </ScrollView>
 
         {/* Footer */}
         <View style={styles.modalFooter}>
@@ -416,7 +496,7 @@ const ViewAlertModal = ({ visible, alert, onClose, onResend, onCancel, canManage
             <Text style={styles.modalCloseButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </Modal>
   );
 };
@@ -776,6 +856,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#065F46',
   },
+  expiredBadge: {
+    backgroundColor: '#F3F4F6',
+  },
+  expiredBadgeText: {
+    color: '#6B7280',
+  },
   timeBadge: {
     backgroundColor: '#DBEAFE',
     paddingHorizontal: 12,
@@ -790,6 +876,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1E40AF',
+  },
+  timeWarningText: {
+    color: '#991B1B',
   },
   timeAgo: {
     fontSize: 11,
@@ -837,6 +926,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3F4F6',
+    padding: 12,
   },
   mapPlaceholderText: {
     fontSize: 14,
@@ -853,6 +943,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 2,
+  },
+  mapPlaceholderError: {
+    fontSize: 10,
+    color: '#EF4444',
+    marginTop: 8,
+    textAlign: 'center',
   },
   statsSection: {
     padding: 16,
@@ -1044,12 +1140,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#065F46',
   },
+  modalExpiredBadge: {
+    backgroundColor: '#F3F4F6',
+  },
+  modalExpiredBadgeText: {
+    color: '#6B7280',
+  },
   modalClose: {
     padding: 8,
   },
   modalCloseText: {
     fontSize: 24,
     color: '#6B7280',
+  },
+  modalScrollView: {
+    flex: 1,
   },
   modalContent: {
     padding: 16,
