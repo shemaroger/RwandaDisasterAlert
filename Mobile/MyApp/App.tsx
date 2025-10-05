@@ -3,24 +3,54 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
+// Auth Screens
 import Home from "./src/screens/Home";
 import Login from "./src/screens/Login";
 import Signup from "./src/screens/Signup";
+
+// Main Screens
 import DashboardScreen from './src/screens/dashboard/DashboardScreen';
 
+// Incident Management
+import ReportIncident from './src/screens/citizen/ReportIncident';
+import MyIncidents from './src/screens/citizen/MyIncidents';
+import EditIncident from './src/screens/citizen/EditIncident';
+import IncidentDetail from './src/screens/citizen/IncidentDetail';
+
+// Safety Guides
+import SafetyGuides from './src/screens/citizen/SafetyGuides';
+import SafetyGuideDetail from './src/screens/citizen/SafetyGuideDetail';
+
+// Alerts
+import Alerts from './src/screens/citizen/Alerts';
+
 export type RootStackParamList = {
+  // Auth
   Home: undefined;
   Login: { username?: string; message?: string };
   Signup: undefined;
+  
+  // Main
   Dashboard: undefined;
+  
+  // Alerts
   Alerts: undefined;
   AlertDetail: { alertId: number };
+  
+  // Incidents
   ReportIncident: undefined;
+  MyIncidents: { citizenView?: boolean };
+  EditIncident: { incidentId: string; citizenView?: boolean };
+  IncidentDetail: { incidentId: string; citizenView?: boolean };
+  
+  // Safety Guides
   SafetyGuides: undefined;
+  SafetyGuideDetail: { guideId: string };
+  
+  // Other (Placeholders)
   EmergencyContacts: undefined;
   Profile: undefined;
   Settings: undefined;
-  MyIncidents: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -76,27 +106,53 @@ export default function App() {
           options={{ headerShown: false }} 
         />
         
-        {/* Feature Screens - Using Placeholders until you create them */}
+        {/* Alert Screens */}
         <Stack.Screen 
           name="Alerts" 
-          component={PlaceholderScreen}
-          options={{ title: "Active Alerts" }}
+          component={Alerts}
+          options={{ headerShown: false }}
         />
         <Stack.Screen 
           name="AlertDetail" 
           component={PlaceholderScreen}
           options={{ title: "Alert Details" }}
         />
+        
+        {/* Incident Management Screens */}
         <Stack.Screen 
           name="ReportIncident" 
-          component={PlaceholderScreen}
+          component={ReportIncident}
           options={{ title: "Report Incident" }}
         />
         <Stack.Screen 
+          name="MyIncidents" 
+          component={MyIncidents}
+          options={{ title: "My Incidents" }}
+        />
+        <Stack.Screen 
+          name="EditIncident" 
+          component={EditIncident}
+          options={{ title: "Edit Incident" }}
+        />
+        <Stack.Screen 
+          name="IncidentDetail" 
+          component={IncidentDetail}
+          options={{ title: "Incident Details" }}
+        />
+        
+        {/* Safety Guide Screens */}
+        <Stack.Screen 
           name="SafetyGuides" 
-          component={PlaceholderScreen}
+          component={SafetyGuides}
           options={{ title: "Safety Guides" }}
         />
+        <Stack.Screen 
+          name="SafetyGuideDetail" 
+          component={SafetyGuideDetail}
+          options={{ title: "Safety Guide" }}
+        />
+        
+        {/* Placeholder Screens */}
         <Stack.Screen 
           name="EmergencyContacts" 
           component={PlaceholderScreen}
@@ -111,11 +167,6 @@ export default function App() {
           name="Settings" 
           component={PlaceholderScreen}
           options={{ title: "Settings" }}
-        />
-        <Stack.Screen 
-          name="MyIncidents" 
-          component={PlaceholderScreen}
-          options={{ title: "My Incidents" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
