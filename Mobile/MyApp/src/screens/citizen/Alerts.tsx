@@ -13,7 +13,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+// import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import apiService from '../../services/api';
 
 type AlertsProps = {
@@ -78,6 +78,18 @@ const formatCoordinate = (coord: any) => {
 
 // Alert Map Component
 const AlertMap = ({ lat, lng, radiusKm, title }: any) => {
+  // Temporarily disabled - install react-native-maps to enable
+  return (
+    <View style={styles.mapPlaceholder}>
+      <Text style={styles.mapPlaceholderText}>📍 Map View</Text>
+      <Text style={styles.mapPlaceholderCoords}>
+        {lat.toFixed(4)}, {lng.toFixed(4)}
+      </Text>
+      <Text style={styles.mapPlaceholderRadius}>Radius: {radiusKm} km</Text>
+    </View>
+  );
+  
+  /* Uncomment when react-native-maps is installed:
   if (!lat || !lng) {
     return (
       <View style={styles.mapPlaceholder}>
@@ -112,6 +124,7 @@ const AlertMap = ({ lat, lng, radiusKm, title }: any) => {
       />
     </MapView>
   );
+  */
 };
 
 // Alert Card Component
@@ -826,8 +839,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   mapPlaceholderText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6B7280',
+    fontWeight: '600',
+  },
+  mapPlaceholderCoords: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  mapPlaceholderRadius: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
   statsSection: {
     padding: 16,

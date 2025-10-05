@@ -144,12 +144,12 @@ export default function App() {
         <Stack.Screen 
           name="SafetyGuides" 
           component={SafetyGuides}
-          options={{ title: "Safety Guides" }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen 
           name="SafetyGuideDetail" 
           component={SafetyGuideDetail}
-          options={{ title: "Safety Guide" }}
+          options={{ headerShown: false }}
         />
         
         {/* Placeholder Screens */}
