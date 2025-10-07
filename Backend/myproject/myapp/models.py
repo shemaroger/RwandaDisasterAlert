@@ -15,6 +15,7 @@ class User(AbstractUser):
         ('admin', 'Administrator'),
         ('operator', 'Operator'),
         ('authority', 'Authority'),
+        
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
