@@ -193,24 +193,184 @@ class AlertCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+# class IncidentReportSerializer(serializers.ModelSerializer):
+#     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
+#     disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
+#     location_name = serializers.CharField(source='location.name', read_only=True)
+#     assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
+#     verified_by_name = serializers.CharField(source='verified_by.username', read_only=True)
+    
+#     class Meta:
+#         model = IncidentReport
+#         fields = [
+#             'id', 'reporter', 'reporter_name', 'report_type', 'disaster_type',
+#             'disaster_type_name', 'title', 'description', 'location',
+#             'location_name', 'latitude', 'longitude', 'address', 'status',
+#             'priority', 'assigned_to', 'assigned_to_name', 'verified_by',
+#             'verified_by_name', 'images', 'videos', 'casualties',
+#             'property_damage', 'immediate_needs', 'resolved_at',
+#             'resolution_notes', 'created_at', 'updated_at'
+#         ]
+
+
+# class IncidentReportCreateSerializer(serializers.ModelSerializer):
+#     """Simplified serializer for citizens to create incident reports"""
+    
+#     class Meta:
+#         model = IncidentReport
+#         fields = [
+#             'report_type', 'disaster_type', 'title', 'description', 'location',
+#             'latitude', 'longitude', 'address', 'casualties',
+#             'property_damage', 'immediate_needs'
+#         ]
+    
+#     def create(self, validated_data):
+#         validated_data['reporter'] = self.context['request'].user
+        
+#         # Handle file uploads from FormData
+#         request = self.context['request']
+#         images = []
+#         videos = []
+        
+#         # Process uploaded files
+#         for key, file in request.FILES.items():
+#             if key.startswith('images['):
+#                 # Save image file and store URL/path
+#                 # You'll need to implement your file storage logic
+#                 file_url = self.save_uploaded_file(file, 'images')
+#                 images.append(file_url)
+#             elif key.startswith('videos['):
+#                 # Save video file and store URL/path
+#                 file_url = self.save_uploaded_file(file, 'videos')
+#                 videos.append(file_url)
+        
+#         # Store file URLs in JSONField
+#         if images:
+#             validated_data['images'] = images
+#         if videos:
+#             validated_data['videos'] = videos
+            
+#         return super().create(validated_data)
+    
+#     def save_uploaded_file(self, file, file_type):
+#         """
+#         Save uploaded file and return URL/path
+#         Implement based on your storage backend (local, S3, etc.)
+#         """
+#         # Example for local storage:
+#         import os
+#         from django.conf import settings
+#         from django.core.files.storage import default_storage
+        
+#         # Create filename with timestamp to avoid conflicts
+#         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+#         filename = f"{file_type}/{timestamp}_{file.name}"
+        
+#         # Save file
+#         path = default_storage.save(filename, file)
+        
+#         # Return URL that can be accessed by frontend
+#         return default_storage.url(path)
+
+class IncidentMediaSerializer(serializers.ModelSerializer):
+    """Serializer for incident media files"""
+    uploaded_by_name = serializers.CharField(source='uploaded_by.username', read_only=True)
+    
+    class Meta:
+        model = IncidentMedia
+        fields = [
+            'id', 'media_type', 'file', 'caption', 
+            'uploaded_by', 'uploaded_by_name', 'uploaded_at'
+        ]
+        read_only_fields = ['id', 'uploaded_by', 'uploaded_at']
+
+
+class IncidentLevelResponseSerializer(serializers.ModelSerializer):
+    """Serializer for level responses"""
+    responder_name = serializers.CharField(source='responder.username', read_only=True)
+    admin_level_display = serializers.CharField(source='get_admin_level_display', read_only=True)
+    action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
+    
+    class Meta:
+        model = IncidentLevelResponse
+        fields = [
+            'id', 'incident', 'responder', 'responder_name', 'admin_level',
+            'admin_level_display', 'action_type', 'action_type_display',
+            'notes', 'resources_deployed', 'outcome', 'escalation_needed',
+            'escalation_reason', 'attachments', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
 class IncidentReportSerializer(serializers.ModelSerializer):
+    """Main serializer for incident reports with full details"""
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
     disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
     location_name = serializers.CharField(source='location.name', read_only=True)
     assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
-    verified_by_name = serializers.CharField(source='verified_by.username', read_only=True)
+    
+    # Display values for choice fields
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    current_level_display = serializers.CharField(source='get_current_level_display', read_only=True)
+    report_type_display = serializers.CharField(source='get_report_type_display', read_only=True)
+    
+    # Nested serializers for related data
+    level_responses = IncidentLevelResponseSerializer(many=True, read_only=True)
+    media_files = IncidentMediaSerializer(many=True, read_only=True)
+    
+    # Calculated fields
+    next_level = serializers.SerializerMethodField()
+    can_escalate = serializers.SerializerMethodField()
     
     class Meta:
         model = IncidentReport
         fields = [
-            'id', 'reporter', 'reporter_name', 'report_type', 'disaster_type',
-            'disaster_type_name', 'title', 'description', 'location',
-            'location_name', 'latitude', 'longitude', 'address', 'status',
-            'priority', 'assigned_to', 'assigned_to_name', 'verified_by',
-            'verified_by_name', 'images', 'videos', 'casualties',
+            'id', 'reporter', 'reporter_name', 'report_type', 'report_type_display',
+            'disaster_type', 'disaster_type_name', 'title', 'description',
+            'location', 'location_name', 'latitude', 'longitude', 'address',
+            'status', 'status_display', 'priority', 'priority_display',
+            'current_level', 'current_level_display', 'assigned_to', 'assigned_to_name',
+            'needs_escalation', 'escalation_reason', 'casualties',
             'property_damage', 'immediate_needs', 'resolved_at',
-            'resolution_notes', 'created_at', 'updated_at'
+            'resolution_notes', 'created_at', 'updated_at',
+            'level_responses', 'media_files', 'next_level', 'can_escalate'
         ]
+        read_only_fields = ['id', 'reporter', 'created_at', 'updated_at']
+    
+    def get_next_level(self, obj):
+        """Get the next escalation level"""
+        return obj.get_next_level()
+    
+    def get_can_escalate(self, obj):
+        """Check if incident can be escalated"""
+        return obj.can_escalate()
+
+
+class IncidentReportListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing incidents"""
+    reporter_name = serializers.CharField(source='reporter.username', read_only=True)
+    location_name = serializers.CharField(source='location.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    current_level_display = serializers.CharField(source='get_current_level_display', read_only=True)
+    media_count = serializers.SerializerMethodField()
+    response_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = IncidentReport
+        fields = [
+            'id', 'title', 'report_type', 'status', 'status_display',
+            'priority', 'current_level', 'current_level_display',
+            'reporter_name', 'location_name', 'latitude', 'longitude',
+            'casualties', 'needs_escalation', 'created_at', 'updated_at',
+            'media_count', 'response_count'
+        ]
+    
+    def get_media_count(self, obj):
+        return obj.media_files.count()
+    
+    def get_response_count(self, obj):
+        return obj.level_responses.count()
 
 
 class IncidentReportCreateSerializer(serializers.ModelSerializer):
@@ -225,53 +385,159 @@ class IncidentReportCreateSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
+        # Set the reporter from request user
         validated_data['reporter'] = self.context['request'].user
+        
+        # Create the incident report
+        incident = super().create(validated_data)
         
         # Handle file uploads from FormData
         request = self.context['request']
-        images = []
-        videos = []
         
-        # Process uploaded files
+        # Process uploaded files and create IncidentMedia objects
         for key, file in request.FILES.items():
-            if key.startswith('images['):
-                # Save image file and store URL/path
-                # You'll need to implement your file storage logic
-                file_url = self.save_uploaded_file(file, 'images')
-                images.append(file_url)
-            elif key.startswith('videos['):
-                # Save video file and store URL/path
-                file_url = self.save_uploaded_file(file, 'videos')
-                videos.append(file_url)
-        
-        # Store file URLs in JSONField
-        if images:
-            validated_data['images'] = images
-        if videos:
-            validated_data['videos'] = videos
+            media_type = None
             
-        return super().create(validated_data)
-    
-    def save_uploaded_file(self, file, file_type):
-        """
-        Save uploaded file and return URL/path
-        Implement based on your storage backend (local, S3, etc.)
-        """
-        # Example for local storage:
-        import os
-        from django.conf import settings
-        from django.core.files.storage import default_storage
+            if key.startswith('images['):
+                media_type = 'image'
+            elif key.startswith('videos['):
+                media_type = 'video'
+            elif key.startswith('documents['):
+                media_type = 'document'
+            
+            if media_type:
+                IncidentMedia.objects.create(
+                    incident=incident,
+                    media_type=media_type,
+                    file=file,
+                    uploaded_by=request.user
+                )
         
-        # Create filename with timestamp to avoid conflicts
-        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{file_type}/{timestamp}_{file.name}"
-        
-        # Save file
-        path = default_storage.save(filename, file)
-        
-        # Return URL that can be accessed by frontend
-        return default_storage.url(path)
+        return incident
 
+
+class IncidentLevelResponseCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating level responses"""
+    
+    class Meta:
+        model = IncidentLevelResponse
+        fields = [
+            'incident', 'action_type', 'notes', 'resources_deployed',
+            'outcome', 'escalation_needed', 'escalation_reason', 'attachments'
+        ]
+    
+    def validate(self, data):
+        """Validate that the user can respond at this level"""
+        request = self.context['request']
+        incident = data['incident']
+        
+        # Check if user's type matches the incident's current level
+        if request.user.user_type != incident.current_level:
+            raise serializers.ValidationError(
+                f"You can only respond to incidents at your level ({request.user.get_user_type_display()}). "
+                f"This incident is at {incident.get_current_level_display()} level."
+            )
+        
+        return data
+    
+    def create(self, validated_data):
+        # Set the responder and admin level
+        request = self.context['request']
+        validated_data['responder'] = request.user
+        validated_data['admin_level'] = request.user.user_type
+        
+        # Create the response
+        response = super().create(validated_data)
+        
+        # Update incident status
+        incident = validated_data['incident']
+        if validated_data['action_type'] == 'resolved':
+            incident.status = 'resolved'
+            incident.resolved_at = timezone.now()
+        elif incident.status == 'submitted':
+            incident.status = 'in_progress'
+        
+        incident.save()
+        
+        return response
+
+
+class IncidentEscalateSerializer(serializers.Serializer):
+    """Serializer for escalating an incident"""
+    reason = serializers.CharField(required=True, max_length=500)
+    
+    def validate_reason(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError(
+                "Escalation reason must be at least 10 characters long."
+            )
+        return value
+
+
+class IncidentAssignSerializer(serializers.Serializer):
+    """Serializer for assigning an incident to a user"""
+    assigned_to = serializers.UUIDField(required=True)
+    
+    def validate_assigned_to(self, value):
+        from .models import User
+        try:
+            user = User.objects.get(id=value)
+            # Validate that user is at the appropriate level
+            incident = self.context.get('incident')
+            if incident and user.user_type != incident.current_level:
+                raise serializers.ValidationError(
+                    f"User must be at {incident.get_current_level_display()} level."
+                )
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found.")
+
+
+class IncidentUpdateStatusSerializer(serializers.ModelSerializer):
+    """Serializer for updating incident status"""
+    
+    class Meta:
+        model = IncidentReport
+        fields = ['status', 'resolution_notes']
+    
+    def validate_status(self, value):
+        """Validate status transitions"""
+        instance = self.instance
+        valid_transitions = {
+            'submitted': ['under_review', 'dismissed'],
+            'under_review': ['in_progress', 'dismissed'],
+            'in_progress': ['escalated', 'resolved', 'dismissed'],
+            'escalated': ['in_progress', 'resolved', 'dismissed'],
+        }
+        
+        if instance.status not in valid_transitions:
+            raise serializers.ValidationError(
+                f"Cannot change status from {instance.get_status_display()}"
+            )
+        
+        if value not in valid_transitions[instance.status]:
+            raise serializers.ValidationError(
+                f"Cannot transition from {instance.get_status_display()} to {dict(IncidentReport.STATUS_CHOICES)[value]}"
+            )
+        
+        return value
+    
+    def update(self, instance, validated_data):
+        if validated_data.get('status') == 'resolved':
+            validated_data['resolved_at'] = timezone.now()
+        return super().update(instance, validated_data)
+
+
+class IncidentMediaUploadSerializer(serializers.ModelSerializer):
+    """Serializer for uploading additional media to an incident"""
+    
+    class Meta:
+        model = IncidentMedia
+        fields = ['incident', 'media_type', 'file', 'caption']
+    
+    def create(self, validated_data):
+        validated_data['uploaded_by'] = self.context['request'].user
+        return super().create(validated_data)
 class EmergencyContactSerializer(serializers.ModelSerializer):
     locations_data = LocationSerializer(source='locations', many=True, read_only=True)
     
