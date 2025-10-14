@@ -13,8 +13,11 @@ class User(AbstractUser):
     USER_TYPES = [
         ('citizen', 'Citizen'),
         ('admin', 'Administrator'),
-        ('operator', 'Operator'),
-        ('authority', 'Authority'),
+        ('village', 'Village'),
+        ('sector', 'Sector'),
+        ('district', 'District'),
+        ('province', 'Province'),
+        ('national', 'National'),
         
 
     ]
