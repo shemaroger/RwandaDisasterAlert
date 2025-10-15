@@ -1,4 +1,4 @@
-// components/ProtectedRoute.jsx
+// components/ProtectedRoute.jsx - Updated for Hierarchical Escalation System
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,9 +10,20 @@ const ProtectedRoute = ({
   requiredUserTypes = [],
   requireVerification = false,
   fallbackPath = '/login',
-  showUnauthorized = true
+  showUnauthorized = true,
+  requireLevel = null, // New: specific level requirement
+  requireLevelOrHigher = null // New: level or higher requirement
 }) => {
-  const { user, loading, isAuthenticated, hasUserType, hasAnyUserType, isInitialized } = useAuth();
+  const { 
+    user, 
+    loading, 
+    isAuthenticated, 
+    hasUserType, 
+    hasAnyUserType, 
+    isInitialized,
+    isLevelOrHigher,
+    hasAdminLevel
+  } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while initializing auth
@@ -53,7 +64,7 @@ const ProtectedRoute = ({
           <h2 className="text-xl font-bold text-gray-900 mb-4">Account Verification Required</h2>
           <p className="text-gray-600 mb-6">
             Your account is currently being reviewed by MINEMA administrators. 
-            Citizens have immediate access to essential features, while operator and authority 
+            Citizens have immediate access to essential features, while administrative 
             roles require verification for enhanced system access.
           </p>
           <div className="space-y-3">
@@ -81,6 +92,50 @@ const ProtectedRoute = ({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Check hierarchical level requirement (level or higher)
+  if (requireLevelOrHigher && !isLevelOrHigher(requireLevelOrHigher)) {
+    if (showUnauthorized) {
+      return <UnauthorizedAccess 
+        requiredLevel={requireLevelOrHigher} 
+        userType={user?.user_type}
+        requireLevelOrHigher={true}
+      />;
+    }
+    return (
+      <Navigate 
+        to="/unauthorized" 
+        state={{ 
+          from: location,
+          requiredLevel: requireLevelOrHigher,
+          userType: user?.user_type,
+          requireLevelOrHigher: true
+        }} 
+        replace 
+      />
+    );
+  }
+
+  // Check specific level requirement (exact match)
+  if (requireLevel && !hasAdminLevel(requireLevel)) {
+    if (showUnauthorized) {
+      return <UnauthorizedAccess 
+        requiredLevel={requireLevel} 
+        userType={user?.user_type}
+      />;
+    }
+    return (
+      <Navigate 
+        to="/unauthorized" 
+        state={{ 
+          from: location,
+          requiredLevel: requireLevel,
+          userType: user?.user_type
+        }} 
+        replace 
+      />
     );
   }
 
@@ -125,14 +180,35 @@ const ProtectedRoute = ({
 };
 
 // Unauthorized Access Component
-const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) => {
+const UnauthorizedAccess = ({ 
+  requiredUserType, 
+  requiredUserTypes, 
+  requiredLevel,
+  userType,
+  requireLevelOrHigher = false
+}) => {
   const { logout } = useAuth();
 
   const handleGoToDashboard = () => {
-    // Redirect based on user type
+    // Redirect based on user type with hierarchical levels
     switch (userType) {
       case 'admin':
         window.location.href = '/admin/dashboard';
+        break;
+      case 'national':
+        window.location.href = '/national/dashboard';
+        break;
+      case 'province':
+        window.location.href = '/province/dashboard';
+        break;
+      case 'district':
+        window.location.href = '/district/dashboard';
+        break;
+      case 'sector':
+        window.location.href = '/sector/dashboard';
+        break;
+      case 'village':
+        window.location.href = '/village/dashboard';
         break;
       case 'citizen':
         window.location.href = '/citizen/dashboard';
@@ -149,11 +225,17 @@ const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) =
   const getUserTypeDisplayName = (userType) => {
     switch (userType) {
       case 'admin':
-        return 'Administrator';
-      case 'operator':
-        return 'Emergency Operator';
-      case 'authority':
-        return 'Emergency Authority';
+        return 'System Administrator';
+      case 'national':
+        return 'National Level Administrator';
+      case 'province':
+        return 'Province Level Administrator';
+      case 'district':
+        return 'District Level Administrator';
+      case 'sector':
+        return 'Sector Level Administrator';
+      case 'village':
+        return 'Village Level Administrator';
       case 'citizen':
         return 'Citizen';
       default:
@@ -162,6 +244,10 @@ const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) =
   };
 
   const getRequiredUserTypesText = () => {
+    if (requiredLevel) {
+      const levelText = getUserTypeDisplayName(requiredLevel);
+      return requireLevelOrHigher ? `${levelText} or higher` : levelText;
+    }
     if (requiredUserType) {
       return getUserTypeDisplayName(requiredUserType);
     }
@@ -185,7 +271,7 @@ const UnauthorizedAccess = ({ requiredUserType, requiredUserTypes, userType }) =
         </p>
         
         <p className="text-sm text-gray-500 mb-6">
-          Your current access level: <span className="font-medium capitalize">{getUserTypeDisplayName(userType)}</span>
+          Your current access level: <span className="font-medium">{getUserTypeDisplayName(userType)}</span>
         </p>
 
         <div className="space-y-3">
@@ -250,6 +336,28 @@ export const withMultiUserTypeAccess = (WrappedComponent, requiredUserTypes) => 
   };
 };
 
+// Higher-order component for level-based access
+export const withLevelAccess = (WrappedComponent, requiredLevel) => {
+  return function LevelProtectedComponent(props) {
+    return (
+      <ProtectedRoute requireLevel={requiredLevel}>
+        <WrappedComponent {...props} />
+      </ProtectedRoute>
+    );
+  };
+};
+
+// Higher-order component for level or higher access
+export const withLevelOrHigherAccess = (WrappedComponent, requiredLevel) => {
+  return function LevelOrHigherProtectedComponent(props) {
+    return (
+      <ProtectedRoute requireLevelOrHigher={requiredLevel}>
+        <WrappedComponent {...props} />
+      </ProtectedRoute>
+    );
+  };
+};
+
 // Legacy HOCs for backward compatibility
 export const withRoleAccess = (WrappedComponent, requiredRole) => {
   console.warn('withRoleAccess is deprecated, use withUserTypeAccess instead');
@@ -267,74 +375,162 @@ export const usePermissions = () => {
     user, 
     hasUserType, 
     hasAnyUserType, 
-    isAdmin, 
-    isOperator, 
-    isAuthority, 
+    isAdmin,
     isCitizen,
+    isVillageLevel,
+    isSectorLevel,
+    isDistrictLevel,
+    isProvinceLevel,
+    isNationalLevel,
+    isAdministrativeLevel,
+    isLevelOrHigher,
+    canHandleIncidentAtLevel,
+    canViewIncidentAtLevel,
+    canEscalateIncidents,
+    canResolveIncidents,
     canManageAlerts,
-    canManageIncidents 
+    canManageIncidents,
+    canAssignIncidents,
+    canViewAnalytics
   } = useAuth();
 
-  // Updated permission functions for RwandaDisasterAlert
-  const canAccessAlerts = () => hasAnyUserType(['admin', 'authority', 'operator']);
-  const canCreateAlerts = () => hasAnyUserType(['admin', 'authority']);
-  const canManageUsers = () => hasUserType('admin');
-  const canManageSystem = () => hasUserType('admin');
-  const canViewAnalytics = () => hasAnyUserType(['admin', 'authority', 'operator']);
-  const canReportIncidents = () => true; // All authenticated users
-  const canAccessEmergencyContacts = () => true; // All authenticated users
-  const canManageEmergencyContacts = () => hasAnyUserType(['admin', 'authority']);
-  const canAccessSafetyGuides = () => true; // All authenticated users
-  const canManageSafetyGuides = () => hasAnyUserType(['admin', 'authority']);
-  const canVerifyIncidents = () => hasAnyUserType(['admin', 'authority', 'operator']);
-  const canAssignIncidents = () => hasAnyUserType(['admin', 'authority', 'operator']);
-  const canManageNotificationTemplates = () => hasAnyUserType(['admin', 'authority']);
-  const canAccessDashboard = () => true; // All authenticated users have some dashboard
-  const canViewDeliveryReports = () => hasAnyUserType(['admin', 'authority', 'operator']);
-  const canSendTestNotifications = () => hasAnyUserType(['admin', 'authority']);
-
-  // Location and district management
-  const canManageLocations = () => hasUserType('admin');
+  // Alert management permissions
+  const canAccessAlerts = () => isAdministrativeLevel() || isAdmin();
+  const canCreateAlerts = () => canManageAlerts();
+  
+  // User management permissions
+  const canManageUsers = () => isAdmin();
+  const canVerifyUsers = () => isAdmin();
+  const canApproveAccounts = () => isAdmin();
+  
+  // System management permissions
+  const canManageSystem = () => isAdmin();
+  const canManageLocations = () => isAdmin();
   const canViewLocations = () => true; // All users can view locations
   
-  // User verification and approval
-  const canVerifyUsers = () => hasUserType('admin');
-  const canApproveAccounts = () => hasUserType('admin');
+  // Analytics and reporting
+  const canViewReports = () => canViewAnalytics();
+  const canViewDeliveryReports = () => canViewAnalytics();
+  const canExportData = () => isLevelOrHigher('district');
+  
+  // Incident management permissions
+  const canReportIncidents = () => true; // All authenticated users
+  const canVerifyIncidents = () => isAdministrativeLevel() || isAdmin();
+  const canCloseIncidents = () => canResolveIncidents();
+  const canDeleteIncidents = () => isAdmin();
+  const canEditAnyIncident = () => isAdmin() || isNationalLevel();
+  
+  // Communication permissions
+  const canSendBulkNotifications = () => isLevelOrHigher('district');
+  const canManageNotificationTemplates = () => isLevelOrHigher('district');
+  const canSendTestNotifications = () => isAdministrativeLevel() || isAdmin();
+  
+  // Emergency resources
+  const canAccessEmergencyContacts = () => true; // All authenticated users
+  const canManageEmergencyContacts = () => isLevelOrHigher('sector');
+  const canAccessSafetyGuides = () => true; // All authenticated users
+  const canManageSafetyGuides = () => isLevelOrHigher('district');
+  
+  // Dashboard access
+  const canAccessDashboard = () => true; // All authenticated users have some dashboard
+  const canAccessAdminDashboard = () => isAdministrativeLevel() || isAdmin();
+  const canAccessCitizenDashboard = () => isCitizen();
+  
+  // Level-specific permissions
+  const canAccessVillageDashboard = () => isLevelOrHigher('village');
+  const canAccessSectorDashboard = () => isLevelOrHigher('sector');
+  const canAccessDistrictDashboard = () => isLevelOrHigher('district');
+  const canAccessProvinceDashboard = () => isLevelOrHigher('province');
+  const canAccessNationalDashboard = () => isNationalLevel() || isAdmin();
+  
+  // Resource management
+  const canManageResources = () => isLevelOrHigher('sector');
+  const canDeployResources = () => isAdministrativeLevel() || isAdmin();
+  const canRequestResources = () => isAdministrativeLevel() || isAdmin();
+  
+  // Coordination permissions
+  const canCoordinateResponse = () => isAdministrativeLevel() || isAdmin();
+  const canInitiateEvacuation = () => isLevelOrHigher('sector');
+  const canDeclareEmergency = () => isLevelOrHigher('district');
 
   return {
     user,
-    isAdmin,
-    isOperator,
-    isAuthority,
-    isCitizen,
     
-    // Core permissions
+    // Level checking functions
+    isAdmin,
+    isCitizen,
+    isVillageLevel,
+    isSectorLevel,
+    isDistrictLevel,
+    isProvinceLevel,
+    isNationalLevel,
+    isAdministrativeLevel,
+    isLevelOrHigher,
+    
+    // Alert permissions
     canAccessAlerts,
     canCreateAlerts,
     canManageAlerts,
+    
+    // User management permissions
     canManageUsers,
+    canVerifyUsers,
+    canApproveAccounts,
+    
+    // System management
+    canManageSystem,
+    canManageLocations,
+    canViewLocations,
+    
+    // Incident management
+    canReportIncidents,
     canManageIncidents,
     canVerifyIncidents,
     canAssignIncidents,
+    canEscalateIncidents,
+    canResolveIncidents,
+    canCloseIncidents,
+    canDeleteIncidents,
+    canEditAnyIncident,
+    canHandleIncidentAtLevel,
+    canViewIncidentAtLevel,
+    
+    // Analytics and reporting
     canViewAnalytics,
-    canManageSystem,
-    canReportIncidents,
+    canViewReports,
+    canViewDeliveryReports,
+    canExportData,
+    
+    // Communication
+    canSendBulkNotifications,
+    canManageNotificationTemplates,
+    canSendTestNotifications,
+    
+    // Emergency resources
     canAccessEmergencyContacts,
     canManageEmergencyContacts,
     canAccessSafetyGuides,
     canManageSafetyGuides,
-    canManageNotificationTemplates,
+    
+    // Dashboard access
     canAccessDashboard,
-    canViewDeliveryReports,
-    canSendTestNotifications,
+    canAccessAdminDashboard,
+    canAccessCitizenDashboard,
+    canAccessVillageDashboard,
+    canAccessSectorDashboard,
+    canAccessDistrictDashboard,
+    canAccessProvinceDashboard,
+    canAccessNationalDashboard,
     
-    // Location permissions
-    canManageLocations,
-    canViewLocations,
+    // Resource management
+    canManageResources,
+    canDeployResources,
+    canRequestResources,
     
-    // User management permissions
-    canVerifyUsers,
-    canApproveAccounts,
+    // Coordination
+    canCoordinateResponse,
+    canInitiateEvacuation,
+    canDeclareEmergency,
     
     // Core functions
     hasUserType,
@@ -342,7 +538,9 @@ export const usePermissions = () => {
     
     // Legacy functions for backward compatibility
     hasRole: hasUserType,
-    hasAnyRole: hasAnyUserType
+    hasAnyRole: hasAnyUserType,
+    isOperator: isAdministrativeLevel, // Legacy
+    isAuthority: () => isLevelOrHigher('district') // Legacy
   };
 };
 

@@ -710,22 +710,116 @@ getWebSocketUrl(chatRoomId) {
     }
   }
 
-  // -------- Incidents --------
-  async getIncidents(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/incidents/${query ? `?${query}` : ''}`);
-  }
+  // // -------- Incidents --------
+  // async getIncidents(params = {}) {
+  //   const query = new URLSearchParams(params).toString();
+  //   return this.request(`/incidents/${query ? `?${query}` : ''}`);
+  // }
 
-  async getIncident(id) {
-    return this.request(`/incidents/${id}/`);
-  }
+  // async getIncident(id) {
+  //   return this.request(`/incidents/${id}/`);
+  // }
 
-  async createIncident(incidentData) {
+  // async createIncident(incidentData) {
+  //   const formData = new FormData();
+  //   Object.keys(incidentData || {}).forEach((key) => {
+  //     const val = incidentData[key];
+  //     if (val !== null && val !== undefined) {
+  //       if (key === 'images' || key === 'videos') {
+  //         // Handle file arrays
+  //         if (Array.isArray(val)) {
+  //           val.forEach((file, index) => {
+  //             formData.append(`${key}[${index}]`, file);
+  //           });
+  //         }
+  //       } else {
+  //         formData.append(key, val);
+  //       }
+  //     }
+  //   });
+  //   return this.request('/incidents/', { method: 'POST', body: formData });
+  // }
+
+  // async updateIncident(id, incidentData) {
+  //   return this.request(`/incidents/${id}/`, { method: 'PATCH', body: incidentData });
+  // }
+
+  // async deleteIncident(id) {
+  //   return this.request(`/incidents/${id}/`, { method: 'DELETE' });
+  // }
+
+  // async assignIncident(id, assignedToId) {
+  //   return this.request(`/incidents/${id}/assign/`, {
+  //     method: 'POST',
+  //     body: { assigned_to: assignedToId },
+  //   });
+  // }
+
+  // async verifyIncident(id) {
+  //   return this.request(`/incidents/${id}/verify/`, { method: 'POST' });
+  // }
+
+  // async resolveIncident(id, resolutionNotes = '') {
+  //   return this.request(`/incidents/${id}/resolve/`, {
+  //     method: 'POST',
+  //     body: { resolution_notes: resolutionNotes },
+  //   });
+  // }
+
+  // async getMyIncidentReports() {
+  //   return this.request('/incidents/my-reports/');
+  // }
+
+  // async getAssignedIncidents() {
+  //   return this.request('/incidents/assigned-to-me/');
+  // }
+
+  // async getPriorityIncidents() {
+  //   return this.request('/incidents/priority/');
+  // }
+// -------- Incidents --------
+async getIncidents(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/${query ? `?${query}` : ''}`);
+}
+
+async getIncident(id) {
+  return this.request(`/incidents/${id}/`);
+}
+
+async createIncident(incidentData) {
+  const formData = new FormData();
+  Object.keys(incidentData || {}).forEach((key) => {
+    const val = incidentData[key];
+    if (val !== null && val !== undefined) {
+      if (key === 'images' || key === 'videos' || key === 'documents') {
+        // Handle file arrays
+        if (Array.isArray(val)) {
+          val.forEach((file, index) => {
+            formData.append(`${key}[${index}]`, file);
+          });
+        }
+      } else {
+        formData.append(key, val);
+      }
+    }
+  });
+  return this.request('/incidents/', { method: 'POST', body: formData });
+}
+
+async updateIncident(id, incidentData) {
+  // Check if we have files to upload
+  const hasFiles = (incidentData.images && incidentData.images.length > 0) ||
+                   (incidentData.videos && incidentData.videos.length > 0) ||
+                   (incidentData.documents && incidentData.documents.length > 0);
+  
+  if (hasFiles) {
+    // Use FormData for file uploads
     const formData = new FormData();
     Object.keys(incidentData || {}).forEach((key) => {
       const val = incidentData[key];
       if (val !== null && val !== undefined) {
-        if (key === 'images' || key === 'videos') {
+        if (key === 'images' || key === 'videos' || key === 'documents') {
           // Handle file arrays
           if (Array.isArray(val)) {
             val.forEach((file, index) => {
@@ -737,46 +831,313 @@ getWebSocketUrl(chatRoomId) {
         }
       }
     });
-    return this.request('/incidents/', { method: 'POST', body: formData });
-  }
-
-  async updateIncident(id, incidentData) {
+    return this.request(`/incidents/${id}/`, { method: 'PATCH', body: formData });
+  } else {
+    // Use JSON for regular updates without files
     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: incidentData });
   }
+}
 
-  async deleteIncident(id) {
-    return this.request(`/incidents/${id}/`, { method: 'DELETE' });
-  }
+async deleteIncident(id) {
+  return this.request(`/incidents/${id}/`, { method: 'DELETE' });
+}
 
-  async assignIncident(id, assignedToId) {
-    return this.request(`/incidents/${id}/assign/`, {
-      method: 'POST',
-      body: { assigned_to: assignedToId },
-    });
-  }
+// -------- Incident Assignment & Status --------
+async assignIncident(id, assignedToId) {
+  return this.request(`/incidents/${id}/assign/`, {
+    method: 'POST',
+    body: { assigned_to: assignedToId },
+  });
+}
 
-  async verifyIncident(id) {
-    return this.request(`/incidents/${id}/verify/`, { method: 'POST' });
-  }
+async updateIncidentStatus(id, status, resolutionNotes = '') {
+  return this.request(`/incidents/${id}/update-status/`, {
+    method: 'POST',
+    body: { 
+      status,
+      resolution_notes: resolutionNotes 
+    },
+  });
+}
 
-  async resolveIncident(id, resolutionNotes = '') {
-    return this.request(`/incidents/${id}/resolve/`, {
-      method: 'POST',
-      body: { resolution_notes: resolutionNotes },
-    });
-  }
+async resolveIncident(id, resolutionNotes = '') {
+  return this.request(`/incidents/${id}/resolve/`, {
+    method: 'POST',
+    body: { resolution_notes: resolutionNotes },
+  });
+}
 
-  async getMyIncidentReports() {
-    return this.request('/incidents/my-reports/');
-  }
+async dismissIncident(id, dismissalReason = '') {
+  return this.request(`/incidents/${id}/dismiss/`, {
+    method: 'POST',
+    body: { dismissal_reason: dismissalReason },
+  });
+}
 
-  async getAssignedIncidents() {
-    return this.request('/incidents/assigned-to-me/');
-  }
+// -------- Hierarchical Response System --------
+async addIncidentResponse(id, responseData) {
+  /**
+   * Document actions taken at current administrative level
+   * @param {string} id - Incident ID
+   * @param {Object} responseData - Response data
+   * @param {string} responseData.action_type - Type of action (received, assessed, in_progress, action_taken, escalated, resolved, closed)
+   * @param {string} responseData.notes - What was done at this level
+   * @param {string} [responseData.resources_deployed] - Resources deployed
+   * @param {string} [responseData.outcome] - Result of actions
+   * @param {boolean} [responseData.escalation_needed] - Whether escalation is needed
+   * @param {string} [responseData.escalation_reason] - Why escalation is needed
+   * @param {Object} [responseData.attachments] - Attachments/photos
+   */
+  return this.request(`/incidents/${id}/add-response/`, {
+    method: 'POST',
+    body: responseData,
+  });
+}
 
-  async getPriorityIncidents() {
-    return this.request('/incidents/priority/');
+async escalateIncident(id, reason) {
+  /**
+   * Escalate incident to next administrative level
+   * @param {string} id - Incident ID
+   * @param {string} reason - Reason for escalation (minimum 10 characters)
+   */
+  return this.request(`/incidents/${id}/escalate/`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+async getIncidentResponseHistory(id) {
+  /**
+   * Get complete response history across all administrative levels
+   * @param {string} id - Incident ID
+   */
+  return this.request(`/incidents/${id}/response-history/`);
+}
+
+async uploadIncidentMedia(id, mediaData) {
+  /**
+   * Upload additional media files to an incident
+   * @param {string} id - Incident ID
+   * @param {Object} mediaData - Media data
+   * @param {string} mediaData.media_type - Type (image, video, document)
+   * @param {File} mediaData.file - File to upload
+   * @param {string} [mediaData.caption] - Optional caption
+   */
+  const formData = new FormData();
+  formData.append('media_type', mediaData.media_type);
+  formData.append('file', mediaData.file);
+  if (mediaData.caption) {
+    formData.append('caption', mediaData.caption);
   }
+  
+  return this.request(`/incidents/${id}/upload-media/`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+async deleteIncidentMedia(mediaId) {
+  /**
+   * Delete a specific media file from an incident
+   * @param {string} mediaId - Media file ID to delete
+   */
+  return this.request(`/incident-media/${mediaId}/`, {
+    method: 'DELETE',
+  });
+}
+
+// -------- Filtered Incident Lists --------
+async getMyIncidentReports(params = {}) {
+  /**
+   * Get incidents reported by current user (citizens only)
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/my-reports/${query ? `?${query}` : ''}`);
+}
+
+async getAssignedIncidents(params = {}) {
+  /**
+   * Get incidents assigned to current user (administrative users)
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/assigned-to-me/${query ? `?${query}` : ''}`);
+}
+
+async getMyLevelIncidents(params = {}) {
+  /**
+   * Get incidents at current user's administrative level
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/my-level/${query ? `?${query}` : ''}`);
+}
+
+async getNeedsEscalation(params = {}) {
+  /**
+   * Get incidents flagged for escalation at current user's level
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/needs-escalation/${query ? `?${query}` : ''}`);
+}
+
+async getPriorityIncidents(params = {}) {
+  /**
+   * Get high priority incidents (priority 1-2)
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/priority/${query ? `?${query}` : ''}`);
+}
+
+async getRecentIncidents(params = {}) {
+  /**
+   * Get recent incidents (last 24 hours)
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/recent/${query ? `?${query}` : ''}`);
+}
+
+// -------- Statistics & Analytics --------
+async getIncidentStats(params = {}) {
+  /**
+   * Get incident statistics and analytics
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/stats/${query ? `?${query}` : ''}`);
+}
+
+async exportIncidents(format = 'json', params = {}) {
+  /**
+   * Export incidents data
+   * @param {string} format - Export format (json, csv, xlsx)
+   * @param {Object} params - Additional filter parameters
+   */
+  const query = new URLSearchParams({ ...params, format }).toString();
+  return this.request(`/incidents/export/?${query}`);
+}
+
+// -------- Level Response Management --------
+async getLevelResponses(incidentId, params = {}) {
+  /**
+   * Get all level responses for an incident
+   * @param {string} incidentId - Incident ID
+   * @param {Object} params - Optional filter parameters
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/${incidentId}/level-responses/${query ? `?${query}` : ''}`);
+}
+
+async updateLevelResponse(responseId, responseData) {
+  /**
+   * Update a specific level response
+   * @param {string} responseId - Response ID
+   * @param {Object} responseData - Updated response data
+   */
+  return this.request(`/level-responses/${responseId}/`, {
+    method: 'PATCH',
+    body: responseData,
+  });
+}
+
+async deleteLevelResponse(responseId) {
+  /**
+   * Delete a level response
+   * @param {string} responseId - Response ID
+   */
+  return this.request(`/level-responses/${responseId}/`, {
+    method: 'DELETE',
+  });
+}
+
+// -------- Bulk Operations --------
+async bulkUpdateIncidents(incidentIds, updateData) {
+  /**
+   * Update multiple incidents at once
+   * @param {Array<string>} incidentIds - Array of incident IDs
+   * @param {Object} updateData - Data to update
+   */
+  return this.request('/incidents/bulk-update/', {
+    method: 'POST',
+    body: {
+      incident_ids: incidentIds,
+      update_data: updateData
+    },
+  });
+}
+
+async bulkAssignIncidents(incidentIds, assignedToId) {
+  /**
+   * Assign multiple incidents to a user
+   * @param {Array<string>} incidentIds - Array of incident IDs
+   * @param {string} assignedToId - User ID to assign to
+   */
+  return this.request('/incidents/bulk-assign/', {
+    method: 'POST',
+    body: {
+      incident_ids: incidentIds,
+      assigned_to: assignedToId
+    },
+  });
+}
+
+// -------- Search & Filters --------
+async searchIncidents(searchQuery, filters = {}) {
+  /**
+   * Search incidents with filters
+   * @param {string} searchQuery - Search query string
+   * @param {Object} filters - Additional filters
+   */
+  const params = {
+    search: searchQuery,
+    ...filters
+  };
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/?${query}`);
+}
+
+async getIncidentsByLocation(locationId, params = {}) {
+  /**
+   * Get incidents by location
+   * @param {string} locationId - Location ID
+   * @param {Object} params - Additional parameters
+   */
+  const query = new URLSearchParams({ ...params, location: locationId }).toString();
+  return this.request(`/incidents/?${query}`);
+}
+
+async getIncidentsByLevel(level, params = {}) {
+  /**
+   * Get incidents by administrative level
+   * @param {string} level - Administrative level (village, sector, district, province, national)
+   * @param {Object} params - Additional parameters
+   */
+  const query = new URLSearchParams({ ...params, current_level: level }).toString();
+  return this.request(`/incidents/?${query}`);
+}
+
+async getIncidentsByStatus(status, params = {}) {
+  /**
+   * Get incidents by status
+   * @param {string} status - Status value
+   * @param {Object} params - Additional parameters
+   */
+  const query = new URLSearchParams({ ...params, status }).toString();
+  return this.request(`/incidents/?${query}`);
+}
+
+async getIncidentsByDateRange(startDate, endDate, params = {}) {
+  /**
+   * Get incidents within a date range
+   * @param {string} startDate - Start date (ISO format)
+   * @param {string} endDate - End date (ISO format)
+   * @param {Object} params - Additional parameters
+   */
+  const query = new URLSearchParams({
+    ...params,
+    created_at__gte: startDate,
+    created_at__lte: endDate
+  }).toString();
+  return this.request(`/incidents/?${query}`);
+}
+
 
   // -------- Emergency Contacts --------
   async getEmergencyContacts(params = {}) {

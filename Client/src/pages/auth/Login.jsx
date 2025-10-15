@@ -23,35 +23,71 @@ const Login = () => {
   const successMessage = location.state?.message;
   const prefillUsername = location.state?.username || location.state?.email;
 
+  // Updated route access checker for hierarchical escalation system
   const checkRouteAccess = (path, userType) => {
     const routeAccess = {
+      // Admin routes - Admin only
       '/admin': ['admin'],
       '/admin/dashboard': ['admin'],
       '/admin/users': ['admin'],
       '/admin/system': ['admin'],
-      '/operator': ['admin', 'operator'],
-      '/operator/dashboard': ['admin', 'operator'],
-      '/operator/incidents': ['admin', 'operator'],
-      '/authority': ['admin', 'authority'],
-      '/authority/dashboard': ['admin', 'authority'],
-      '/authority/alerts': ['admin', 'authority'],
+      '/admin/settings': ['admin'],
+      '/locations': ['admin'],
+      
+      // Village level routes
+      '/village': ['admin', 'village'],
+      '/village/dashboard': ['admin', 'village'],
+      
+      // Sector level routes
+      '/sector': ['admin', 'sector'],
+      '/sector/dashboard': ['admin', 'sector'],
+      
+      // District level routes
+      '/district': ['admin', 'district'],
+      '/district/dashboard': ['admin', 'district'],
+      '/admin/alerts': ['admin', 'district', 'province', 'national'], // District and above
+      '/admin/disaster-types': ['admin', 'district', 'province', 'national'],
+      '/analytics': ['admin', 'district', 'province', 'national'],
+      
+      // Province level routes
+      '/province': ['admin', 'province'],
+      '/province/dashboard': ['admin', 'province'],
+      
+      // National level routes
+      '/national': ['admin', 'national'],
+      '/national/dashboard': ['admin', 'national'],
+      
+      // Citizen routes
       '/citizen': ['admin', 'citizen'],
       '/citizen/dashboard': ['admin', 'citizen'],
-      '/dashboard': ['admin', 'authority', 'operator', 'citizen'],
+      
+      // Shared routes - All administrative levels
+      '/incidents/admin': ['admin', 'village', 'sector', 'district', 'province', 'national'],
+      
+      // General dashboard - All authenticated users
+      '/dashboard': ['admin', 'village', 'sector', 'district', 'province', 'national', 'citizen'],
     };
+
+    // Check if the path matches any defined route
     for (const [route, allowedTypes] of Object.entries(routeAccess)) {
       if (path.startsWith(route)) {
         return allowedTypes.includes(userType);
       }
     }
+    
+    // If no specific route is found, allow access (for public routes)
     return true;
   };
 
   useEffect(() => {
     setMounted(true);
     clearError();
+    
+    // Clear any lingering navigation state
     sessionStorage.removeItem('navigationState');
     localStorage.removeItem('lastVisitedPath');
+    
+    // Prefill username if provided
     if (prefillUsername) {
       setFormData(prev => ({
         ...prev,
@@ -61,6 +97,8 @@ const Login = () => {
         setLoginMethod('email');
       }
     }
+    
+    // Check if user should be remembered
     const rememberedUser = localStorage.getItem('remember_user');
     if (rememberedUser === 'true') {
       setRememberMe(true);
@@ -69,6 +107,7 @@ const Login = () => {
 
   const validateForm = () => {
     const errors = {};
+    
     if (!formData.username) {
       errors.username = loginMethod === 'email' ? 'Email is required' : 'Username is required';
     } else if (loginMethod === 'email' && !/\S+@\S+\.\S+/.test(formData.username)) {
@@ -76,34 +115,46 @@ const Login = () => {
     } else if (loginMethod === 'username' && formData.username.length < 3) {
       errors.username = 'Username must be at least 3 characters';
     }
+    
     if (!formData.password) {
       errors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       errors.password = 'Password must be at least 8 characters';
     }
+    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!validateForm()) return;
+    
     try {
       console.log("Attempting login with username:", formData.username);
+      
+      // Clear any lingering navigation state before login
       sessionStorage.removeItem('navigationState');
       localStorage.removeItem('lastVisitedPath');
+      
       const result = await login(formData.username, formData.password, rememberMe);
       console.log("Login successful, user type:", result.user?.user_type);
+      
       const userType = result.user?.user_type;
       const redirectPath = getRedirectPath(userType);
+      
       console.log("Checking redirect path. FromPath:", fromPath, "UserType:", userType);
+      
+      // Determine where to redirect the user
       if (fromPath && fromPath !== '/login' && fromPath !== '/logout') {
         const canAccessFromPath = checkRouteAccess(fromPath, userType);
+        
         if (canAccessFromPath) {
           console.log("User can access original path, redirecting to:", fromPath);
           navigate(fromPath, { replace: true, state: null });
         } else {
-          console.log("User cannot access original path, redirecting to role-specific dashboard:", redirectPath);
+          console.log("User cannot access original path, redirecting to level-specific dashboard:", redirectPath);
           navigate(redirectPath, { replace: true, state: null });
         }
       } else {
@@ -121,6 +172,8 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Auto-detect if user is entering email
     if (name === 'username') {
       if (value.includes('@')) {
         setLoginMethod('email');
@@ -128,12 +181,16 @@ const Login = () => {
         setLoginMethod('username');
       }
     }
+    
+    // Clear validation errors as user types
     if (validationErrors[name]) {
       setValidationErrors(prev => ({
         ...prev,
         [name]: ''
       }));
     }
+    
+    // Clear global error when user starts typing
     if (error) {
       clearError();
     }
@@ -188,7 +245,7 @@ const Login = () => {
       </div>
 
       {/* Main Container - Full Screen Fixed */}
-      <div className="relative z-10 fixed inset-0 flex flex-col items-center justify-center p-4">
+      <div className="z-10 fixed inset-0 flex flex-col items-center justify-center p-4">
         {/* Login Card - Full Screen Centered */}
         <div className="w-full max-w-md flex flex-col items-center justify-center">
           {/* Header */}

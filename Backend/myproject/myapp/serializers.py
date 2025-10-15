@@ -275,14 +275,25 @@ class AlertCreateSerializer(serializers.ModelSerializer):
 class IncidentMediaSerializer(serializers.ModelSerializer):
     """Serializer for incident media files"""
     uploaded_by_name = serializers.CharField(source='uploaded_by.username', read_only=True)
+    file_url = serializers.SerializerMethodField()
     
     class Meta:
         model = IncidentMedia
         fields = [
-            'id', 'media_type', 'file', 'caption', 
+            'id', 'media_type', 'file', 'file_url', 'caption', 
             'uploaded_by', 'uploaded_by_name', 'uploaded_at'
         ]
         read_only_fields = ['id', 'uploaded_by', 'uploaded_at']
+    
+    def get_file_url(self, obj):
+        """Return the full URL for the file"""
+        if obj.file:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.file.url)
+            # Fallback if request is not available
+            return obj.file.url
+        return None
 
 
 class IncidentLevelResponseSerializer(serializers.ModelSerializer):

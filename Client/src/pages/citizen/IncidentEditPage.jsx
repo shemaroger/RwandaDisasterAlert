@@ -8,7 +8,8 @@ import {
   XCircle,
   AlertTriangle,
   ArrowLeft,
-  Save
+  Save,
+  FileText
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import apiService from '../../services/api';
@@ -17,16 +18,11 @@ import apiService from '../../services/api';
 const getMediaUrl = (mediaPath) => {
   if (!mediaPath) return null;
   
-  // If it's already a full URL, return as is
   if (mediaPath.startsWith('http://') || mediaPath.startsWith('https://')) {
     return mediaPath;
   }
   
-  // If it's a relative path, construct the full URL
-  // Adjust this base URL to match your backend server
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-  
-  // Remove leading slash if present to avoid double slashes
   const cleanPath = mediaPath.startsWith('/') ? mediaPath.substring(1) : mediaPath;
   
   return `${baseUrl}/${cleanPath}`;
@@ -46,14 +42,15 @@ const IncidentEditPage = () => {
     property_damage: '',
     immediate_needs: '',
     status: '',
-    priority: 3
+    priority: 3,
+    current_level: 'village'
   });
 
   const [mediaFiles, setMediaFiles] = useState({
     images: [],
     videos: [],
-    existingImages: [],
-    existingVideos: []
+    documents: [],
+    existingMedia: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -67,6 +64,7 @@ const IncidentEditPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
+  const documentInputRef = useRef(null);
 
   const REPORT_TYPES = [
     { value: 'emergency', label: 'Emergency' },
@@ -80,17 +78,26 @@ const IncidentEditPage = () => {
   const STATUS_OPTIONS = [
     { value: 'submitted', label: 'Submitted' },
     { value: 'under_review', label: 'Under Review' },
-    { value: 'verified', label: 'Verified' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'escalated', label: 'Escalated' },
     { value: 'resolved', label: 'Resolved' },
     { value: 'dismissed', label: 'Dismissed' }
   ];
 
+  const ADMIN_LEVELS = [
+    { value: 'village', label: 'Village' },
+    { value: 'sector', label: 'Sector' },
+    { value: 'district', label: 'District' },
+    { value: 'province', label: 'Province' },
+    { value: 'national', label: 'National' }
+  ];
+
   const PRIORITY_OPTIONS = [
-    { value: 1, label: 'Priority 1 (Highest)' },
-    { value: 2, label: 'Priority 2' },
-    { value: 3, label: 'Priority 3' },
-    { value: 4, label: 'Priority 4' },
-    { value: 5, label: 'Priority 5 (Lowest)' }
+    { value: 1, label: 'Priority 1 (Critical)' },
+    { value: 2, label: 'Priority 2 (High)' },
+    { value: 3, label: 'Priority 3 (Medium)' },
+    { value: 4, label: 'Priority 4 (Low)' },
+    { value: 5, label: 'Priority 5 (Minimal)' }
   ];
 
   const PROPERTY_DAMAGE_OPTIONS = [
@@ -127,13 +134,14 @@ const IncidentEditPage = () => {
         property_damage: incident.property_damage || '',
         immediate_needs: incident.immediate_needs || '',
         status: incident.status || 'submitted',
-        priority: incident.priority || 3
+        priority: incident.priority || 3,
+        current_level: incident.current_level || 'village'
       });
 
+      // Handle media files from IncidentMedia model
       setMediaFiles(prev => ({
         ...prev,
-        existingImages: incident.images || [],
-        existingVideos: incident.videos || []
+        existingMedia: incident.media_files || []
       }));
     } catch (err) {
       setError('Failed to load incident details');
@@ -144,12 +152,15 @@ const IncidentEditPage = () => {
   const loadInitialData = async () => {
     try {
       const [disasterTypesRes, locationsRes] = await Promise.all([
-        apiService.getDisasterTypes().catch(() => ({ results: [] })),
-        apiService.getLocations().catch(() => ({ results: [] }))
+        apiService.getDisasterTypes({ is_active: true, ordering: 'name' }).catch(() => ({ results: [] })),
+        apiService.getLocations({ ordering: 'name' }).catch(() => ({ results: [] }))
       ]);
       
-      setDisasterTypes(disasterTypesRes.results || []);
-      setLocations(locationsRes.results || []);
+      const disasterTypesData = disasterTypesRes.results || disasterTypesRes || [];
+      const locationsData = locationsRes.results || locationsRes || [];
+      
+      setDisasterTypes(disasterTypesData);
+      setLocations(locationsData);
     } catch (err) {
       console.error('Failed to load initial data:', err);
     } finally {
@@ -181,10 +192,13 @@ const IncidentEditPage = () => {
     const validFiles = [];
     const newErrors = {};
 
-    const currentCount = mediaFiles[type].length + mediaFiles[`existing${type.charAt(0).toUpperCase() + type.slice(1)}`].length;
+    const currentCount = mediaFiles[type].length + mediaFiles.existingMedia.filter(m => m.media_type === type.slice(0, -1)).length;
 
     files.forEach((file, index) => {
-      if (currentCount + index >= maxFiles) return;
+      if (currentCount + index >= maxFiles) {
+        newErrors[`${type}_count`] = `Maximum ${maxFiles} ${type} allowed`;
+        return;
+      }
 
       if (file.size > maxSize) {
         newErrors[`${type}_size`] = `File "${file.name}" is too large. Maximum size is 10MB.`;
@@ -201,11 +215,24 @@ const IncidentEditPage = () => {
         return;
       }
       
+      if (type === 'documents' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(file.type)) {
+        newErrors[`${type}_type`] = `"${file.name}" is not a valid document file.`;
+        return;
+      }
+      
       validFiles.push(file);
     });
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(prev => ({ ...prev, ...newErrors }));
+    } else {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[`${type}_size`];
+        delete updated[`${type}_type`];
+        delete updated[`${type}_count`];
+        return updated;
+      });
     }
 
     if (validFiles.length > 0) {
@@ -225,10 +252,10 @@ const IncidentEditPage = () => {
     }));
   };
 
-  const removeExistingFile = (type, index) => {
+  const removeExistingMedia = (mediaId) => {
     setMediaFiles(prev => ({
       ...prev,
-      [`existing${type.charAt(0).toUpperCase() + type.slice(1)}`]: prev[`existing${type.charAt(0).toUpperCase() + type.slice(1)}`].filter((_, i) => i !== index)
+      existingMedia: prev.existingMedia.filter(m => m.id !== mediaId)
     }));
   };
 
@@ -271,31 +298,70 @@ const IncidentEditPage = () => {
     
     try {
       const updateData = {
-        ...formData,
-        casualties: formData.casualties ? parseInt(formData.casualties) : null,
-        priority: parseInt(formData.priority)
+        report_type: formData.report_type,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        status: formData.status,
+        priority: parseInt(formData.priority),
+        current_level: formData.current_level
       };
 
-      // Handle file uploads if there are new files
-      if (mediaFiles.images.length > 0 || mediaFiles.videos.length > 0) {
-        // Include existing files that weren't removed
-        updateData.images = [...mediaFiles.existingImages];
-        updateData.videos = [...mediaFiles.existingVideos];
-        
-        // Add new files
-        if (mediaFiles.images.length > 0) {
-          updateData.images = [...updateData.images, ...mediaFiles.images];
-        }
-        if (mediaFiles.videos.length > 0) {
-          updateData.videos = [...updateData.videos, ...mediaFiles.videos];
-        }
-      } else {
-        // Only existing files
-        updateData.images = mediaFiles.existingImages;
-        updateData.videos = mediaFiles.existingVideos;
+      // Add optional fields
+      if (formData.disaster_type) {
+        updateData.disaster_type = formData.disaster_type;
+      }
+      
+      if (formData.location) {
+        updateData.location = formData.location;
+      }
+      
+      if (formData.latitude && formData.longitude) {
+        updateData.latitude = parseFloat(formData.latitude);
+        updateData.longitude = parseFloat(formData.longitude);
+      }
+      
+      if (formData.address.trim()) {
+        updateData.address = formData.address.trim();
+      }
+      
+      if (formData.casualties) {
+        updateData.casualties = parseInt(formData.casualties);
+      }
+      
+      if (formData.property_damage) {
+        updateData.property_damage = formData.property_damage;
+      }
+      
+      if (formData.immediate_needs.trim()) {
+        updateData.immediate_needs = formData.immediate_needs.trim();
       }
 
+      // Add new media files
+      if (mediaFiles.images.length > 0) {
+        updateData.images = mediaFiles.images;
+      }
+      
+      if (mediaFiles.videos.length > 0) {
+        updateData.videos = mediaFiles.videos;
+      }
+
+      if (mediaFiles.documents.length > 0) {
+        updateData.documents = mediaFiles.documents;
+      }
+
+      console.log('Updating incident with data:', updateData);
       const result = await apiService.updateIncident(id, updateData);
+      
+      // Delete removed existing media
+      const existingIds = mediaFiles.existingMedia.map(m => m.id);
+      const originalMedia = (await apiService.getIncident(id)).media_files || [];
+      const removedMedia = originalMedia.filter(m => !existingIds.includes(m.id));
+      
+      // Note: You may need to add a delete media endpoint to your API
+      // for (const media of removedMedia) {
+      //   await apiService.deleteIncidentMedia(media.id);
+      // }
+
       navigate(`/incidents/${id}/view`, { 
         state: { message: 'Incident updated successfully' }
       });
@@ -303,7 +369,7 @@ const IncidentEditPage = () => {
       console.error('Update incident error:', err);
       setErrors(prev => ({
         ...prev,
-        submit: 'Failed to update incident. Please try again.'
+        submit: err.message || 'Failed to update incident. Please try again.'
       }));
     } finally {
       setSaving(false);
@@ -422,7 +488,8 @@ const IncidentEditPage = () => {
                   name="disaster_type"
                   value={formData.disaster_type}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={disasterTypes.length === 0}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                 >
                   <option value="">Select disaster type (optional)</option>
                   {disasterTypes.map((type) => (
@@ -431,11 +498,14 @@ const IncidentEditPage = () => {
                     </option>
                   ))}
                 </select>
+                {disasterTypes.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">No disaster types available</p>
+                )}
               </div>
             </div>
 
-            {/* Status and Priority */}
-            <div className="grid md:grid-cols-2 gap-6">
+            {/* Status, Priority, and Level */}
+            <div className="grid md:grid-cols-3 gap-6">
               <div>
                 <label htmlFor="status" className="block text-sm font-semibold text-gray-900 mb-2">
                   Status
@@ -469,6 +539,25 @@ const IncidentEditPage = () => {
                   {PRIORITY_OPTIONS.map((priority) => (
                     <option key={priority.value} value={priority.value}>
                       {priority.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="current_level" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Current Level
+                </label>
+                <select
+                  id="current_level"
+                  name="current_level"
+                  value={formData.current_level}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {ADMIN_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {level.label}
                     </option>
                   ))}
                 </select>
@@ -533,7 +622,8 @@ const IncidentEditPage = () => {
                     name="location"
                     value={formData.location}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={locations.length === 0}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                   >
                     <option value="">Select area (optional)</option>
                     {locations.map((location) => (
@@ -542,6 +632,9 @@ const IncidentEditPage = () => {
                       </option>
                     ))}
                   </select>
+                  {locations.length === 0 && (
+                    <p className="mt-1 text-xs text-gray-500">No locations available</p>
+                  )}
                 </div>
 
                 <div>
@@ -653,34 +746,124 @@ const IncidentEditPage = () => {
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Media Files</h3>
 
-              {/* Existing Images */}
-              {mediaFiles.existingImages.length > 0 && (
+              {/* Existing Media */}
+              {mediaFiles.existingMedia.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Current Images</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {mediaFiles.existingImages.map((image, index) => {
-                      const imageUrl = getMediaUrl(image);
-                      return (
-                        <div key={index} className="relative">
-                          <img
-                            src={imageUrl}
-                            alt={`Existing image ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border"
-                            onError={(e) => {
-                              console.error('Existing image failed to load:', imageUrl);
-                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0iI0Y5RkFGQiIvPgo8L3N2Zz4K';
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeExistingFile('images', index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                  <h4 className="font-medium text-gray-900 mb-3">Current Media Files</h4>
+                  <div className="space-y-4">
+                    {/* Images */}
+                    {mediaFiles.existingMedia.filter(m => m.media_type === 'image').length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Images</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {mediaFiles.existingMedia
+                            .filter(m => m.media_type === 'image')
+                            .map((media) => {
+                              const imageUrl = getMediaUrl(media.file);
+                              return (
+                                <div key={media.id} className="relative">
+                                  <img
+                                    src={imageUrl}
+                                    alt={media.caption || 'Incident media'}
+                                    className="w-full h-24 object-cover rounded-lg border"
+                                    onError={(e) => {
+                                      console.error('Image failed to load:', imageUrl);
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeExistingMedia(media.id)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                  {media.caption && (
+                                    <p className="text-xs text-gray-600 mt-1">{media.caption}</p>
+                                  )}
+                                </div>
+                              );
+                            })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
+
+                    {/* Videos */}
+                    {mediaFiles.existingMedia.filter(m => m.media_type === 'video').length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Videos</p>
+                        <div className="space-y-3">
+                          {mediaFiles.existingMedia
+                            .filter(m => m.media_type === 'video')
+                            .map((media) => {
+                              const videoUrl = getMediaUrl(media.file);
+                              return (
+                                <div key={media.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                                  <div className="flex items-center gap-3">
+                                    <video
+                                      src={videoUrl}
+                                      className="w-16 h-16 rounded object-cover"
+                                      controls={false}
+                                    />
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {media.caption || 'Video'}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Uploaded {new Date(media.uploaded_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeExistingMedia(media.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <X className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Documents */}
+                    {mediaFiles.existingMedia.filter(m => m.media_type === 'document').length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Documents</p>
+                        <div className="space-y-2">
+                          {mediaFiles.existingMedia
+                            .filter(m => m.media_type === 'document')
+                            .map((media) => {
+                              const docUrl = getMediaUrl(media.file);
+                              const fileName = media.file.split('/').pop();
+                              return (
+                                <div key={media.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {media.caption || fileName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Uploaded {new Date(media.uploaded_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeExistingMedia(media.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <X className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -735,44 +918,12 @@ const IncidentEditPage = () => {
                   </div>
                 )}
 
-                {errors.images_size && (
-                  <p className="mt-2 text-sm text-red-600">{errors.images_size}</p>
+                {(errors.images_size || errors.images_type || errors.images_count) && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {errors.images_size || errors.images_type || errors.images_count}
+                  </p>
                 )}
               </div>
-
-              {/* Existing Videos */}
-              {mediaFiles.existingVideos.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Current Videos</h4>
-                  <div className="space-y-3">
-                    {mediaFiles.existingVideos.map((video, index) => {
-                      const videoUrl = getMediaUrl(video);
-                      return (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <video
-                              src={videoUrl}
-                              className="w-16 h-16 rounded object-cover"
-                              controls={false}
-                              onError={(e) => {
-                                console.error('Existing video failed to load:', videoUrl);
-                              }}
-                            />
-                            <span className="text-sm text-gray-900">Video {index + 1}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeExistingFile('videos', index)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* New Videos */}
               <div>
@@ -829,37 +980,74 @@ const IncidentEditPage = () => {
                   </div>
                 )}
 
-                {errors.videos_size && (
-                  <p className="mt-2 text-sm text-red-600">{errors.videos_size}</p>
+                {(errors.videos_size || errors.videos_type || errors.videos_count) && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {errors.videos_size || errors.videos_type || errors.videos_count}
+                  </p>
                 )}
               </div>
 
-              {/* Debug section - remove this in production */}
-              {import.meta.env.DEV && (mediaFiles.existingImages.length > 0 || mediaFiles.existingVideos.length > 0) && (
-                <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
-                  <details>
-                    <summary className="cursor-pointer text-gray-600">Debug Media URLs</summary>
-                    <div className="mt-2">
-                      <p><strong>Existing Images:</strong></p>
-                      <ul className="ml-4">
-                        {mediaFiles.existingImages.map((img, i) => (
-                          <li key={i} className="break-all">
-                            Original: {img} → Processed: {getMediaUrl(img)}
-                          </li>
-                        ))}
-                      </ul>
-                      <p><strong>Existing Videos:</strong></p>
-                      <ul className="ml-4">
-                        {mediaFiles.existingVideos.map((vid, i) => (
-                          <li key={i} className="break-all">
-                            Original: {vid} → Processed: {getMediaUrl(vid)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </details>
+              {/* New Documents */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Add New Documents (Max 5 total, 10MB each)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
+                  <input
+                    ref={documentInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    multiple
+                    onChange={(e) => handleFileUpload(e, 'documents')}
+                    className="hidden"
+                  />
+                  
+                  <div className="text-center">
+                    <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <button
+                      type="button"
+                      onClick={() => documentInputRef.current?.click()}
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Upload Documents
+                    </button>
+                    <p className="text-sm text-gray-500 mt-1">PDF, Word, Excel up to 10MB each</p>
+                  </div>
                 </div>
-              )}
+
+                {mediaFiles.documents.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {mediaFiles.documents.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-purple-100 p-2 rounded">
+                            <FileText className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{file.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile('documents', index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(errors.documents_size || errors.documents_type || errors.documents_count) && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {errors.documents_size || errors.documents_type || errors.documents_count}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Submit Buttons */}

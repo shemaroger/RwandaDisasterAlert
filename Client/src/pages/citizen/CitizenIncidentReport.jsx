@@ -13,7 +13,10 @@ import {
   Building,
   Navigation,
   Monitor,
-  Smartphone
+  Smartphone,
+  Info,
+  RefreshCw,
+  FileText
 } from 'lucide-react';
 
 // Import your actual API service
@@ -36,7 +39,8 @@ const CitizenIncidentReport = () => {
 
   const [mediaFiles, setMediaFiles] = useState({
     images: [],
-    videos: []
+    videos: [],
+    documents: []
   });
 
   const [loading, setLoading] = useState(false);
@@ -50,6 +54,7 @@ const CitizenIncidentReport = () => {
   
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
+  const documentInputRef = useRef(null);
 
   const REPORT_TYPES = [
     { value: 'emergency', label: 'Emergency', icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
@@ -69,6 +74,14 @@ const CitizenIncidentReport = () => {
     { value: 'total', label: 'Total destruction' }
   ];
 
+  const ADMIN_LEVEL_LABELS = {
+    village: 'Village',
+    sector: 'Sector',
+    district: 'District',
+    province: 'Province',
+    national: 'National'
+  };
+
   useEffect(() => {
     loadInitialData();
     getCurrentLocation();
@@ -77,17 +90,34 @@ const CitizenIncidentReport = () => {
   const loadInitialData = async () => {
     setDataLoading(true);
     try {
+      // Fetch disaster types and locations in parallel
       const [disasterTypesRes, locationsRes] = await Promise.all([
-        apiService.getDisasterTypes().catch(() => ({ results: [] })),
-        apiService.getLocations().catch(() => ({ results: [] }))
+        apiService.getDisasterTypes({ is_active: true, ordering: 'name' })
+          .catch(error => {
+            console.warn('Failed to load disaster types:', error);
+            return { results: [] };
+          }),
+        apiService.getLocations({ ordering: 'name' })
+          .catch(error => {
+            console.warn('Failed to load locations:', error);
+            return { results: [] };
+          })
       ]);
       
-      setDisasterTypes(disasterTypesRes.results || []);
-      setLocations(locationsRes.results || []);
+      // Handle both paginated and non-paginated responses
+      const disasterTypesData = disasterTypesRes.results || disasterTypesRes || [];
+      const locationsData = locationsRes.results || locationsRes || [];
       
+      setDisasterTypes(disasterTypesData);
+      setLocations(locationsData);
+      
+      // Clear any previous loading errors if successful
       if (errors.loading) {
         setErrors(prev => ({ ...prev, loading: null }));
       }
+      
+      console.log(`Loaded ${disasterTypesData.length} disaster types and ${locationsData.length} locations`);
+      
     } catch (error) {
       console.error('Failed to load initial data:', error);
       setErrors(prev => ({
@@ -97,6 +127,11 @@ const CitizenIncidentReport = () => {
     } finally {
       setDataLoading(false);
     }
+  };
+
+  const retryLoadData = () => {
+    setErrors(prev => ({ ...prev, loading: null }));
+    loadInitialData();
   };
 
   const getCurrentLocation = () => {
@@ -113,7 +148,7 @@ const CitizenIncidentReport = () => {
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
+        const { latitude, longitude } = position.coords;
         
         setFormData(prev => ({
           ...prev,
@@ -160,12 +195,11 @@ const CitizenIncidentReport = () => {
       { 
         enableHighAccuracy: true, 
         timeout: 15000, 
-        maximumAge: 60000 // Cache for 1 minute
+        maximumAge: 60000
       }
     );
   };
 
-  // Add debug logging function
   const debugFormData = () => {
     console.log('Form validation debug:');
     console.log('report_type:', formData.report_type);
@@ -177,9 +211,9 @@ const CitizenIncidentReport = () => {
     console.log('location:', formData.location);
     console.log('All form data:', formData);
   };
+
   const reverseGeocode = async (lat, lng) => {
     try {
-      // Using a simple reverse geocoding service - you might want to use a more robust service
       const response = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
       );
@@ -201,7 +235,6 @@ const CitizenIncidentReport = () => {
       }
     } catch (error) {
       console.warn('Reverse geocoding failed:', error);
-      // Don't show error to user as this is just a convenience feature
     }
   };
 
@@ -256,6 +289,11 @@ const CitizenIncidentReport = () => {
       
       if (type === 'videos' && !file.type.startsWith('video/')) {
         newErrors[`${type}_type`] = `"${file.name}" is not a valid video file.`;
+        return;
+      }
+      
+      if (type === 'documents' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(file.type)) {
+        newErrors[`${type}_type`] = `"${file.name}" is not a valid document file. Please use PDF, Word, or Excel documents.`;
         return;
       }
       
@@ -326,7 +364,6 @@ const CitizenIncidentReport = () => {
       newErrors.casualties = 'Casualties must be a valid number (0 or greater)';
     }
 
-    // Prioritize GPS coordinates, but require at least some location info
     if (!formData.latitude || !formData.longitude) {
       if (!formData.address.trim() && !formData.location) {
         newErrors.location_required = 'Location is required. Please enable GPS access or enter your address manually.';
@@ -340,7 +377,6 @@ const CitizenIncidentReport = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Add debug logging
     debugFormData();
     
     if (!validateForm()) {
@@ -355,14 +391,12 @@ const CitizenIncidentReport = () => {
     setErrors(prev => ({ ...prev, submit: null }));
     
     try {
-      // Create the incident data object to match your backend serializer
       const incidentData = {
         report_type: formData.report_type,
         title: formData.title.trim(),
         description: formData.description.trim(),
       };
 
-      // Add optional fields only if they have values
       if (formData.disaster_type) {
         incidentData.disaster_type = formData.disaster_type;
       }
@@ -392,7 +426,6 @@ const CitizenIncidentReport = () => {
         incidentData.immediate_needs = formData.immediate_needs.trim();
       }
 
-      // Add files to the incident data object
       if (mediaFiles.images.length > 0) {
         incidentData.images = mediaFiles.images;
       }
@@ -401,9 +434,12 @@ const CitizenIncidentReport = () => {
         incidentData.videos = mediaFiles.videos;
       }
 
+      if (mediaFiles.documents.length > 0) {
+        incidentData.documents = mediaFiles.documents;
+      }
+
       console.log('Submitting incident report with data:', incidentData);
       
-      // Use the API service to create incident
       const result = await apiService.createIncident(incidentData);
       
       console.log('Incident created successfully:', result);
@@ -418,15 +454,11 @@ const CitizenIncidentReport = () => {
       let errorMessage = 'Failed to submit incident report. Please try again.';
       let fieldErrors = {};
       
-      // Handle API errors properly - looking at your API service structure
       if (error.message && error.message.includes('ApiError:')) {
-        // Parse the error message from your API service
         const errorText = error.message.replace('ApiError: ', '');
         const errors = errorText.split(', ');
         
-        // Map generic errors to likely fields
         if (errors.length >= 3 && errors.every(e => e === 'This field is required.')) {
-          // Three required field errors - likely report_type, title, description
           if (!formData.report_type) fieldErrors.report_type = 'This field is required.';
           if (!formData.title.trim()) fieldErrors.title = 'This field is required.';
           if (!formData.description.trim()) fieldErrors.description = 'This field is required.';
@@ -478,7 +510,8 @@ const CitizenIncidentReport = () => {
     });
     setMediaFiles({
       images: [],
-      videos: []
+      videos: [],
+      documents: []
     });
     setSubmitted(false);
     setSubmittedData(null);
@@ -500,17 +533,41 @@ const CitizenIncidentReport = () => {
             </h2>
             
             {submittedData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-                <p className="text-green-800 mb-2 font-medium">
-                  Report ID: {submittedData.id}
-                </p>
-                <p className="text-green-800 mb-2">
-                  Your incident report "{submittedData.title}" has been received and is being reviewed by emergency services.
-                </p>
-                <p className="text-sm text-green-600">
-                  Status: {submittedData.status || 'Submitted'} • You will be notified of any updates.
-                </p>
-              </div>
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+                  <p className="text-green-800 mb-2 font-medium">
+                    Report ID: {submittedData.id}
+                  </p>
+                  <p className="text-green-800 mb-2">
+                    Your incident report "{submittedData.title}" has been received and assigned to{' '}
+                    <strong>{ADMIN_LEVEL_LABELS[submittedData.current_level] || 'local'}</strong> authorities.
+                  </p>
+                  <p className="text-sm text-green-600">
+                    Status: {submittedData.status_display || submittedData.status || 'Submitted'}
+                  </p>
+                  {submittedData.priority && (
+                    <p className="text-sm text-green-600">
+                      Priority: {submittedData.priority_display || `Level ${submittedData.priority}`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Hierarchical Response Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-900">
+                      <p className="font-medium mb-2">What happens next?</p>
+                      <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                        <li>{ADMIN_LEVEL_LABELS[submittedData.current_level]} authorities will review your report</li>
+                        <li>They will document their response and actions taken</li>
+                        <li>If additional resources are needed, they'll escalate to higher authorities</li>
+                        <li>You'll receive notifications about updates and actions taken</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
             
             <div className="grid md:grid-cols-2 gap-4 mb-8">
@@ -529,7 +586,7 @@ const CitizenIncidentReport = () => {
             </div>
 
             <div className="pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-4">Need emergency help?</p>
+              <p className="text-sm text-gray-600 mb-4">Need immediate emergency help?</p>
               <div className="flex justify-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-red-500" />
@@ -537,7 +594,7 @@ const CitizenIncidentReport = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-blue-500" />
-                  <span>SMS: Text to 3030</span>
+                  <span>SMS: 3030</span>
                 </div>
               </div>
             </div>
@@ -598,9 +655,19 @@ const CitizenIncidentReport = () => {
               {/* Global Errors */}
               {errors.loading && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="flex">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 mr-3 mt-0.5" />
-                    <p className="text-amber-800">{errors.loading}</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex">
+                      <AlertTriangle className="w-5 h-5 text-amber-500 mr-3 mt-0.5" />
+                      <p className="text-amber-800">{errors.loading}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={retryLoadData}
+                      className="flex items-center gap-1 text-amber-700 hover:text-amber-900 text-sm font-medium"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Retry
+                    </button>
                   </div>
                 </div>
               )}
@@ -681,8 +748,8 @@ const CitizenIncidentReport = () => {
                     name="disaster_type"
                     value={formData.disaster_type}
                     onChange={handleInputChange}
-                    disabled={dataLoading}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100"
+                    disabled={dataLoading || disasterTypes.length === 0}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     <option value="">Select specific type (optional)</option>
                     {disasterTypes.map((type) => (
@@ -692,7 +759,10 @@ const CitizenIncidentReport = () => {
                     ))}
                   </select>
                   {disasterTypes.length === 0 && !dataLoading && (
-                    <p className="mt-1 text-xs text-gray-500">Emergency types unavailable - you can still submit</p>
+                    <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Emergency types unavailable - you can still submit
+                    </p>
                   )}
                 </div>
 
@@ -902,8 +972,8 @@ const CitizenIncidentReport = () => {
                     name="location"
                     value={formData.location}
                     onChange={handleInputChange}
-                    disabled={dataLoading}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100"
+                    disabled={dataLoading || locations.length === 0}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     <option value="">Select district/province if known</option>
                     {locations.map((location) => (
@@ -1120,6 +1190,72 @@ const CitizenIncidentReport = () => {
                   {(errors.videos_size || errors.videos_type || errors.videos_count) && (
                     <div className="mt-2 text-sm text-red-600">
                       {errors.videos_size || errors.videos_type || errors.videos_count}
+                    </div>
+                  )}
+                </div>
+
+                {/* Document Upload */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Documents (Max 5 files, 10MB each)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
+                    <input
+                      ref={documentInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
+                      multiple
+                      onChange={(e) => handleFileUpload(e, 'documents')}
+                      className="hidden"
+                    />
+                    
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <button
+                        type="button"
+                        onClick={() => documentInputRef.current?.click()}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Upload Documents
+                      </button>
+                      <p className="text-sm text-gray-500 mt-2">
+                        PDF, Word, Excel up to 10MB each
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Display uploaded documents */}
+                  {mediaFiles.documents.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      {mediaFiles.documents.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-purple-100 p-2 rounded">
+                              <FileText className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="text-sm text-gray-600">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile('documents', index)}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Document upload errors */}
+                  {(errors.documents_size || errors.documents_type || errors.documents_count) && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {errors.documents_size || errors.documents_type || errors.documents_count}
                     </div>
                   )}
                 </div>

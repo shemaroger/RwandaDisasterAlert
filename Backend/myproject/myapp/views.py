@@ -616,425 +616,425 @@ from .models import IncidentReport, User
 from .serializers import IncidentReportSerializer, IncidentReportCreateSerializer
 
 
-class IncidentReportViewSet(viewsets.ModelViewSet):
-    """ViewSet for incident reports with full CRUD operations"""
-    queryset = IncidentReport.objects.all()
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['report_type', 'disaster_type', 'status', 'priority', 'location']
-    search_fields = ['title', 'description', 'address']
-    ordering_fields = ['created_at', 'priority', 'status', 'updated_at']
-    ordering = ['-created_at']
+# class IncidentReportViewSet(viewsets.ModelViewSet):
+#     """ViewSet for incident reports with full CRUD operations"""
+#     queryset = IncidentReport.objects.all()
+#     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+#     filterset_fields = ['report_type', 'disaster_type', 'status', 'priority', 'location']
+#     search_fields = ['title', 'description', 'address']
+#     ordering_fields = ['created_at', 'priority', 'status', 'updated_at']
+#     ordering = ['-created_at']
     
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return IncidentReportCreateSerializer
-        return IncidentReportSerializer
+#     def get_serializer_class(self):
+#         if self.action == 'create':
+#             return IncidentReportCreateSerializer
+#         return IncidentReportSerializer
     
-    def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action == 'create':
-            # Anyone authenticated can create incidents
-            permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ['list', 'retrieve']:
-            # Anyone authenticated can view incidents (filtered by get_queryset)
-            permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ['update', 'partial_update']:
-            # Citizens can edit their own, admins can edit any
-            permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ['destroy']:
-            # Only admins can delete
-            permission_classes = [permissions.IsAdminUser]
-        else:
-            # Custom actions require authentication
-            permission_classes = [permissions.IsAuthenticated]
+#     def get_permissions(self):
+#         """
+#         Instantiates and returns the list of permissions that this view requires.
+#         """
+#         if self.action == 'create':
+#             # Anyone authenticated can create incidents
+#             permission_classes = [permissions.IsAuthenticated]
+#         elif self.action in ['list', 'retrieve']:
+#             # Anyone authenticated can view incidents (filtered by get_queryset)
+#             permission_classes = [permissions.IsAuthenticated]
+#         elif self.action in ['update', 'partial_update']:
+#             # Citizens can edit their own, admins can edit any
+#             permission_classes = [permissions.IsAuthenticated]
+#         elif self.action in ['destroy']:
+#             # Only admins can delete
+#             permission_classes = [permissions.IsAdminUser]
+#         else:
+#             # Custom actions require authentication
+#             permission_classes = [permissions.IsAuthenticated]
         
-        return [permission() for permission in permission_classes]
+#         return [permission() for permission in permission_classes]
     
-    def get_queryset(self):
-        """
-        Filter queryset based on user type and permissions
-        """
-        queryset = IncidentReport.objects.select_related(
-            'reporter', 'disaster_type', 'location', 'assigned_to', 'verified_by'
-        ).prefetch_related().order_by('-created_at')
+#     def get_queryset(self):
+#         """
+#         Filter queryset based on user type and permissions
+#         """
+#         queryset = IncidentReport.objects.select_related(
+#             'reporter', 'disaster_type', 'location', 'assigned_to', 'verified_by'
+#         ).prefetch_related().order_by('-created_at')
         
-        user = self.request.user
+#         user = self.request.user
         
-        # Citizens can only see their own incidents
-        if hasattr(user, 'user_type') and user.user_type == 'citizen':
-            return queryset.filter(reporter=user)
+#         # Citizens can only see their own incidents
+#         if hasattr(user, 'user_type') and user.user_type == 'citizen':
+#             return queryset.filter(reporter=user)
         
-        # Admin, operator, authority can see all incidents
-        return queryset
+#         # Admin, operator, authority can see all incidents
+#         return queryset
     
-    def perform_create(self, serializer):
-        """Set the reporter to the current user when creating an incident"""
-        serializer.save(reporter=self.request.user)
+#     def perform_create(self, serializer):
+#         """Set the reporter to the current user when creating an incident"""
+#         serializer.save(reporter=self.request.user)
     
-    def perform_update(self, serializer):
-        """Handle update permissions - citizens can only edit their own submitted incidents"""
-        instance = self.get_object()
-        user = self.request.user
+#     def perform_update(self, serializer):
+#         """Handle update permissions - citizens can only edit their own submitted incidents"""
+#         instance = self.get_object()
+#         user = self.request.user
         
-        # Citizens can only edit their own incidents that haven't been processed
-        if (hasattr(user, 'user_type') and user.user_type == 'citizen' and
-            (instance.reporter != user or instance.status != 'submitted')):
-            raise PermissionError("Citizens can only edit their own unprocessed incidents")
+#         # Citizens can only edit their own incidents that haven't been processed
+#         if (hasattr(user, 'user_type') and user.user_type == 'citizen' and
+#             (instance.reporter != user or instance.status != 'submitted')):
+#             raise PermissionError("Citizens can only edit their own unprocessed incidents")
         
-        serializer.save()
+#         serializer.save()
 
-    # ========================================
-    # CUSTOM ACTION ENDPOINTS
-    # ========================================
+#     # ========================================
+#     # CUSTOM ACTION ENDPOINTS
+#     # ========================================
 
-    @action(detail=False, methods=['get'])
-    def my_reports(self, request):
-        """
-        Get current user's incident reports (citizens only)
-        Endpoint: /incidents/my-reports/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type != 'citizen':
-            return Response(
-                {'error': 'This endpoint is only available for citizens'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=False, methods=['get'])
+#     def my_reports(self, request):
+#         """
+#         Get current user's incident reports (citizens only)
+#         Endpoint: /incidents/my-reports/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type != 'citizen':
+#             return Response(
+#                 {'error': 'This endpoint is only available for citizens'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        # Get user's incidents with filtering and pagination
-        queryset = self.filter_queryset(
-            IncidentReport.objects.filter(reporter=request.user)
-            .select_related('disaster_type', 'location', 'assigned_to', 'verified_by')
-            .order_by('-created_at')
-        )
+#         # Get user's incidents with filtering and pagination
+#         queryset = self.filter_queryset(
+#             IncidentReport.objects.filter(reporter=request.user)
+#             .select_related('disaster_type', 'location', 'assigned_to', 'verified_by')
+#             .order_by('-created_at')
+#         )
         
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+#         page = self.paginate_queryset(queryset)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
-    def assigned_to_me(self, request):
-        """
-        Get incidents assigned to current user (operators/authorities)
-        Endpoint: /incidents/assigned-to-me/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
-            return Response(
-                {'error': 'This endpoint is not available for citizens'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=False, methods=['get'])
+#     def assigned_to_me(self, request):
+#         """
+#         Get incidents assigned to current user (operators/authorities)
+#         Endpoint: /incidents/assigned-to-me/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+#             return Response(
+#                 {'error': 'This endpoint is not available for citizens'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        queryset = self.filter_queryset(
-            IncidentReport.objects.filter(assigned_to=request.user)
-            .select_related('reporter', 'disaster_type', 'location', 'verified_by')
-            .order_by('-created_at')
-        )
+#         queryset = self.filter_queryset(
+#             IncidentReport.objects.filter(assigned_to=request.user)
+#             .select_related('reporter', 'disaster_type', 'location', 'verified_by')
+#             .order_by('-created_at')
+#         )
         
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+#         page = self.paginate_queryset(queryset)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
-    def priority(self, request):
-        """
-        Get high priority incidents (priority 1-2)
-        Endpoint: /incidents/priority/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
-            return Response(
-                {'error': 'This endpoint is not available for citizens'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=False, methods=['get'])
+#     def priority(self, request):
+#         """
+#         Get high priority incidents (priority 1-2)
+#         Endpoint: /incidents/priority/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+#             return Response(
+#                 {'error': 'This endpoint is not available for citizens'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        queryset = self.filter_queryset(
-            self.get_queryset().filter(priority__lte=2, status__in=['submitted', 'under_review', 'verified'])
-        )
+#         queryset = self.filter_queryset(
+#             self.get_queryset().filter(priority__lte=2, status__in=['submitted', 'under_review', 'verified'])
+#         )
         
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+#         page = self.paginate_queryset(queryset)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
-    def recent(self, request):
-        """
-        Get recent incidents (last 24 hours)
-        Endpoint: /incidents/recent/
-        """
-        from datetime import timedelta
+#     @action(detail=False, methods=['get'])
+#     def recent(self, request):
+#         """
+#         Get recent incidents (last 24 hours)
+#         Endpoint: /incidents/recent/
+#         """
+#         from datetime import timedelta
         
-        recent_time = timezone.now() - timedelta(hours=24)
-        queryset = self.filter_queryset(
-            self.get_queryset().filter(created_at__gte=recent_time)
-        )
+#         recent_time = timezone.now() - timedelta(hours=24)
+#         queryset = self.filter_queryset(
+#             self.get_queryset().filter(created_at__gte=recent_time)
+#         )
         
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+#         page = self.paginate_queryset(queryset)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
-    def export(self, request):
-        """
-        Export incidents data (admin/operator only)
-        Endpoint: /incidents/export/?format=csv|xlsx|json
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'operator']:
-            return Response(
-                {'error': 'Export is only available for administrators and operators'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=False, methods=['get'])
+#     def export(self, request):
+#         """
+#         Export incidents data (admin/operator only)
+#         Endpoint: /incidents/export/?format=csv|xlsx|json
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'operator']:
+#             return Response(
+#                 {'error': 'Export is only available for administrators and operators'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        export_format = request.query_params.get('format', 'csv').lower()
+#         export_format = request.query_params.get('format', 'csv').lower()
         
-        if export_format == 'json':
-            # Return JSON data
-            queryset = self.filter_queryset(self.get_queryset())
-            serializer = self.get_serializer(queryset, many=True)
+#         if export_format == 'json':
+#             # Return JSON data
+#             queryset = self.filter_queryset(self.get_queryset())
+#             serializer = self.get_serializer(queryset, many=True)
             
-            response = Response(serializer.data)
-            response['Content-Disposition'] = f'attachment; filename="incidents_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.json"'
-            return response
+#             response = Response(serializer.data)
+#             response['Content-Disposition'] = f'attachment; filename="incidents_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.json"'
+#             return response
         
-        elif export_format in ['csv', 'xlsx']:
-            # For CSV/Excel, you'd typically use a library like pandas or create custom export
-            return Response(
-                {'message': f'{export_format.upper()} export functionality to be implemented'},
-                status=status.HTTP_501_NOT_IMPLEMENTED
-            )
+#         elif export_format in ['csv', 'xlsx']:
+#             # For CSV/Excel, you'd typically use a library like pandas or create custom export
+#             return Response(
+#                 {'message': f'{export_format.upper()} export functionality to be implemented'},
+#                 status=status.HTTP_501_NOT_IMPLEMENTED
+#             )
         
-        else:
-            return Response(
-                {'error': 'Invalid export format. Use: csv, xlsx, or json'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         else:
+#             return Response(
+#                 {'error': 'Invalid export format. Use: csv, xlsx, or json'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-    # ========================================
-    # INCIDENT STATUS MANAGEMENT
-    # ========================================
+#     # ========================================
+#     # INCIDENT STATUS MANAGEMENT
+#     # ========================================
 
-    @action(detail=True, methods=['post'])
-    def assign(self, request, pk=None):
-        """
-        Assign incident to a user
-        Endpoint: /incidents/{id}/assign/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
-            return Response(
-                {'error': 'Only administrators, authorities, and operators can assign incidents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=True, methods=['post'])
+#     def assign(self, request, pk=None):
+#         """
+#         Assign incident to a user
+#         Endpoint: /incidents/{id}/assign/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
+#             return Response(
+#                 {'error': 'Only administrators, authorities, and operators can assign incidents'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        incident = self.get_object()
-        assigned_to_id = request.data.get('assigned_to')
+#         incident = self.get_object()
+#         assigned_to_id = request.data.get('assigned_to')
         
-        if not assigned_to_id:
-            return Response(
-                {'error': 'assigned_to user ID is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if not assigned_to_id:
+#             return Response(
+#                 {'error': 'assigned_to user ID is required'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        try:
-            assigned_user = User.objects.get(id=assigned_to_id)
+#         try:
+#             assigned_user = User.objects.get(id=assigned_to_id)
             
-            # Validate that assigned user can handle incidents
-            if not hasattr(assigned_user, 'user_type') or assigned_user.user_type == 'citizen':
-                return Response(
-                    {'error': 'Cannot assign incidents to citizen users'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+#             # Validate that assigned user can handle incidents
+#             if not hasattr(assigned_user, 'user_type') or assigned_user.user_type == 'citizen':
+#                 return Response(
+#                     {'error': 'Cannot assign incidents to citizen users'}, 
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
             
-            incident.assigned_to = assigned_user
-            incident.status = 'under_review'
-            incident.save()
+#             incident.assigned_to = assigned_user
+#             incident.status = 'under_review'
+#             incident.save()
             
-            serializer = self.get_serializer(incident)
-            return Response(serializer.data)
+#             serializer = self.get_serializer(incident)
+#             return Response(serializer.data)
             
-        except User.DoesNotExist:
-            return Response(
-                {'error': 'Assigned user not found'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         except User.DoesNotExist:
+#             return Response(
+#                 {'error': 'Assigned user not found'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-    @action(detail=True, methods=['post'])
-    def verify(self, request, pk=None):
-        """
-        Verify an incident report
-        Endpoint: /incidents/{id}/verify/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
-            return Response(
-                {'error': 'Only administrators, authorities, and operators can verify incidents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=True, methods=['post'])
+#     def verify(self, request, pk=None):
+#         """
+#         Verify an incident report
+#         Endpoint: /incidents/{id}/verify/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
+#             return Response(
+#                 {'error': 'Only administrators, authorities, and operators can verify incidents'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        incident = self.get_object()
+#         incident = self.get_object()
         
-        if incident.status not in ['submitted', 'under_review']:
-            return Response(
-                {'error': f'Cannot verify incident with status: {incident.status}'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if incident.status not in ['submitted', 'under_review']:
+#             return Response(
+#                 {'error': f'Cannot verify incident with status: {incident.status}'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        incident.status = 'verified'
-        incident.verified_by = request.user
-        incident.save()
+#         incident.status = 'verified'
+#         incident.verified_by = request.user
+#         incident.save()
         
-        serializer = self.get_serializer(incident)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(incident)
+#         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
-    def resolve(self, request, pk=None):
-        """
-        Mark incident as resolved
-        Endpoint: /incidents/{id}/resolve/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
-            return Response(
-                {'error': 'Only administrators, authorities, and operators can resolve incidents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=True, methods=['post'])
+#     def resolve(self, request, pk=None):
+#         """
+#         Mark incident as resolved
+#         Endpoint: /incidents/{id}/resolve/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority', 'operator']:
+#             return Response(
+#                 {'error': 'Only administrators, authorities, and operators can resolve incidents'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        incident = self.get_object()
-        resolution_notes = request.data.get('resolution_notes', '')
+#         incident = self.get_object()
+#         resolution_notes = request.data.get('resolution_notes', '')
         
-        if incident.status not in ['verified', 'under_review']:
-            return Response(
-                {'error': f'Cannot resolve incident with status: {incident.status}'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if incident.status not in ['verified', 'under_review']:
+#             return Response(
+#                 {'error': f'Cannot resolve incident with status: {incident.status}'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        incident.status = 'resolved'
-        incident.resolved_at = timezone.now()
-        incident.resolution_notes = resolution_notes
-        incident.save()
+#         incident.status = 'resolved'
+#         incident.resolved_at = timezone.now()
+#         incident.resolution_notes = resolution_notes
+#         incident.save()
         
-        serializer = self.get_serializer(incident)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(incident)
+#         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
-    def dismiss(self, request, pk=None):
-        """
-        Dismiss an incident report
-        Endpoint: /incidents/{id}/dismiss/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority']:
-            return Response(
-                {'error': 'Only administrators and authorities can dismiss incidents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=True, methods=['post'])
+#     def dismiss(self, request, pk=None):
+#         """
+#         Dismiss an incident report
+#         Endpoint: /incidents/{id}/dismiss/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority']:
+#             return Response(
+#                 {'error': 'Only administrators and authorities can dismiss incidents'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        incident = self.get_object()
-        dismissal_reason = request.data.get('dismissal_reason', '')
+#         incident = self.get_object()
+#         dismissal_reason = request.data.get('dismissal_reason', '')
         
-        if incident.status == 'resolved':
-            return Response(
-                {'error': 'Cannot dismiss a resolved incident'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if incident.status == 'resolved':
+#             return Response(
+#                 {'error': 'Cannot dismiss a resolved incident'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        incident.status = 'dismissed'
-        incident.resolution_notes = f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed by administrator"
-        incident.save()
+#         incident.status = 'dismissed'
+#         incident.resolution_notes = f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed by administrator"
+#         incident.save()
         
-        serializer = self.get_serializer(incident)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(incident)
+#         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
-    def reopen(self, request, pk=None):
-        """
-        Reopen a resolved or dismissed incident
-        Endpoint: /incidents/{id}/reopen/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority']:
-            return Response(
-                {'error': 'Only administrators and authorities can reopen incidents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=True, methods=['post'])
+#     def reopen(self, request, pk=None):
+#         """
+#         Reopen a resolved or dismissed incident
+#         Endpoint: /incidents/{id}/reopen/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'authority']:
+#             return Response(
+#                 {'error': 'Only administrators and authorities can reopen incidents'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        incident = self.get_object()
-        reopen_reason = request.data.get('reopen_reason', '')
+#         incident = self.get_object()
+#         reopen_reason = request.data.get('reopen_reason', '')
         
-        if incident.status not in ['resolved', 'dismissed']:
-            return Response(
-                {'error': f'Cannot reopen incident with status: {incident.status}'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if incident.status not in ['resolved', 'dismissed']:
+#             return Response(
+#                 {'error': f'Cannot reopen incident with status: {incident.status}'}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        incident.status = 'under_review'
-        incident.resolved_at = None
-        incident.resolution_notes = f"Reopened: {reopen_reason}" if reopen_reason else "Reopened by administrator"
-        incident.save()
+#         incident.status = 'under_review'
+#         incident.resolved_at = None
+#         incident.resolution_notes = f"Reopened: {reopen_reason}" if reopen_reason else "Reopened by administrator"
+#         incident.save()
         
-        serializer = self.get_serializer(incident)
-        return Response(serializer.data)
+#         serializer = self.get_serializer(incident)
+#         return Response(serializer.data)
 
-    # ========================================
-    # STATISTICS AND REPORTING
-    # ========================================
+#     # ========================================
+#     # STATISTICS AND REPORTING
+#     # ========================================
 
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        """
-        Get incident statistics
-        Endpoint: /incidents/stats/
-        """
-        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
-            return Response(
-                {'error': 'Statistics are not available for citizens'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     @action(detail=False, methods=['get'])
+#     def stats(self, request):
+#         """
+#         Get incident statistics
+#         Endpoint: /incidents/stats/
+#         """
+#         if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+#             return Response(
+#                 {'error': 'Statistics are not available for citizens'}, 
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        queryset = self.get_queryset()
+#         queryset = self.get_queryset()
         
-        # Count by status
-        status_counts = {}
-        for status_choice in IncidentReport.STATUS_CHOICES:
-            status_value = status_choice[0]
-            status_counts[status_value] = queryset.filter(status=status_value).count()
+#         # Count by status
+#         status_counts = {}
+#         for status_choice in IncidentReport.STATUS_CHOICES:
+#             status_value = status_choice[0]
+#             status_counts[status_value] = queryset.filter(status=status_value).count()
         
-        # Count by report type
-        type_counts = {}
-        for type_choice in IncidentReport.REPORT_TYPES:
-            type_value = type_choice[0]
-            type_counts[type_value] = queryset.filter(report_type=type_value).count()
+#         # Count by report type
+#         type_counts = {}
+#         for type_choice in IncidentReport.REPORT_TYPES:
+#             type_value = type_choice[0]
+#             type_counts[type_value] = queryset.filter(report_type=type_value).count()
         
-        # Recent activity (last 7 days)
-        from datetime import timedelta
-        recent_time = timezone.now() - timedelta(days=7)
-        recent_count = queryset.filter(created_at__gte=recent_time).count()
+#         # Recent activity (last 7 days)
+#         from datetime import timedelta
+#         recent_time = timezone.now() - timedelta(days=7)
+#         recent_count = queryset.filter(created_at__gte=recent_time).count()
         
-        stats = {
-            'total_incidents': queryset.count(),
-            'status_breakdown': status_counts,
-            'type_breakdown': type_counts,
-            'recent_incidents_7_days': recent_count,
-            'high_priority_open': queryset.filter(
-                priority__lte=2, 
-                status__in=['submitted', 'under_review', 'verified']
-            ).count(),
-            'unassigned_incidents': queryset.filter(
-                assigned_to__isnull=True, 
-                status__in=['submitted', 'under_review']
-            ).count()
-        }
+#         stats = {
+#             'total_incidents': queryset.count(),
+#             'status_breakdown': status_counts,
+#             'type_breakdown': type_counts,
+#             'recent_incidents_7_days': recent_count,
+#             'high_priority_open': queryset.filter(
+#                 priority__lte=2, 
+#                 status__in=['submitted', 'under_review', 'verified']
+#             ).count(),
+#             'unassigned_incidents': queryset.filter(
+#                 assigned_to__isnull=True, 
+#                 status__in=['submitted', 'under_review']
+#             ).count()
+#         }
         
-        return Response(stats)
+#         return Response(stats)
 # class IncidentReportViewSet(viewsets.ModelViewSet):
 #     """ViewSet for incident reports"""
 #     queryset = IncidentReport.objects.all()
@@ -1113,7 +1113,639 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 #         serializer = self.get_serializer(incident)
 #         return Response(serializer.data)
 
+class IncidentReportViewSet(viewsets.ModelViewSet):
+    """ViewSet for incident reports with full CRUD operations"""
+    queryset = IncidentReport.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    media_files = serializers.SerializerMethodField()
+    filterset_fields = ['report_type', 'disaster_type', 'status', 'priority', 'location', 'current_level']
+    search_fields = ['title', 'description', 'address']
+    ordering_fields = ['created_at', 'priority', 'status', 'updated_at']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return IncidentReportCreateSerializer
+        elif self.action == 'list':
+            return IncidentReportListSerializer
+        return IncidentReportSerializer
+    def get_media_files(self, obj):
+        request = self.context.get('request')
+        media = obj.media_files.all()
+        return IncidentMediaSerializer(media, many=True, context={'request': request}).data
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action == 'create':
+            # Anyone authenticated can create incidents
+            permission_classes = [permissions.IsAuthenticated]
+        elif self.action in ['list', 'retrieve']:
+            # Anyone authenticated can view incidents (filtered by get_queryset)
+            permission_classes = [permissions.IsAuthenticated]
+        elif self.action in ['update', 'partial_update']:
+            # Citizens can edit their own, admins can edit any
+            permission_classes = [permissions.IsAuthenticated]
+        elif self.action in ['destroy']:
+            # Only admins can delete
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            # Custom actions require authentication
+            permission_classes = [permissions.IsAuthenticated]
+        
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        """
+        Filter queryset based on user type and permissions
+        """
+        queryset = IncidentReport.objects.select_related(
+            'reporter', 'disaster_type', 'location', 'assigned_to'
+        ).prefetch_related(
+            Prefetch('level_responses', queryset=IncidentLevelResponse.objects.select_related('responder')),
+            'media_files'
+        ).order_by('-created_at')
+        
+        user = self.request.user
+        
+        # Citizens can only see their own incidents
+        if hasattr(user, 'user_type') and user.user_type == 'citizen':
+            return queryset.filter(reporter=user)
+        
+        # Admin can see all incidents
+        if hasattr(user, 'user_type') and user.user_type == 'admin':
+            return queryset
+        
+        # Level-based users see incidents at their level or below
+        if hasattr(user, 'user_type') and user.user_type in ['village', 'sector', 'district', 'province', 'national']:
+            # Get level hierarchy
+            level_order = ['village', 'sector', 'district', 'province', 'national']
+            user_level_index = level_order.index(user.user_type)
+            accessible_levels = level_order[:user_level_index + 1]
+            
+            return queryset.filter(current_level__in=accessible_levels)
+        
+        return queryset
 
+    def perform_create(self, serializer):
+        """Set the reporter to the current user when creating an incident"""
+        serializer.save(reporter=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Handle update permissions - citizens can only edit their own submitted incidents"""
+        instance = self.get_object()
+        user = self.request.user
+        
+        # Citizens can only edit their own incidents that haven't been processed
+        if (hasattr(user, 'user_type') and user.user_type == 'citizen' and
+            (instance.reporter != user or instance.status != 'submitted')):
+            raise PermissionError("Citizens can only edit their own unprocessed incidents")
+        
+        serializer.save()
+
+    # ========================================
+    # CUSTOM ACTION ENDPOINTS
+    # ========================================
+
+    @action(detail=False, methods=['get'])
+    def my_reports(self, request):
+        """
+        Get current user's incident reports (citizens only)
+        Endpoint: /incidents/my-reports/
+        """
+        if not hasattr(request.user, 'user_type') or request.user.user_type != 'citizen':
+            return Response(
+                {'error': 'This endpoint is only available for citizens'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.filter_queryset(
+            IncidentReport.objects.filter(reporter=request.user)
+            .select_related('disaster_type', 'location', 'assigned_to')
+            .prefetch_related('level_responses', 'media_files')
+            .order_by('-created_at')
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def assigned_to_me(self, request):
+        """
+        Get incidents assigned to current user (administrative users)
+        Endpoint: /incidents/assigned-to-me/
+        """
+        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+            return Response(
+                {'error': 'This endpoint is not available for citizens'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.filter_queryset(
+            IncidentReport.objects.filter(assigned_to=request.user)
+            .select_related('reporter', 'disaster_type', 'location')
+            .prefetch_related('level_responses', 'media_files')
+            .order_by('-created_at')
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def my_level(self, request):
+        """
+        Get incidents at current user's administrative level
+        Endpoint: /incidents/my-level/
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type in ['citizen', 'admin']:
+            return Response(
+                {'error': 'This endpoint is only for level-based administrative users'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(current_level=user.user_type)
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def needs_escalation(self, request):
+        """
+        Get incidents flagged for escalation at current user's level
+        Endpoint: /incidents/needs-escalation/
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type in ['citizen', 'admin']:
+            return Response(
+                {'error': 'This endpoint is only for level-based administrative users'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                current_level=user.user_type,
+                needs_escalation=True
+            )
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def priority(self, request):
+        """
+        Get high priority incidents (priority 1-2)
+        Endpoint: /incidents/priority/
+        """
+        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+            return Response(
+                {'error': 'This endpoint is not available for citizens'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                priority__lte=2, 
+                status__in=['submitted', 'under_review', 'in_progress', 'escalated']
+            )
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """
+        Get recent incidents (last 24 hours)
+        Endpoint: /incidents/recent/
+        """
+        from datetime import timedelta
+        
+        recent_time = timezone.now() - timedelta(hours=24)
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(created_at__gte=recent_time)
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = IncidentReportListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = IncidentReportListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    # ========================================
+    # HIERARCHICAL RESPONSE MANAGEMENT
+    # ========================================
+
+    @action(detail=True, methods=['post'])
+    def add_response(self, request, pk=None):
+        """
+        Add a level response to document actions taken
+        Endpoint: /incidents/{id}/add-response/
+        Body: {
+            "action_type": "action_taken",
+            "notes": "Deployed emergency team...",
+            "resources_deployed": "5 volunteers, medical kit",
+            "outcome": "Casualties stabilized",
+            "escalation_needed": false,
+            "escalation_reason": ""
+        }
+        """
+        incident = self.get_object()
+        
+        serializer = IncidentLevelResponseCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save(incident=incident)
+            
+            # Return updated incident
+            incident_serializer = IncidentReportSerializer(incident)
+            return Response({
+                'message': 'Response recorded successfully',
+                'incident': incident_serializer.data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def escalate(self, request, pk=None):
+        """
+        Escalate incident to next administrative level
+        Endpoint: /incidents/{id}/escalate/
+        Body: {
+            "reason": "Medical resources beyond village capacity"
+        }
+        """
+        incident = self.get_object()
+        user = request.user
+        
+        # Verify user is at current handling level
+        if not hasattr(user, 'user_type') or user.user_type != incident.current_level:
+            return Response(
+                {'error': f'Only {incident.get_current_level_display()} level users can escalate this incident'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = IncidentEscalateSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            try:
+                incident.escalate_to_next_level(
+                    escalated_by=user,
+                    reason=serializer.validated_data['reason']
+                )
+                
+                # Return updated incident
+                incident_serializer = IncidentReportSerializer(incident)
+                return Response({
+                    'message': f'Incident escalated to {incident.get_current_level_display()}',
+                    'incident': incident_serializer.data
+                })
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def response_history(self, request, pk=None):
+        """
+        Get complete response history across all levels
+        Endpoint: /incidents/{id}/response-history/
+        """
+        incident = self.get_object()
+        
+        responses = incident.level_responses.select_related('responder').all()
+        serializer = IncidentLevelResponseSerializer(responses, many=True)
+        
+        return Response({
+            'incident_id': str(incident.id),
+            'incident_title': incident.title,
+            'current_level': incident.current_level,
+            'current_level_display': incident.get_current_level_display(),
+            'status': incident.status,
+            'responses': serializer.data
+        })
+
+    @action(detail=True, methods=['post'])
+    def upload_media(self, request, pk=None):
+        """
+        Upload additional media files to incident
+        Endpoint: /incidents/{id}/upload-media/
+        """
+        incident = self.get_object()
+        
+        serializer = IncidentMediaUploadSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save(incident=incident)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ========================================
+    # INCIDENT STATUS MANAGEMENT
+    # ========================================
+
+    @action(detail=True, methods=['post'])
+    def assign(self, request, pk=None):
+        """
+        Assign incident to a user at current level
+        Endpoint: /incidents/{id}/assign/
+        Body: {
+            "assigned_to": "uuid-of-user"
+        }
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type in ['citizen']:
+            return Response(
+                {'error': 'Only administrative users can assign incidents'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        incident = self.get_object()
+        
+        serializer = IncidentAssignSerializer(
+            data=request.data,
+            context={'incident': incident}
+        )
+        
+        if serializer.is_valid():
+            try:
+                assigned_user = User.objects.get(id=serializer.validated_data['assigned_to'])
+                
+                # Validate user is at current incident level
+                if assigned_user.user_type != incident.current_level:
+                    return Response(
+                        {'error': f'User must be at {incident.get_current_level_display()} level'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                incident.assigned_to = assigned_user
+                if incident.status == 'submitted':
+                    incident.status = 'under_review'
+                incident.save()
+                
+                incident_serializer = IncidentReportSerializer(incident)
+                return Response(incident_serializer.data)
+                
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Assigned user not found'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def update_status(self, request, pk=None):
+        """
+        Update incident status
+        Endpoint: /incidents/{id}/update-status/
+        Body: {
+            "status": "resolved",
+            "resolution_notes": "Issue has been addressed"
+        }
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type == 'citizen':
+            return Response(
+                {'error': 'Only administrative users can update incident status'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        incident = self.get_object()
+        
+        serializer = IncidentUpdateStatusSerializer(
+            incident,
+            data=request.data,
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            
+            incident_serializer = IncidentReportSerializer(incident)
+            return Response(incident_serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """
+        Mark incident as resolved
+        Endpoint: /incidents/{id}/resolve/
+        Body: {
+            "resolution_notes": "All actions completed successfully"
+        }
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type == 'citizen':
+            return Response(
+                {'error': 'Only administrative users can resolve incidents'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        incident = self.get_object()
+        resolution_notes = request.data.get('resolution_notes', '')
+        
+        if incident.status == 'resolved':
+            return Response(
+                {'error': 'Incident is already resolved'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create final response record
+        IncidentLevelResponse.objects.create(
+            incident=incident,
+            responder=user,
+            admin_level=user.user_type,
+            action_type='resolved',
+            notes=resolution_notes or 'Incident marked as resolved'
+        )
+        
+        incident.status = 'resolved'
+        incident.resolved_at = timezone.now()
+        incident.resolution_notes = resolution_notes
+        incident.save()
+        
+        incident_serializer = IncidentReportSerializer(incident)
+        return Response(incident_serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def dismiss(self, request, pk=None):
+        """
+        Dismiss an incident report
+        Endpoint: /incidents/{id}/dismiss/
+        Body: {
+            "dismissal_reason": "Duplicate report"
+        }
+        """
+        user = request.user
+        
+        if not hasattr(user, 'user_type') or user.user_type not in ['admin', 'national', 'province']:
+            return Response(
+                {'error': 'Only senior administrators can dismiss incidents'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        incident = self.get_object()
+        dismissal_reason = request.data.get('dismissal_reason', '')
+        
+        if incident.status == 'resolved':
+            return Response(
+                {'error': 'Cannot dismiss a resolved incident'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create dismissal record
+        IncidentLevelResponse.objects.create(
+            incident=incident,
+            responder=user,
+            admin_level=user.user_type,
+            action_type='closed',
+            notes=f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed"
+        )
+        
+        incident.status = 'dismissed'
+        incident.resolution_notes = f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed by administrator"
+        incident.save()
+        
+        incident_serializer = IncidentReportSerializer(incident)
+        return Response(incident_serializer.data)
+
+    # ========================================
+    # STATISTICS AND REPORTING
+    # ========================================
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Get incident statistics
+        Endpoint: /incidents/stats/
+        """
+        if not hasattr(request.user, 'user_type') or request.user.user_type == 'citizen':
+            return Response(
+                {'error': 'Statistics are not available for citizens'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.get_queryset()
+        
+        # Count by status
+        status_counts = {}
+        for status_choice in IncidentReport.STATUS_CHOICES:
+            status_value = status_choice[0]
+            status_counts[status_value] = queryset.filter(status=status_value).count()
+        
+        # Count by report type
+        type_counts = {}
+        for type_choice in IncidentReport.REPORT_TYPES:
+            type_value = type_choice[0]
+            type_counts[type_value] = queryset.filter(report_type=type_value).count()
+        
+        # Count by current level
+        level_counts = {}
+        for level_choice in IncidentReport.ADMIN_LEVELS:
+            level_value = level_choice[0]
+            level_counts[level_value] = queryset.filter(current_level=level_value).count()
+        
+        # Recent activity (last 7 days)
+        from datetime import timedelta
+        recent_time = timezone.now() - timedelta(days=7)
+        recent_count = queryset.filter(created_at__gte=recent_time).count()
+        
+        stats = {
+            'total_incidents': queryset.count(),
+            'status_breakdown': status_counts,
+            'type_breakdown': type_counts,
+            'level_breakdown': level_counts,
+            'recent_incidents_7_days': recent_count,
+            'high_priority_open': queryset.filter(
+                priority__lte=2, 
+                status__in=['submitted', 'under_review', 'in_progress', 'escalated']
+            ).count(),
+            'needs_escalation': queryset.filter(needs_escalation=True).count(),
+            'unassigned_incidents': queryset.filter(
+                assigned_to__isnull=True, 
+                status__in=['submitted', 'under_review']
+            ).count()
+        }
+        
+        return Response(stats)
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """
+        Export incidents data (admin only)
+        Endpoint: /incidents/export/?format=csv|xlsx|json
+        """
+        if not hasattr(request.user, 'user_type') or request.user.user_type not in ['admin', 'national']:
+            return Response(
+                {'error': 'Export is only available for administrators'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        export_format = request.query_params.get('format', 'json').lower()
+        
+        if export_format == 'json':
+            queryset = self.filter_queryset(self.get_queryset())
+            serializer = IncidentReportSerializer(queryset, many=True)
+            
+            response = Response(serializer.data)
+            response['Content-Disposition'] = f'attachment; filename="incidents_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.json"'
+            return response
+        
+        elif export_format in ['csv', 'xlsx']:
+            return Response(
+                {'message': f'{export_format.upper()} export functionality to be implemented'},
+                status=status.HTTP_501_NOT_IMPLEMENTED
+            )
+        
+        else:
+            return Response(
+                {'error': 'Invalid export format. Use: csv, xlsx, or json'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 class EmergencyContactViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for emergency contacts - read-only"""
     queryset = EmergencyContact.objects.filter(is_active=True)

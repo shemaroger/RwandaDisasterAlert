@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx - Updated for Hierarchical Escalation System
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -13,7 +13,6 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 
 // Dashboard pages
 import CitizenDashboard from './pages/dashboard/CitizenDashboard';
-import OperatorDashboard from './pages/dashboard/OperatorDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import Home from './pages/Home';
 import UserManagement from './pages/UserManagement';
@@ -154,7 +153,19 @@ function AppRoutes() {
       <Route path="/emergency-guide" element={<EmergencyGuide />} />
       <Route path="/emergency-contacts" element={<EmergencyContacts />} />
 
-      {/* User Management Routes */}
+      {/* ==================== ADMIN ROUTES ==================== */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute requiredUserType="admin">
+            <AppLayout>
+              <AdminDashboard />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* User Management Routes - Admin Only */}
       <Route 
         path="/users" 
         element={
@@ -176,46 +187,75 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      
+
       <Route 
-        path="/admin/disaster-types" 
+        path="/user/management" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredUserType="admin">
             <AppLayout>
-              <DisasterTypes />
+              <UserManagementWrapper />
             </AppLayout>
           </ProtectedRoute>
-        }
+        } 
       />
+
+      {/* ==================== HIERARCHICAL LEVEL DASHBOARDS ==================== */}
       
+      {/* Village Level Dashboard */}
       <Route
-        path="/admin/alerts"
+        path="/village/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredUserType="village">
             <AppLayout>
-              <AlertsManagement />
+              <AdminDashboard /> {/* Can create separate VillageDashboard later */}
             </AppLayout>
           </ProtectedRoute>
         }
       />
 
+      {/* Sector Level Dashboard */}
       <Route
-        path="/admin/alerts/create"
+        path="/sector/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredUserType="sector">
             <AppLayout>
-              <CreateAlert />
+              <AdminDashboard /> {/* Can create separate SectorDashboard later */}
             </AppLayout>
           </ProtectedRoute>
         }
       />
 
+      {/* District Level Dashboard */}
       <Route
-        path="/admin/alerts/edit/:id"
+        path="/district/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredUserType="district">
             <AppLayout>
-              <EditAlert />
+              <AdminDashboard /> {/* Can create separate DistrictDashboard later */}
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Province Level Dashboard */}
+      <Route
+        path="/province/dashboard"
+        element={
+          <ProtectedRoute requiredUserType="province">
+            <AppLayout>
+              <AdminDashboard /> {/* Can create separate ProvinceDashboard later */}
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* National Level Dashboard */}
+      <Route
+        path="/national/dashboard"
+        element={
+          <ProtectedRoute requiredUserType="national">
+            <AppLayout>
+              <AdminDashboard /> {/* Can create separate NationalDashboard later */}
             </AppLayout>
           </ProtectedRoute>
         }
@@ -244,27 +284,195 @@ function AppRoutes() {
         }
       />
 
-      {/* ==================== OPERATOR ROUTES ==================== */}
       <Route
-        path="/operator/dashboard"
+        path="/citizen/my-report"
         element={
-          <ProtectedRoute requiredUserType="operator">
+          <ProtectedRoute requiredUserType="citizen">
             <AppLayout>
-              <OperatorDashboard />
+              <CitizenReportPage />
             </AppLayout>
           </ProtectedRoute>
         }
       />
 
-      {/* ==================== ADMIN ROUTES ==================== */}
-      <Route
-        path="/admin/dashboard"
+      {/* ==================== DISASTER TYPES & ALERTS ==================== */}
+      
+      <Route 
+        path="/admin/disaster-types" 
         element={
-          <ProtectedRoute requiredUserType="admin">
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
-              <AdminDashboard />
+              <DisasterTypes />
             </AppLayout>
           </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/admin/alerts"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <AlertsManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/alerts/create"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <CreateAlert />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/alerts/edit/:id"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <EditAlert />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/alerts"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <AlertsManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/alerts/create"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <CreateAlert />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ==================== INCIDENT MANAGEMENT ROUTES ==================== */}
+      
+      {/* General incidents route */}
+      <Route
+        path="/incidents"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <IncidentsManagement />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Citizen Incident Routes */}
+      <Route
+        path="/incidents/citizen/reports"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <AppLayout>
+              <CitizenIncidentReport />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/citizen/my-reports"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <AppLayout>
+              <IncidentListPage citizenView={true} />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/citizen/:id/view"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <AppLayout>
+              <IncidentDetailPage citizenView={true} />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/citizen/:id/edit"
+        element={
+          <ProtectedRoute requiredUserType="citizen">
+            <AppLayout>
+              <IncidentEditPage citizenView={true} />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin/Hierarchical Level Incident Routes */}
+      <Route
+        path="/incidents/admin/list"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "village", "sector", "district", "province", "national"]}>
+            <AppLayout>
+              <IncidentListPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/admin/:id/view"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "village", "sector", "district", "province", "national"]}>
+            <AppLayout>
+              <IncidentDetailPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/admin/:id/edit"
+        element={
+          <ProtectedRoute requiredUserTypes={["admin", "village", "sector", "district", "province", "national"]}>
+            <AppLayout>
+              <IncidentEditPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/incidents/export"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <IncidentExportPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/report-incident"
+        element={
+          <AppLayout>
+            <CitizenIncidentReport />
+          </AppLayout>
         }
       />
 
@@ -302,152 +510,12 @@ function AppRoutes() {
         }
       />
 
-      {/* ==================== RWANDADISASTERALERT SPECIFIC ROUTES ==================== */}
+      {/* ==================== LOCATION MANAGEMENT ==================== */}
       
-      <Route
-        path="/alerts"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <AppLayout>
-              <div>Alert Management Coming Soon</div>
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/alerts/create"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
-            <AppLayout>
-              <div>Create Alert Coming Soon</div>
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Incident Management Routes */}
-      <Route
-        path="/incidents"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <IncidentsManagement />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/citizen/reports"
-        element={
-          <ProtectedRoute requiredUserType="citizen">
-            <AppLayout>
-              <CitizenIncidentReport />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-<Route
-  path="/citizen/my-report"
-  element={
-    <ProtectedRoute requiredUserType="citizen">
-      <AppLayout>
-        <CitizenReportPage />
-      </AppLayout>
-    </ProtectedRoute>
-  }
-/>
-      <Route
-        path="/incidents/citizen/my-reports"
-        element={
-          <ProtectedRoute requiredUserType="citizen">
-            <AppLayout>
-              <IncidentListPage citizenView={true} />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/citizen/:id/view"
-        element={
-          <ProtectedRoute requiredUserType="citizen">
-            <AppLayout>
-              <IncidentDetailPage citizenView={true} />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/citizen/:id/edit"
-        element={
-          <ProtectedRoute requiredUserType="citizen">
-            <AppLayout>
-              <IncidentEditPage citizenView={true} />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/admin/list"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <AppLayout>
-              <IncidentListPage />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/admin/:id/view"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <AppLayout>
-              <IncidentDetailPage />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/admin/:id/edit"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator", "authority"]}>
-            <AppLayout>
-              <IncidentEditPage />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/incidents/export"
-        element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
-            <AppLayout>
-              <IncidentExportPage />
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/report-incident"
-        element={
-          <AppLayout>
-            <CitizenIncidentReport />
-          </AppLayout>
-        }
-      />
-
       <Route
         path="/locations"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <LocationManagement />
             </AppLayout>
@@ -466,11 +534,13 @@ function AppRoutes() {
         }
       />
 
-      {/* Safety Guide Admin Routes */}
+      {/* ==================== SAFETY GUIDE ROUTES ==================== */}
+      
+      {/* Admin Safety Guide Routes */}
       <Route
         path="/safety-guides"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireLevelOrHigher="sector">
             <AppLayout>
               <SafetyGuideList />
             </AppLayout>
@@ -481,7 +551,7 @@ function AppRoutes() {
       <Route
         path="/safety-guides/admin/create"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
               <CreateSafetyGuide />
             </AppLayout>
@@ -492,7 +562,7 @@ function AppRoutes() {
       <Route
         path="/safety-guides/admin/:id/edit"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
               <EditSafetyGuide />
             </AppLayout>
@@ -503,7 +573,7 @@ function AppRoutes() {
       <Route
         path="/safety-guides/admin/:id/view"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireLevelOrHigher="sector">
             <AppLayout>
               <ViewSafetyGuide />
             </AppLayout>
@@ -511,7 +581,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Public safety guide routes with full-width layout */}
+      {/* Public safety guide routes */}
       <Route
         path="/safety-guides/public"
         element={
@@ -530,10 +600,12 @@ function AppRoutes() {
         }
       />
 
+      {/* ==================== ALERT DELIVERIES & ANALYTICS ==================== */}
+      
       <Route
         path="/admin/deliveries"
         element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
               <AlertDeliveries />
             </AppLayout>
@@ -544,7 +616,7 @@ function AppRoutes() {
       <Route
         path="/deliveries"
         element={
-          <ProtectedRoute requiredUserTypes={["admin", "operator"]}>
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
               <AlertDeliveries />
             </AppLayout>
@@ -553,20 +625,20 @@ function AppRoutes() {
       />
 
       <Route
-  path="/analytics"
-  element={
-    <ProtectedRoute requiredUserTypes={["admin"]}>
-      <AppLayout>
-        <DisasterAnalyticsReport />
-      </AppLayout>
-    </ProtectedRoute>
-  }
-/>
+        path="/analytics"
+        element={
+          <ProtectedRoute requireLevelOrHigher="district">
+            <AppLayout>
+              <DisasterAnalyticsReport />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/notification-templates"
         element={
-          <ProtectedRoute requiredUserTypes={["admin", "authority"]}>
+          <ProtectedRoute requireLevelOrHigher="district">
             <AppLayout>
               <div>Notification Templates Coming Soon</div>
             </AppLayout>
@@ -574,6 +646,8 @@ function AppRoutes() {
         }
       />
 
+      {/* ==================== CITIZEN ALERT RESPONSES ==================== */}
+      
       <Route
         path="/alerts/my-responses"
         element={
@@ -597,6 +671,7 @@ function AppRoutes() {
       />
 
       {/* ==================== ADMIN-ONLY SYSTEM ROUTES ==================== */}
+      
       <Route
         path="/admin/settings"
         element={
@@ -631,6 +706,7 @@ function AppRoutes() {
       />
 
       {/* ==================== PROFILE & SETTINGS ROUTES ==================== */}
+      
       <Route
         path="/profile"
         element={
@@ -653,17 +729,8 @@ function AppRoutes() {
         }
       />
 
-      <Route 
-        path="/user/management" 
-        element={
-          <ProtectedRoute requiredUserType="admin">
-            <AppLayout>
-              <UserManagementWrapper />
-            </AppLayout>
-          </ProtectedRoute>
-        } 
-      />
-
+      {/* ==================== CHAT ROUTES ==================== */}
+      
       <Route
         path="/chat"
         element={
@@ -698,6 +765,7 @@ function AppRoutes() {
       />
 
       {/* ==================== ERROR ROUTES ==================== */}
+      
       <Route path="/unauthorized" element={<Unauthorized />} />
 
       <Route
