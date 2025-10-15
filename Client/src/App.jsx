@@ -11,9 +11,15 @@ import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 
-// Dashboard pages
+// Dashboard pages - All Hierarchical Levels
 import CitizenDashboard from './pages/dashboard/CitizenDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
+import VillageDashboard from './pages/dashboard/VillageDashboard';
+import SectorDashboard from './pages/dashboard/SectorDashboard';
+import DistrictDashboard from './pages/dashboard/DistrictDashboard';
+import ProvinceDashboard from './pages/dashboard/ProvinceDashboard';
+import NationalDashboard from './pages/dashboard/NationalDashboard';
+
 import Home from './pages/Home';
 import UserManagement from './pages/UserManagement';
 
@@ -207,7 +213,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="village">
             <AppLayout>
-              <AdminDashboard /> {/* Can create separate VillageDashboard later */}
+              <VillageDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -219,7 +225,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="sector">
             <AppLayout>
-              <AdminDashboard /> {/* Can create separate SectorDashboard later */}
+              <SectorDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -231,7 +237,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="district">
             <AppLayout>
-              <AdminDashboard /> {/* Can create separate DistrictDashboard later */}
+              <DistrictDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -243,7 +249,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="province">
             <AppLayout>
-              <AdminDashboard /> {/* Can create separate ProvinceDashboard later */}
+              <ProvinceDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -255,7 +261,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredUserType="national">
             <AppLayout>
-              <AdminDashboard /> {/* Can create separate NationalDashboard later */}
+              <NationalDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
