@@ -1,4 +1,4 @@
-// components/Sidebar.jsx - Complete Version with Incident Access for All Levels
+// components/Sidebar.jsx - Complete with Incident Creation & Escalation Tracking
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -6,7 +6,7 @@ import {
   Radio, Eye, BarChart3, Clock, Globe, MessageSquare, Home,
   X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart,
   List, Plus, Download, Edit, BookOpenCheck, Building, Layers, Map, Target, 
-  CheckCircle, ArrowUp
+  CheckCircle, ArrowUp, Send, Search, Filter
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -32,14 +32,6 @@ const Sidebar = ({
   const handleNavigation = (path) => {
     navigate(path);
     if (isMobile || isTablet) setSidebarOpen(false);
-  };
-
-  const handleQuickAction = (actionType) => {
-    if (onQuickAction) {
-      onQuickAction(actionType);
-    } else {
-      navigate('/admin/alerts', { state: { alertType: actionType } });
-    }
   };
 
   // Get user level info
@@ -90,9 +82,6 @@ const Sidebar = ({
     if (path.includes('/deliveries')) return 'deliveries';
     if (path.includes('/analytics')) return 'analytics';
     if (path.includes('/settings') || path.includes('/admin/settings')) return 'settings';
-    if (path.includes('/audit')) return 'audit';
-    if (path.includes('/templates') || path.includes('/notification-templates')) return 'templates';
-    if (path.includes('/profile')) return 'profile';
     if (path.includes('/admin/disaster-types')) return 'disaster-types';
     return 'dashboard';
   };
@@ -175,7 +164,15 @@ const Sidebar = ({
           description: 'Village overview & statistics'
         },
         {
-          name: 'All Incidents',
+          name: 'Report Incident',
+          id: 'report-incident',
+          path: '/incidents/citizen/reports',
+          icon: Plus,
+          description: 'Create new incident report',
+          badge: 'New'
+        },
+        {
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -183,7 +180,7 @@ const Sidebar = ({
           badge: 'Staff',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All village incidents'
@@ -195,19 +192,30 @@ const Sidebar = ({
               description: 'Awaiting verification'
             },
             {
+              name: 'In Progress',
+              path: '/incidents/admin/list?status=in_progress',
+              icon: Activity,
+              description: 'Currently handling'
+            },
+            {
+              name: 'Escalated',
+              path: '/incidents/admin/list?escalated=true',
+              icon: ArrowUp,
+              description: `Sent to ${escalationTarget}`
+            },
+            {
+              name: 'Track Escalated',
+              path: '/incidents/admin/list?escalated=true&track=true',
+              icon: Search,
+              description: 'Monitor escalated incidents'
+            },
+            {
               name: 'Resolved',
               path: '/incidents/admin/list?status=resolved',
               icon: CheckCircle,
               description: 'Completed incidents'
             }
           ]
-        },
-        {
-          name: 'Report Incident',
-          id: 'report-incident',
-          path: '/incidents/citizen/reports',
-          icon: Plus,
-          description: 'Report new incident'
         },
         {
           name: 'Safety Guides',
@@ -244,7 +252,15 @@ const Sidebar = ({
           description: 'Sector overview & analytics'
         },
         {
-          name: 'All Incidents',
+          name: 'Report Incident',
+          id: 'report-incident',
+          path: '/incidents/citizen/reports',
+          icon: Plus,
+          description: 'Create new incident report',
+          badge: 'New'
+        },
+        {
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -252,7 +268,7 @@ const Sidebar = ({
           badge: 'Staff',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All sector incidents'
@@ -264,10 +280,28 @@ const Sidebar = ({
               description: 'Awaiting verification'
             },
             {
+              name: 'In Progress',
+              path: '/incidents/admin/list?status=in_progress',
+              icon: Activity,
+              description: 'Currently handling'
+            },
+            {
               name: 'From Villages',
               path: '/incidents/admin/list?escalated_from=village',
               icon: ArrowUp,
               description: 'Escalated from villages'
+            },
+            {
+              name: 'My Escalations',
+              path: '/incidents/admin/list?escalated_by=me',
+              icon: Send,
+              description: `Sent to ${escalationTarget}`
+            },
+            {
+              name: 'Track Escalated',
+              path: '/incidents/admin/list?escalated=true&track=true',
+              icon: Search,
+              description: 'Monitor escalated incidents'
             },
             {
               name: 'Resolved',
@@ -276,13 +310,6 @@ const Sidebar = ({
               description: 'Completed incidents'
             }
           ]
-        },
-        {
-          name: 'Report Incident',
-          id: 'report-incident',
-          path: '/incidents/citizen/reports',
-          icon: Plus,
-          description: 'Report new incident'
         },
         {
           name: 'Safety Guides',
@@ -319,7 +346,15 @@ const Sidebar = ({
           description: 'District command center'
         },
         {
-          name: 'All Incidents',
+          name: 'Report Incident',
+          id: 'report-incident',
+          path: '/incidents/citizen/reports',
+          icon: Plus,
+          description: 'Create new incident report',
+          badge: 'New'
+        },
+        {
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -327,7 +362,7 @@ const Sidebar = ({
           badge: 'Staff',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All district incidents'
@@ -345,10 +380,28 @@ const Sidebar = ({
               description: 'Awaiting verification'
             },
             {
+              name: 'In Progress',
+              path: '/incidents/admin/list?status=in_progress',
+              icon: Activity,
+              description: 'Currently handling'
+            },
+            {
               name: 'From Sectors',
               path: '/incidents/admin/list?escalated_from=sector',
               icon: ArrowUp,
               description: 'Escalated from sectors'
+            },
+            {
+              name: 'My Escalations',
+              path: '/incidents/admin/list?escalated_by=me',
+              icon: Send,
+              description: `Sent to ${escalationTarget}`
+            },
+            {
+              name: 'Track Escalated',
+              path: '/incidents/admin/list?escalated=true&track=true',
+              icon: Search,
+              description: 'Monitor escalated incidents'
             },
             {
               name: 'Resolved',
@@ -423,7 +476,15 @@ const Sidebar = ({
           description: 'Province command center'
         },
         {
-          name: 'All Incidents',
+          name: 'Report Incident',
+          id: 'report-incident',
+          path: '/incidents/citizen/reports',
+          icon: Plus,
+          description: 'Create new incident report',
+          badge: 'New'
+        },
+        {
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -431,7 +492,7 @@ const Sidebar = ({
           badge: 'Staff',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All province incidents'
@@ -445,7 +506,7 @@ const Sidebar = ({
             {
               name: 'High Priority',
               path: '/incidents/admin/list?priority=2',
-              icon: AlertCircle,
+              icon: AlertTriangle,
               description: 'High priority incidents'
             },
             {
@@ -455,10 +516,28 @@ const Sidebar = ({
               description: 'Awaiting verification'
             },
             {
+              name: 'In Progress',
+              path: '/incidents/admin/list?status=in_progress',
+              icon: Activity,
+              description: 'Currently handling'
+            },
+            {
               name: 'From Districts',
               path: '/incidents/admin/list?escalated_from=district',
               icon: ArrowUp,
               description: 'Escalated from districts'
+            },
+            {
+              name: 'My Escalations',
+              path: '/incidents/admin/list?escalated_by=me',
+              icon: Send,
+              description: `Sent to ${escalationTarget}`
+            },
+            {
+              name: 'Track Escalated',
+              path: '/incidents/admin/list?escalated=true&track=true',
+              icon: Search,
+              description: 'Monitor all escalations'
             },
             {
               name: 'Resolved',
@@ -533,7 +612,7 @@ const Sidebar = ({
           description: 'National command center'
         },
         {
-          name: 'All Incidents',
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -541,7 +620,7 @@ const Sidebar = ({
           badge: 'Staff',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All national incidents'
@@ -555,7 +634,7 @@ const Sidebar = ({
             {
               name: 'High Priority',
               path: '/incidents/admin/list?priority=2',
-              icon: AlertCircle,
+              icon: AlertTriangle,
               description: 'High priority incidents'
             },
             {
@@ -565,10 +644,22 @@ const Sidebar = ({
               description: 'Awaiting verification'
             },
             {
+              name: 'In Progress',
+              path: '/incidents/admin/list?status=in_progress',
+              icon: Activity,
+              description: 'Currently handling'
+            },
+            {
               name: 'From Provinces',
               path: '/incidents/admin/list?escalated_from=province',
               icon: ArrowUp,
               description: 'Escalated from provinces'
+            },
+            {
+              name: 'Track All Escalations',
+              path: '/incidents/admin/list?track_all=true',
+              icon: Search,
+              description: 'Monitor all nationwide escalations'
             },
             {
               name: 'Resolved',
@@ -657,7 +748,7 @@ const Sidebar = ({
           badge: 'Admin'
         },
         {
-          name: 'All Incidents',
+          name: 'Incident Management',
           id: 'admin-incidents',
           path: '/incidents/admin/list',
           icon: FileText,
@@ -665,7 +756,7 @@ const Sidebar = ({
           badge: 'Admin',
           subItems: [
             {
-              name: 'View All',
+              name: 'All Incidents',
               path: '/incidents/admin/list',
               icon: List,
               description: 'All system incidents'
@@ -681,6 +772,12 @@ const Sidebar = ({
               path: '/incidents/admin/list?status=pending',
               icon: Clock,
               description: 'Awaiting action'
+            },
+            {
+              name: 'All Escalations',
+              path: '/incidents/admin/list?view=escalations',
+              icon: Filter,
+              description: 'View escalation flow'
             },
             {
               name: 'Export',
@@ -830,7 +927,11 @@ const Sidebar = ({
                             <div className="flex items-center justify-between">
                               <span>{item.name}</span>
                               {item.badge && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+                                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  item.badge === 'New' 
+                                    ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                                    : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                }`}>
                                   {item.badge}
                                 </span>
                               )}
