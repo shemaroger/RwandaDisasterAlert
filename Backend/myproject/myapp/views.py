@@ -1143,9 +1143,11 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         elif self.action in ['list', 'retrieve']:
             # Anyone authenticated can view incidents (filtered by get_queryset)
             permission_classes = [permissions.IsAuthenticated]
+
         elif self.action in ['update', 'partial_update']:
             # Citizens can edit their own, admins can edit any
             permission_classes = [permissions.IsAuthenticated]
+            
         elif self.action in ['destroy']:
             # Only admins can delete
             permission_classes = [permissions.IsAdminUser]
