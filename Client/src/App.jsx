@@ -804,6 +804,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       {/* ==================== ERROR ROUTES ==================== */}
       
       <Route path="/unauthorized" element={<Unauthorized />} />
