@@ -20,6 +20,10 @@ from .serializers import *
 import logging
 from .services import AlertDeliveryManager, deliver_alert_async
 from django.http import HttpResponse
+from django.utils.translation import activate
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 import json
 
 logger = logging.getLogger(__name__)
@@ -1148,6 +1152,8 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             # Citizens can edit their own, admins can edit any
             permission_classes = [permissions.IsAuthenticated]
             
+
+
         elif self.action in ['destroy']:
             # Only admins can delete
             permission_classes = [permissions.IsAdminUser]
@@ -3295,3 +3301,25 @@ def analytics_dashboard(request):
         'resolved_change': 0,
         'users_change': 0
     })
+
+@require_POST
+@csrf_exempt  # If using separate frontend
+def set_language(request):
+    try:
+        data = json.loads(request.body)
+        language_code = data.get('language')
+        
+        if language_code in ['en', 'fr', 'rw']:
+            activate(language_code)
+            request.session['django_language'] = language_code
+            return JsonResponse({'status': 'success', 'language': language_code})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Invalid language'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# Add a view to get current language
+def get_current_language(request):
+    from django.utils import translation
+    current_language = translation.get_language()
+    return JsonResponse({'language': current_language})

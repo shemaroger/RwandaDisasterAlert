@@ -1,0 +1,14 @@
+{% load i18n %}
+
+<h1>{% trans "Welcome" %}</h1>
+
+<p>{% trans "This is a multilingual application" %}</p>
+
+{% blocktrans %}
+This is a longer text that needs translation.
+It can span multiple lines.
+{% endblocktrans %}
+
+{% blocktrans with name=user.name %}
+Hello {{ name }}, welcome back!
+{% endblocktrans %}

@@ -5,6 +5,7 @@ from django.utils import timezone
 import re
 from .models import *
 User = get_user_model()
+from django.utils.translation import gettext_lazy as _
 
 
 class LocationSerializer(serializers.ModelSerializer):
@@ -808,3 +809,13 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             return user.profile.full_name
         else:
             return user.username or user.email or f"User {user.id}"
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+    
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError(_('Email is required'))
+        return value        

@@ -1,0 +1,84 @@
+{
+  "welcome": "Bienvenue",
+  "home": "Accueil",
+  "about": "À propos",
+  "contact": "Contact",
+  "login": "Connexion",
+  "logout": "Déconnexion",
+  "signup": "S'inscrire",
+  "email": "E-mail",
+  "password": "Mot de passe",
+  "confirmPassword": "Confirmer le mot de passe",
+  "submit": "Soumettre",
+  "cancel": "Annuler",
+  "save": "Enregistrer",
+  "delete": "Supprimer",
+  "edit": "Modifier",
+  "search": "Rechercher",
+  "language": "Langue",
+  "settings": "Paramètres",
+  "profile": "Profil",
+  "dashboard": "Tableau de bord",
+  "notifications": "Notifications",
+  "messageNav": "Messages",
+  "loading": "Chargement...",
+  "error": "Erreur",
+  "success": "Succès",
+  "warning": "Avertissement",
+  "info": "Information",
+  
+  "greeting": "Bonjour, {{name}}!",
+  "welcomeMessage": "Bienvenue dans notre application",
+  
+  "forms": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phoneNumber": "Numéro de téléphone",
+    "address": "Adresse",
+    "city": "Ville",
+    "country": "Pays",
+    "dateOfBirth": "Date de naissance",
+    "gender": "Genre",
+    "male": "Homme",
+    "female": "Femme",
+    "other": "Autre"
+  },
+  
+  "actions": {
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "view": "Voir",
+    "download": "Télécharger",
+    "upload": "Téléverser",
+    "filter": "Filtrer",
+    "sort": "Trier",
+    "refresh": "Actualiser",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "finish": "Terminer"
+  },
+  
+  "validation": {
+    "required": "Ce champ est requis",
+    "invalidEmail": "Adresse e-mail invalide",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "minLength": "La longueur minimale est de {{min}} caractères",
+    "maxLength": "La longueur maximale est de {{max}} caractères"
+  },
+  
+  "messages": {
+    "loginSuccess": "Connexion réussie",
+    "loginFailed": "Échec de la connexion",
+    "logoutSuccess": "Déconnexion réussie",
+    "saveSuccess": "Enregistré avec succès",
+    "saveFailed": "Échec de l'enregistrement",
+    "deleteSuccess": "Supprimé avec succès",
+    "deleteFailed": "Échec de la suppression",
+    "updateSuccess": "Mis à jour avec succès",
+    "updateFailed": "Échec de la mise à jour",
+    "noData": "Aucune donnée disponible",
+    "networkError": "Erreur réseau. Veuillez vérifier votre connexion."
+  }
+}

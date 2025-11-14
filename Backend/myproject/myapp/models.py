@@ -7,7 +7,8 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 import uuid
 import os
-
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _t
 
 class User(AbstractUser):
     """Extended user model for citizens and administrators"""
@@ -207,68 +208,6 @@ class AlertDelivery(models.Model):
 
     def __str__(self):
         return f"{self.alert.title} -> {self.user.username} ({self.delivery_method})"
-
-
-# class IncidentReport(models.Model):
-#     """Citizen-generated incident reports"""
-#     REPORT_TYPES = [
-#         ('emergency', 'Emergency'),
-#         ('hazard', 'Hazard'),
-#         ('infrastructure', 'Infrastructure Damage'),
-#         ('health', 'Health Emergency'),
-#         ('security', 'Security Incident'),
-#         ('other', 'Other'),
-#     ]
-    
-#     STATUS_CHOICES = [
-#         ('submitted', 'Submitted'),
-#         ('under_review', 'Under Review'),
-#         ('verified', 'Verified'),
-#         ('resolved', 'Resolved'),
-#         ('dismissed', 'Dismissed'),
-#     ]
-
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incident_reports')
-#     report_type = models.CharField(max_length=20, choices=REPORT_TYPES)
-#     disaster_type = models.ForeignKey(DisasterType, on_delete=models.SET_NULL, blank=True, null=True)
-    
-#     title = models.CharField(max_length=200)
-#     description = models.TextField()
-    
-#     # Location
-#     location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True)
-#     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
-#     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
-#     address = models.TextField(blank=True)
-    
-#     # Status and handling
-#     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='submitted')
-#     priority = models.IntegerField(default=3)  # 1-5 scale
-#     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='assigned_incidents')
-#     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='verified_incidents')
-    
-#     # Media attachments
-#     images = models.JSONField(blank=True, null=True)  # Store image URLs/paths
-#     videos = models.JSONField(blank=True, null=True)  # Store video URLs/paths
-    
-#     # Additional details
-#     casualties = models.IntegerField(blank=True, null=True)
-#     property_damage = models.TextField(blank=True)
-#     immediate_needs = models.TextField(blank=True)
-    
-#     # Follow-up
-#     resolved_at = models.DateTimeField(blank=True, null=True)
-#     resolution_notes = models.TextField(blank=True)
-    
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     class Meta:
-#         ordering = ['-created_at']
-
-#     def __str__(self):
-#         return f"{self.title} - {self.get_status_display()}"
 
 class IncidentReport(models.Model):
     """Citizen-generated incident reports"""
@@ -555,60 +494,6 @@ class EmergencyContact(models.Model):
         return f"{self.name} ({self.get_contact_type_display()})"
 
 
-# class SafetyGuide(models.Model):
-#     """Safety guidelines and preparedness information"""
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     title = models.CharField(max_length=200)
-#     title_rw = models.CharField(max_length=200, blank=True)
-#     title_fr = models.CharField(max_length=200, blank=True)
-    
-#     content = models.TextField()
-#     content_rw = models.TextField(blank=True)
-#     content_fr = models.TextField(blank=True)
-    
-#     disaster_types = models.ManyToManyField(DisasterType, blank=True)
-#     category = models.CharField(
-#         max_length=20,
-#         choices=[
-#             ('before', 'Before Disaster'),
-#             ('during', 'During Disaster'),
-#             ('after', 'After Disaster'),
-#             ('general', 'General Preparedness'),
-#         ],
-#         default='general'
-#     )
-    
-#     # Media
-#     featured_image = models.CharField(max_length=255, blank=True)  # Image URL/path
-#     attachments = models.JSONField(blank=True, null=True)  # Additional media
-    
-#     # Targeting
-#     target_audience = models.CharField(
-#         max_length=20,
-#         choices=[
-#             ('general', 'General Public'),
-#             ('families', 'Families with Children'),
-#             ('elderly', 'Elderly'),
-#             ('disabled', 'People with Disabilities'),
-#             ('business', 'Businesses'),
-#             ('schools', 'Schools'),
-#         ],
-#         default='general'
-#     )
-    
-#     is_featured = models.BooleanField(default=False)
-#     is_published = models.BooleanField(default=True)
-#     display_order = models.IntegerField(default=0)
-    
-#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     class Meta:
-#         ordering = ['display_order', 'title']
-
-#     def __str__(self):
-#         return self.title
 def safety_guide_image_upload_path(instance, filename):
     """Generate upload path for safety guide images"""
     import datetime
@@ -1074,3 +959,8 @@ class Message(models.Model):
                 self.chat_room.save(update_fields=['updated_at'])
             except Exception:
                 pass  # Silently fail if update fails
+
+# In models
+class Product(models.Model):
+    name = models.CharField(_('Product Name'), max_length=100)
+    description = models.TextField(_('Description'))

@@ -1,0 +1,83 @@
+{
+  "welcome": "Murakaza neza",
+  "home": "Ahabanza",
+  "about": "Abo turi",
+  "contact": "Twandikire",
+  "login": "Injira",
+  "logout": "Sohoka",
+  "signup": "Iyandikishe",
+  "email": "Imeri",
+  "password": "Ijambo ry'ibanga",
+  "confirmPassword": "Emeza ijambo ry'ibanga",
+  "submit": "Ohereza",
+  "cancel": "Hagarika",
+  "save": "Bika",
+  "delete": "Siba",
+  "edit": "Hindura",
+  "search": "Shakisha",
+  "language": "Ururimi",
+  "settings": "Igenamiterere",
+  "profile": "Umwirondoro",
+  "dashboard": "Ibikubiyemo",
+  "notifications": "Ubutumwa",
+  "loading": "Birimo gupakurwa...",
+  "error": "Ikosa",
+  "success": "Byagenze neza",
+  "warning": "Iburira",
+  "info": "Amakuru",
+  
+  "greeting": "Muraho, {{name}}!",
+  "welcomeMessage": "Murakaza neza kuri porogaramu yacu",
+  
+  "forms": {
+    "firstName": "Izina rya mbere",
+    "lastName": "Izina ry'umuryango",
+    "phoneNumber": "Nimero ya telefoni",
+    "address": "Aderesi",
+    "city": "Umujyi",
+    "country": "Igihugu",
+    "dateOfBirth": "Itariki y'amavuko",
+    "gender": "Igitsina",
+    "male": "Gabo",
+    "female": "Gore",
+    "other": "Ikindi"
+  },
+  
+  "actions": {
+    "create": "Kurema",
+    "update": "Kuvugurura",
+    "view": "Reba",
+    "download": "Pakurura",
+    "upload": "Ohereza",
+    "filter": "Shungura",
+    "sort": "Shiraho",
+    "refresh": "Kuvugurura",
+    "close": "Funga",
+    "back": "Gusubira inyuma",
+    "next": "Ibikurikira",
+    "previous": "Ibibanjirije",
+    "finish": "Kurangiza"
+  },
+  
+  "validation": {
+    "required": "Iki gice ni ngombwa",
+    "invalidEmail": "Imeri ntabwo ari nziza",
+    "passwordMismatch": "Amagambo y'ibanga ntabwo ahura",
+    "minLength": "Ubunini buke ni inyuguti {{min}}",
+    "maxLength": "Ubunini bunini ni inyuguti {{max}}"
+  },
+  
+  "messagesNotifications": {
+    "loginSuccess": "Kwinjira byagenze neza",
+    "loginFailed": "Kwinjira ntibyagenze neza",
+    "logoutSuccess": "Gusohoka byagenze neza",
+    "saveSuccess": "Kubikwa byagenze neza",
+    "saveFailed": "Kubika ntibyagenze neza",
+    "deleteSuccess": "Gusiba byagenze neza",
+    "deleteFailed": "Gusiba ntibyagenze neza",
+    "updateSuccess": "Kuvugurura byagenze neza",
+    "updateFailed": "Kuvugurura ntibyagenze neza",
+    "noData": "Nta makuru aboneka",
+    "networkError": "Ikibazo cy'uruyunguruzo. Suzuma ihuza ryawe."
+  }
+}
