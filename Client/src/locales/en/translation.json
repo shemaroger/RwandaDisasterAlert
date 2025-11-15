@@ -80,5 +80,189 @@
     "updateFailed": "Failed to update",
     "noData": "No data available",
     "networkError": "Network error. Please check your connection."
+  },
+
+  "appName": "Alert",
+  "appTagline": "Disaster Management",
+  "close": "Close",
+  "noNavigationItems": "No navigation items available",
+  "checkConsole": "Check console for debug info",
+  "yourDistrict": "Your District",
+  "accountStatus": "Account Status",
+  "escalationPath": "Escalation Path",
+  "canEscalateTo": "Can escalate to",
+  "online": "Online",
+  "loadingNavigation": "Loading navigation...",
+  "pleaseWait": "Please wait while we load your profile",
+  
+  "userTypes": {
+    "citizen": "Citizen",
+    "village": "Village Level",
+    "sector": "Sector Level",
+    "district": "District Level",
+    "province": "Province Level",
+    "national": "National Level",
+    "administrator": "System Admin"
+  },
+  
+  "escalation": {
+    "sector": "Sector",
+    "district": "District",
+    "province": "Province",
+    "national": "National",
+    "central": "Central Command"
+  },
+  
+  "badges": {
+    "new": "New",
+    "staff": "Staff",
+    "admin": "Admin"
+  },
+  
+  "nav": {
+    "dashboard": "Dashboard",
+    "dashboardDesc": "Overview and statistics",
+    "villageDashboardDesc": "Village overview & statistics",
+    "sectorDashboardDesc": "Sector overview & analytics",
+    "districtCommandDesc": "District command center",
+    "provinceCommandDesc": "Province command center",
+    "nationalCommandDesc": "National command center",
+    "systemOverviewDesc": "System overview",
+    
+    "reportIncident": "Report Incident",
+    "reportIncidentDesc": "Submit a new incident report",
+    "myReports": "My Reports",
+    "myReportsDesc": "View your incident reports",
+    "activeAlerts": "Active Alerts",
+    "activeAlertsDesc": "Your alert responses",
+    "safetyGuides": "Safety Guides",
+    "safetyGuidesDesc": "Preparedness information",
+    "safetyGuidesViewDesc": "View safety information",
+    "safetyInfo": "Safety information",
+    "safetyCheckin": "Safety Check-in",
+    "safetyCheckinDesc": "Report your safety status",
+    "messages": "Messages",
+    "messagesDesc": "Chat with officials",
+    "emergencyContacts": "Emergency Contacts",
+    "emergencyContactsDesc": "Important contact numbers",
+    "contactInfo": "Contact information",
+    "contactDirectory": "Contact directory",
+    
+    "incidentManagement": "Incident Management",
+    "incidentManagementDesc": "View & manage incidents",
+    "sectorIncidentsDesc": "Sector-wide incidents",
+    "districtIncidentsDesc": "District-wide incidents",
+    "provinceIncidentsDesc": "Province-wide incidents",
+    "nationwideIncidentsDesc": "Nationwide incidents",
+    "systemWideIncidentsDesc": "System-wide incidents",
+    
+    "allIncidents": "All Incidents",
+    "allIncidentsDesc": "All village incidents",
+    "allSectorIncidentsDesc": "All sector incidents",
+    "allDistrictIncidentsDesc": "All district incidents",
+    "allProvinceIncidentsDesc": "All province incidents",
+    "allNationalIncidentsDesc": "All national incidents",
+    "allSystemIncidentsDesc": "All system incidents",
+    
+    "pendingReview": "Pending Review",
+    "pendingReviewDesc": "Awaiting verification",
+    "inProgress": "In Progress",
+    "inProgressDesc": "Currently handling",
+    "escalated": "Escalated",
+    "sentTo": "Sent to",
+    "trackEscalated": "Track Escalated",
+    "trackEscalatedDesc": "Monitor escalated incidents",
+    "monitorAllEscalationsDesc": "Monitor all escalations",
+    "monitorNationwideEscalationsDesc": "Monitor all nationwide escalations",
+    "resolved": "Resolved",
+    "resolvedDesc": "Completed incidents",
+    
+    "criticalPriority": "Critical Priority",
+    "urgentIncidentsDesc": "Urgent incidents",
+    "criticalNationalIncidentsDesc": "Critical national incidents",
+    "criticalIncidentsDesc": "Critical incidents",
+    "highPriority": "High Priority",
+    "highPriorityIncidentsDesc": "High priority incidents",
+    
+    "fromVillages": "From Villages",
+    "fromVillagesDesc": "Escalated from villages",
+    "fromSectors": "From Sectors",
+    "fromSectorsDesc": "Escalated from sectors",
+    "fromDistricts": "From Districts",
+    "fromDistrictsDesc": "Escalated from districts",
+    "fromProvinces": "From Provinces",
+    "fromProvincesDesc": "Escalated from provinces",
+    
+    "myEscalations": "My Escalations",
+    "trackAllEscalations": "Track All Escalations",
+    "exportReports": "Export Reports",
+    "downloadIncidentDataDesc": "Download incident data",
+    
+    "alerts": "Alerts",
+    "nationalAlerts": "National Alerts",
+    "createAlert": "Create Alert",
+    "manageDistrictAlertsDesc": "Manage district alerts",
+    "sendNewAlertDesc": "Send new alert",
+    "provinceAlertManagementDesc": "Province alert management",
+    "provinceWideAlertDesc": "Province-wide alert",
+    "nationalAlertSystemDesc": "National alert system",
+    "nationalAlertDesc": "National alert",
+    "alertManagementDesc": "Alert management",
+    
+    "analytics": "Analytics",
+    "performanceMetricsDesc": "Performance metrics",
+    "provincialAnalyticsDesc": "Provincial analytics",
+    "nationalAnalyticsDesc": "National analytics",
+    "systemAnalyticsDesc": "System analytics",
+    
+    "safetyGuidesAdmin": "Safety Guides",
+    "manageSafetyGuidesDesc": "Manage safety guides",
+    
+    "disasterTypes": "Disaster Types",
+    "manageDisasterCategoriesDesc": "Manage disaster categories",
+    "disasterManagementDesc": "Disaster management",
+    "disasterCategoriesDesc": "Disaster categories",
+    
+    "coordinateWith": "Coordinate with",
+    "nationalCommunicationDesc": "National communication",
+    "systemCommunicationDesc": "System communication",
+    
+    "userManagement": "User Management",
+    "manageSystemUsersDesc": "Manage system users",
+    "manageUsersDesc": "Manage users",
+    
+    "locations": "Locations",
+    "manageLocationsDesc": "Manage locations",
+    
+    "systemSettings": "System Settings",
+    "systemConfigurationDesc": "System configuration",
+    "systemSettingsDesc": "System settings",
+    
+    "nationalCommand": "National Command",
+    "incidents": "Incidents",
+    "manageIncidentsDesc": "Manage incidents",
+    "users": "Users",
+    
+    "critical": "Critical",
+    "pending": "Pending",
+    "awaitingActionDesc": "Awaiting action",
+    "allEscalations": "All Escalations",
+    "viewEscalationFlowDesc": "View escalation flow",
+    "export": "Export",
+    "exportDataDesc": "Export data"
+  },
+  
+  "systemStatus": {
+    "title": "System Status",
+    "smsGateway": "SMS Gateway",
+    "pushService": "Push Service",
+    "emailService": "Email Service",
+    "operational": "Operational"
+  },
+  
+  "status": {
+    "active": "Active",
+    "verified": "Verified",
+    "pendingVerification": "Pending"
   }
 }

@@ -80,5 +80,189 @@
     "updateFailed": "Échec de la mise à jour",
     "noData": "Aucune donnée disponible",
     "networkError": "Erreur réseau. Veuillez vérifier votre connexion."
+  },
+
+  "appName": "Alerte",
+  "appTagline": "Gestion des catastrophes",
+  "close": "Fermer",
+  "noNavigationItems": "Aucun élément de navigation disponible",
+  "checkConsole": "Vérifier la console pour les informations de débogage",
+  "yourDistrict": "Votre District",
+  "accountStatus": "Statut du compte",
+  "escalationPath": "Chemin d'escalade",
+  "canEscalateTo": "Peut escalader vers",
+  "online": "En ligne",
+  "loadingNavigation": "Chargement de la navigation...",
+  "pleaseWait": "Veuillez patienter pendant le chargement de votre profil",
+  
+  "userTypes": {
+    "citizen": "Citoyen",
+    "village": "Niveau Village",
+    "sector": "Niveau Secteur",
+    "district": "Niveau District",
+    "province": "Niveau Province",
+    "national": "Niveau National",
+    "administrator": "Administrateur Système"
+  },
+  
+  "escalation": {
+    "sector": "Secteur",
+    "district": "District",
+    "province": "Province",
+    "national": "National",
+    "central": "Commandement Central"
+  },
+  
+  "badges": {
+    "new": "Nouveau",
+    "staff": "Personnel",
+    "admin": "Admin"
+  },
+  
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "dashboardDesc": "Aperçu et statistiques",
+    "villageDashboardDesc": "Aperçu et statistiques du village",
+    "sectorDashboardDesc": "Aperçu et analyses du secteur",
+    "districtCommandDesc": "Centre de commandement du district",
+    "provinceCommandDesc": "Centre de commandement de la province",
+    "nationalCommandDesc": "Centre de commandement national",
+    "systemOverviewDesc": "Aperçu du système",
+    
+    "reportIncident": "Signaler un incident",
+    "reportIncidentDesc": "Soumettre un nouveau rapport d'incident",
+    "myReports": "Mes rapports",
+    "myReportsDesc": "Voir vos rapports d'incident",
+    "activeAlerts": "Alertes actives",
+    "activeAlertsDesc": "Vos réponses d'alerte",
+    "safetyGuides": "Guides de sécurité",
+    "safetyGuidesDesc": "Informations de préparation",
+    "safetyGuidesViewDesc": "Voir les informations de sécurité",
+    "safetyInfo": "Informations de sécurité",
+    "safetyCheckin": "Enregistrement de sécurité",
+    "safetyCheckinDesc": "Signaler votre état de sécurité",
+    "messages": "Messages",
+    "messagesDesc": "Discuter avec les responsables",
+    "emergencyContacts": "Contacts d'urgence",
+    "emergencyContactsDesc": "Numéros de contact importants",
+    "contactInfo": "Informations de contact",
+    "contactDirectory": "Répertoire de contacts",
+    
+    "incidentManagement": "Gestion des incidents",
+    "incidentManagementDesc": "Voir et gérer les incidents",
+    "sectorIncidentsDesc": "Incidents du secteur",
+    "districtIncidentsDesc": "Incidents du district",
+    "provinceIncidentsDesc": "Incidents de la province",
+    "nationwideIncidentsDesc": "Incidents nationaux",
+    "systemWideIncidentsDesc": "Incidents du système",
+    
+    "allIncidents": "Tous les incidents",
+    "allIncidentsDesc": "Tous les incidents du village",
+    "allSectorIncidentsDesc": "Tous les incidents du secteur",
+    "allDistrictIncidentsDesc": "Tous les incidents du district",
+    "allProvinceIncidentsDesc": "Tous les incidents de la province",
+    "allNationalIncidentsDesc": "Tous les incidents nationaux",
+    "allSystemIncidentsDesc": "Tous les incidents du système",
+    
+    "pendingReview": "En attente d'examen",
+    "pendingReviewDesc": "En attente de vérification",
+    "inProgress": "En cours",
+    "inProgressDesc": "Actuellement en cours",
+    "escalated": "Escaladé",
+    "sentTo": "Envoyé à",
+    "trackEscalated": "Suivre les escalades",
+    "trackEscalatedDesc": "Surveiller les incidents escaladés",
+    "monitorAllEscalationsDesc": "Surveiller toutes les escalades",
+    "monitorNationwideEscalationsDesc": "Surveiller toutes les escalades nationales",
+    "resolved": "Résolu",
+    "resolvedDesc": "Incidents terminés",
+    
+    "criticalPriority": "Priorité Critique",
+    "urgentIncidentsDesc": "Incidents urgents",
+    "criticalNationalIncidentsDesc": "Incidents nationaux critiques",
+    "criticalIncidentsDesc": "Incidents critiques",
+    "highPriority": "Haute Priorité",
+    "highPriorityIncidentsDesc": "Incidents hautement prioritaires",
+    
+    "fromVillages": "Des Villages",
+    "fromVillagesDesc": "Escaladé depuis les villages",
+    "fromSectors": "Des Secteurs",
+    "fromSectorsDesc": "Escaladé depuis les secteurs",
+    "fromDistricts": "Des Districts",
+    "fromDistrictsDesc": "Escaladé depuis les districts",
+    "fromProvinces": "Des Provinces",
+    "fromProvincesDesc": "Escaladé depuis les provinces",
+    
+    "myEscalations": "Mes Escalades",
+    "trackAllEscalations": "Suivre Toutes les Escalades",
+    "exportReports": "Exporter les Rapports",
+    "downloadIncidentDataDesc": "Télécharger les données d'incident",
+    
+    "alerts": "Alertes",
+    "nationalAlerts": "Alertes Nationales",
+    "createAlert": "Créer une Alerte",
+    "manageDistrictAlertsDesc": "Gérer les alertes du district",
+    "sendNewAlertDesc": "Envoyer une nouvelle alerte",
+    "provinceAlertManagementDesc": "Gestion des alertes de la province",
+    "provinceWideAlertDesc": "Alerte à l'échelle de la province",
+    "nationalAlertSystemDesc": "Système d'alerte national",
+    "nationalAlertDesc": "Alerte nationale",
+    "alertManagementDesc": "Gestion des alertes",
+    
+    "analytics": "Analytique",
+    "performanceMetricsDesc": "Métriques de performance",
+    "provincialAnalyticsDesc": "Analyses provinciales",
+    "nationalAnalyticsDesc": "Analyses nationales",
+    "systemAnalyticsDesc": "Analyses du système",
+    
+    "safetyGuidesAdmin": "Guides de Sécurité",
+    "manageSafetyGuidesDesc": "Gérer les guides de sécurité",
+    
+    "disasterTypes": "Types de Catastrophes",
+    "manageDisasterCategoriesDesc": "Gérer les catégories de catastrophes",
+    "disasterManagementDesc": "Gestion des catastrophes",
+    "disasterCategoriesDesc": "Catégories de catastrophes",
+    
+    "coordinateWith": "Coordonner avec",
+    "nationalCommunicationDesc": "Communication nationale",
+    "systemCommunicationDesc": "Communication du système",
+    
+    "userManagement": "Gestion des Utilisateurs",
+    "manageSystemUsersDesc": "Gérer les utilisateurs du système",
+    "manageUsersDesc": "Gérer les utilisateurs",
+    
+    "locations": "Emplacements",
+    "manageLocationsDesc": "Gérer les emplacements",
+    
+    "systemSettings": "Paramètres Système",
+    "systemConfigurationDesc": "Configuration du système",
+    "systemSettingsDesc": "Paramètres du système",
+    
+    "nationalCommand": "Commandement National",
+    "incidents": "Incidents",
+    "manageIncidentsDesc": "Gérer les incidents",
+    "users": "Utilisateurs",
+    
+    "critical": "Critique",
+    "pending": "En Attente",
+    "awaitingActionDesc": "En attente d'action",
+    "allEscalations": "Toutes les Escalades",
+    "viewEscalationFlowDesc": "Voir le flux d'escalade",
+    "export": "Exporter",
+    "exportDataDesc": "Exporter les données"
+  },
+  
+  "systemStatus": {
+    "title": "État du Système",
+    "smsGateway": "Passerelle SMS",
+    "pushService": "Service Push",
+    "emailService": "Service E-mail",
+    "operational": "Opérationnel"
+  },
+  
+  "status": {
+    "active": "Actif",
+    "verified": "Vérifié",
+    "pendingVerification": "En Attente"
   }
 }

@@ -79,5 +79,189 @@
     "updateFailed": "Kuvugurura ntibyagenze neza",
     "noData": "Nta makuru aboneka",
     "networkError": "Ikibazo cy'uruyunguruzo. Suzuma ihuza ryawe."
+  },
+
+  "appName": "Alerte",
+  "appTagline": "Gucunga ibiza",
+  "close": "Funga",
+  "noNavigationItems": "Nta bintu byo kuyobora biboneka",
+  "checkConsole": "Reba kansole kugirango ubone amakuru yo gukosora",
+  "yourDistrict": "Akarere kawe",
+  "accountStatus": "Uko konti imeze",
+  "escalationPath": "Inzira yo kuzamura",
+  "canEscalateTo": "Urashobora kuzamura kuri",
+  "online": "Kuri interineti",
+  "loadingNavigation": "Birimo gupakura uburyo bwo kuyobora...",
+  "pleaseWait": "Tegereza niko tupakura umwirondoro wawe",
+  
+  "userTypes": {
+    "citizen": "Umunyarwanda",
+    "village": "Urwego rw'Umudugudu",
+    "sector": "Urwego rw'Umurenge",
+    "district": "Urwego rw'Akarere",
+    "province": "Urwego rw'Intara",
+    "national": "Urwego rw'Igihugu",
+    "administrator": "Umuyobozi wa Sisitemu"
+  },
+  
+  "escalation": {
+    "sector": "Umurenge",
+    "district": "Akarere",
+    "province": "Intara",
+    "national": "Igihugu",
+    "central": "Ubuyobozi Bukuru"
+  },
+  
+  "badges": {
+    "new": "Gishya",
+    "staff": "Abakozi",
+    "admin": "Umuyobozi"
+  },
+  
+  "nav": {
+    "dashboard": "Ibikubiyemo",
+    "dashboardDesc": "Incamake n'imibare",
+    "villageDashboardDesc": "Incamake n'imibare y'umudugudu",
+    "sectorDashboardDesc": "Incamake n'isesengura ry'umurenge",
+    "districtCommandDesc": "Ikigo cy'ubuyobozi bw'akarere",
+    "provinceCommandDesc": "Ikigo cy'ubuyobozi bw'intara",
+    "nationalCommandDesc": "Ikigo cy'ubuyobozi bw'igihugu",
+    "systemOverviewDesc": "Incamake ya sisitemu",
+    
+    "reportIncident": "Tangaza ikibaye",
+    "reportIncidentDesc": "Tanga raporo y'icyabaye gishya",
+    "myReports": "Raporo zanjye",
+    "myReportsDesc": "Reba raporo zawe z'ibyabaye",
+    "activeAlerts": "Itegeko rikora",
+    "activeAlertsDesc": "Ibisubizo byawe ku itegeko",
+    "safetyGuides": "Ibyerekeye umutekano",
+    "safetyGuidesDesc": "Amakuru yo kwitegura",
+    "safetyGuidesViewDesc": "Reba amakuru y'umutekano",
+    "safetyInfo": "Amakuru y'umutekano",
+    "safetyCheckin": "Kwemeza umutekano",
+    "safetyCheckinDesc": "Tangaza uko umutekano wawe umeze",
+    "messages": "Ubutumwa",
+    "messagesDesc": "Ganira n'abayobozi",
+    "emergencyContacts": "Nimero z'ibyihutirwa",
+    "emergencyContactsDesc": "Nimero z'ingenzi zo guhamagara",
+    "contactInfo": "Amakuru y'aho abantu baherereye",
+    "contactDirectory": "Urutonde rw'aho abantu baherereye",
+    
+    "incidentManagement": "Gucunga ibyabaye",
+    "incidentManagementDesc": "Reba kandi ucunge ibyabaye",
+    "sectorIncidentsDesc": "Ibyabaye mu murenge",
+    "districtIncidentsDesc": "Ibyabaye mu karere",
+    "provinceIncidentsDesc": "Ibyabaye mu ntara",
+    "nationwideIncidentsDesc": "Ibyabaye mu gihugu",
+    "systemWideIncidentsDesc": "Ibyabaye muri sisitemu",
+    
+    "allIncidents": "Ibyabaye byose",
+    "allIncidentsDesc": "Ibyabaye byose mu mudugudu",
+    "allSectorIncidentsDesc": "Ibyabaye byose mu murenge",
+    "allDistrictIncidentsDesc": "Ibyabaye byose mu karere",
+    "allProvinceIncidentsDesc": "Ibyabaye byose mu ntara",
+    "allNationalIncidentsDesc": "Ibyabaye byose mu gihugu",
+    "allSystemIncidentsDesc": "Ibyabaye byose muri sisitemu",
+    
+    "pendingReview": "Bitegerejwe gusubirwamo",
+    "pendingReviewDesc": "Bitegerejwe kwemezwa",
+    "inProgress": "Biracyakora",
+    "inProgressDesc": "Ubu biracyakora",
+    "escalated": "Byazamuwe",
+    "sentTo": "Byoherejwe",
+    "trackEscalated": "Gukurikirana ibyazamuwe",
+    "trackEscalatedDesc": "Gukurikirana ibyabaye byazamuwe",
+    "monitorAllEscalationsDesc": "Gukurikirana ibyazamuwe byose",
+    "monitorNationwideEscalationsDesc": "Gukurikirana ibyazamuwe byose mu gihugu",
+    "resolved": "Byakemuwe",
+    "resolvedDesc": "Ibyabaye byarangiye",
+    
+    "criticalPriority": "Ibikomeye cyane",
+    "urgentIncidentsDesc": "Ibyabaye byihutirwa",
+    "criticalNationalIncidentsDesc": "Ibyabaye bikomeye mu gihugu",
+    "criticalIncidentsDesc": "Ibyabaye bikomeye",
+    "highPriority": "Ibyo mbere",
+    "highPriorityIncidentsDesc": "Ibyabaye by'ibanze",
+    
+    "fromVillages": "Bituruka mu midugudu",
+    "fromVillagesDesc": "Byazamuwe kuva mu midugudu",
+    "fromSectors": "Bituruka mu mirenge",
+    "fromSectorsDesc": "Byazamuwe kuva mu mirenge",
+    "fromDistricts": "Bituruka mu turere",
+    "fromDistrictsDesc": "Byazamuwe kuva mu turere",
+    "fromProvinces": "Bituruka mu ntara",
+    "fromProvincesDesc": "Byazamuwe kuva mu ntara",
+    
+    "myEscalations": "Ibyazamuwe byanjye",
+    "trackAllEscalations": "Gukurikirana ibyazamuwe byose",
+    "exportReports": "Kohereza raporo",
+    "downloadIncidentDataDesc": "Pakurura amakuru y'ibyabaye",
+    
+    "alerts": "Itegeko",
+    "nationalAlerts": "Itegeko ry'igihugu",
+    "createAlert": "Kurema itegeko",
+    "manageDistrictAlertsDesc": "Gucunga itegeko ry'akarere",
+    "sendNewAlertDesc": "Kohereza itegeko rishya",
+    "provinceAlertManagementDesc": "Gucunga itegeko ry'intara",
+    "provinceWideAlertDesc": "Itegeko ry'intara yose",
+    "nationalAlertSystemDesc": "Sisitemu y'itegeko ry'igihugu",
+    "nationalAlertDesc": "Itegeko ry'igihugu",
+    "alertManagementDesc": "Gucunga itegeko",
+    
+    "analytics": "Isesengura",
+    "performanceMetricsDesc": "Ibipimo by'imikorere",
+    "provincialAnalyticsDesc": "Isesengura ry'intara",
+    "nationalAnalyticsDesc": "Isesengura ry'igihugu",
+    "systemAnalyticsDesc": "Isesengura rya sisitemu",
+    
+    "safetyGuidesAdmin": "Ibyerekeye umutekano",
+    "manageSafetyGuidesDesc": "Gucunga ibyerekeye umutekano",
+    
+    "disasterTypes": "Ubwoko bw'ibiza",
+    "manageDisasterCategoriesDesc": "Gucunga ibyiciro by'ibiza",
+    "disasterManagementDesc": "Gucunga ibiza",
+    "disasterCategoriesDesc": "Ibyiciro by'ibiza",
+    
+    "coordinateWith": "Guhuza imirimo na",
+    "nationalCommunicationDesc": "Itumanaho ry'igihugu",
+    "systemCommunicationDesc": "Itumanaho rya sisitemu",
+    
+    "userManagement": "Gucunga abakoresha",
+    "manageSystemUsersDesc": "Gucunga abakoresha sisitemu",
+    "manageUsersDesc": "Gucunga abakoresha",
+    
+    "locations": "Ahantu",
+    "manageLocationsDesc": "Gucunga ahantu",
+    
+    "systemSettings": "Igenamiterere rya sisitemu",
+    "systemConfigurationDesc": "Kuboneza sisitemu",
+    "systemSettingsDesc": "Igenamiterere rya sisitemu",
+    
+    "nationalCommand": "Ubuyobozi bw'igihugu",
+    "incidents": "Ibyabaye",
+    "manageIncidentsDesc": "Gucunga ibyabaye",
+    "users": "Abakoresha",
+    
+    "critical": "Bikomeye",
+    "pending": "Bitegerejwe",
+    "awaitingActionDesc": "Bitegerejwe igikorwa",
+    "allEscalations": "Ibyazamuwe byose",
+    "viewEscalationFlowDesc": "Reba uburyo ibyazamuwe byagiye",
+    "export": "Kohereza",
+    "exportDataDesc": "Kohereza amakuru"
+  },
+  
+  "systemStatus": {
+    "title": "Uko sisitemu imeze",
+    "smsGateway": "Pasiporo ya SMS",
+    "pushService": "Serivisi ya Push",
+    "emailService": "Serivisi ya Imeri",
+    "operational": "Irakora"
+  },
+  
+  "status": {
+    "active": "Irakora",
+    "verified": "Byemejwe",
+    "pendingVerification": "Bitegerejwe kwemezwa"
   }
 }
