@@ -15,6 +15,7 @@ export interface User {
   last_name?: string;
   phone_number?: string;
   role?: "admin" | "operator" | "authority" | "citizen";
+  user_type?: "admin" | "operator" | "authority" | "citizen";
   is_active?: boolean;
   location?: number;
 }
@@ -99,6 +100,41 @@ export interface NotificationTemplate {
   content: string;
   template_type: string;
   variables?: Record<string, string>;
+}
+
+export interface ChatRoom {
+  id: string;
+  other_user: {
+    id: number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    user_type?: string;
+  };
+  last_message?: {
+    content: string;
+    timestamp: string;
+    sender: string;
+    is_read: boolean;
+  };
+  unread_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  timestamp: string;
+  sender: {
+    id: number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  is_read: boolean;
+  chat_room?: string;
 }
 
 export interface ApiResponse<T> {
@@ -801,6 +837,131 @@ class ApiService {
 
   async deleteNotificationTemplate(id: number): Promise<void> {
     return this.request(`/notification-templates/${id}/`, { method: "DELETE" });
+  }
+
+  // ==================== CHAT / MESSAGING ====================
+
+  /**
+   * Get all chat rooms for the current user
+   */
+  async getChatRooms(params: PaginationParams = {}): Promise<ChatRoom[] | ApiResponse<ChatRoom>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request(`/chats/${query ? `?${query}` : ""}`);
+  }
+
+  /**
+   * Get a specific chat room by ID
+   */
+  async getChatRoom(chatRoomId: string): Promise<ChatRoom> {
+    return this.request<ChatRoom>(`/chats/${chatRoomId}/`);
+  }
+
+  /**
+   * Start a new chat or get existing chat with another user
+   */
+  async startChat(userId: number | string): Promise<ChatRoom> {
+    return this.request<ChatRoom>("/chats/start_chat/", {
+      method: "POST",
+      body: { user_id: userId },
+    });
+  }
+
+  /**
+   * Get all messages for a specific chat room
+   */
+  async getChatMessages(chatRoomId: string, params: PaginationParams = {}): Promise<ChatMessage[] | ApiResponse<ChatMessage>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request(`/chats/${chatRoomId}/messages/${query ? `?${query}` : ""}`);
+  }
+
+  /**
+   * Send a message to a chat room
+   */
+  async sendMessage(chatRoomId: string, content: string): Promise<ChatMessage> {
+    return this.request<ChatMessage>(`/chats/${chatRoomId}/send_message/`, {
+      method: "POST",
+      body: { content },
+    });
+  }
+
+  /**
+   * Mark all messages in a chat room as read
+   */
+  async markMessagesAsRead(chatRoomId: string): Promise<{ message: string; marked_count: number }> {
+    return this.request(`/chats/${chatRoomId}/mark_read/`, {
+      method: "POST",
+    });
+  }
+
+  /**
+   * Delete a chat room
+   */
+  async deleteChatRoom(chatRoomId: string): Promise<void> {
+    return this.request(`/chats/${chatRoomId}/`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Get unread message count across all chats
+   */
+  async getUnreadMessageCount(): Promise<{ unread_count: number }> {
+    return this.request("/chats/unread_count/");
+  }
+
+  /**
+   * Search messages in all chat rooms
+   */
+  async searchMessages(searchQuery: string, params: PaginationParams = {}): Promise<ChatMessage[] | ApiResponse<ChatMessage>> {
+    const query = new URLSearchParams({
+      search: searchQuery,
+      ...params,
+    } as any).toString();
+    return this.request(`/messages/${query ? `?${query}` : ""}`);
+  }
+
+  /**
+   * Get a specific message by ID
+   */
+  async getMessage(messageId: string): Promise<ChatMessage> {
+    return this.request<ChatMessage>(`/messages/${messageId}/`);
+  }
+
+  /**
+   * Update a message (if editing is allowed)
+   */
+  async updateMessage(messageId: string, content: string): Promise<ChatMessage> {
+    return this.request<ChatMessage>(`/messages/${messageId}/`, {
+      method: "PATCH",
+      body: { content },
+    });
+  }
+
+  /**
+   * Delete a message
+   */
+  async deleteMessage(messageId: string): Promise<void> {
+    return this.request(`/messages/${messageId}/`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Get users available for chat
+   * Citizens see only operators/admins
+   * Admins/operators see all users
+   */
+  async getChatEligibleUsers(): Promise<User[] | ApiResponse<User>> {
+    return this.request("/chats/available_users/");
+  }
+
+  /**
+   * Get WebSocket URL for chat room (for real-time chat)
+   */
+  getWebSocketUrl(chatRoomId: string): string {
+    const wsProtocol = 'ws:'; // Use 'wss:' for HTTPS
+    const wsBaseUrl = this.baseUrl.replace(/^https?:/, wsProtocol).replace('/api', '');
+    return `${wsBaseUrl}/ws/chat/${chatRoomId}/`;
   }
 
   // ==================== DASHBOARD ====================

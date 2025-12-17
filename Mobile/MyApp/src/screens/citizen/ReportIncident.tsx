@@ -113,10 +113,14 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
         accuracy: Location.Accuracy.High
       });
 
+      // Format coordinates to max 6 decimal places (9 total digits including integer part)
+      const formattedLat = parseFloat(location.coords.latitude.toFixed(6));
+      const formattedLng = parseFloat(location.coords.longitude.toFixed(6));
+
       setFormData(prev => ({
         ...prev,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
+        latitude: formattedLat,
+        longitude: formattedLng
       }));
 
       // Reverse geocode
@@ -273,16 +277,24 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
 
       if (formData.disaster_type) incidentData.disaster_type = formData.disaster_type;
       if (formData.location) incidentData.location = formData.location;
+      
+      // Format coordinates to ensure max 6 decimal places
       if (formData.latitude && formData.longitude) {
-        incidentData.latitude = parseFloat(formData.latitude.toString());
-        incidentData.longitude = parseFloat(formData.longitude.toString());
+        incidentData.latitude = parseFloat(parseFloat(formData.latitude.toString()).toFixed(6));
+        incidentData.longitude = parseFloat(parseFloat(formData.longitude.toString()).toFixed(6));
       }
+      
       if (formData.address.trim()) incidentData.address = formData.address.trim();
       if (formData.casualties) incidentData.casualties = parseInt(formData.casualties);
       if (formData.property_damage) incidentData.property_damage = formData.property_damage;
       if (formData.immediate_needs.trim()) incidentData.immediate_needs = formData.immediate_needs.trim();
       if (mediaFiles.images.length > 0) incidentData.images = mediaFiles.images;
       if (mediaFiles.videos.length > 0) incidentData.videos = mediaFiles.videos;
+
+      console.log('Submitting incident with coordinates:', {
+        latitude: incidentData.latitude,
+        longitude: incidentData.longitude
+      });
 
       const result = await apiService.createIncident(incidentData);
       
@@ -291,10 +303,27 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
       
     } catch (error: any) {
       console.error('Failed to submit:', error);
-      Alert.alert(
-        'Submission Failed',
-        error.message || 'Failed to submit incident report. Please try again.'
-      );
+      
+      // Extract more detailed error message
+      let errorMessage = 'Failed to submit incident report. Please try again.';
+      
+      if (error.data) {
+        // Handle validation errors from backend
+        const errorDetails = Object.entries(error.data)
+          .map(([field, messages]) => {
+            if (Array.isArray(messages)) {
+              return `${field}: ${messages.join(', ')}`;
+            }
+            return `${field}: ${messages}`;
+          })
+          .join('\n');
+        
+        errorMessage = errorDetails || error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Submission Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -350,9 +379,16 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.secondaryButton} 
+            onPress={() => navigation.navigate('MyIncidents')}
+          >
+            <Text style={styles.secondaryButtonText}>View My Incidents</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.tertiaryButton} 
             onPress={() => navigation.navigate('Dashboard')}
           >
-            <Text style={styles.secondaryButtonText}>Go to Dashboard</Text>
+            <Text style={styles.tertiaryButtonText}>Go to Dashboard</Text>
           </TouchableOpacity>
 
           <View style={styles.emergencyFooter}>
@@ -950,13 +986,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   secondaryButton: {
+    backgroundColor: '#DC2626',
+    padding: 16,
+    borderRadius: 8,
+    width: '100%',
+    marginBottom: 12,
+  },
+  secondaryButtonText: {
+    color: '#FFF',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  tertiaryButton: {
     backgroundColor: '#F3F4F6',
     padding: 16,
     borderRadius: 8,
     width: '100%',
     marginBottom: 24,
   },
-  secondaryButtonText: {
+  tertiaryButtonText: {
     color: '#374151',
     textAlign: 'center',
     fontWeight: '600',

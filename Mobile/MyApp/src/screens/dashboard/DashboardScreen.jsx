@@ -17,9 +17,7 @@ import { GRADIENT_COLORS, COLORS, ICON_SIZES } from './DashboardScreen.constants
 
 const Header = ({ userName, onMenuPress }) => (
   <View style={styles.header}>
-    <TouchableOpacity onPress={onMenuPress}>
-      <Ionicons name="menu" size={ICON_SIZES.large} color={COLORS.white} />
-    </TouchableOpacity>
+    
     <View>
       <Text style={styles.greeting}>Welcome back,</Text>
       <Text style={styles.userName}>{userName}</Text>
@@ -27,15 +25,15 @@ const Header = ({ userName, onMenuPress }) => (
   </View>
 );
 
-const StatBox = ({ icon, value, label, color }) => (
-  <View style={styles.statBox}>
+const StatBox = ({ icon, value, label, color, onPress }) => (
+  <TouchableOpacity style={styles.statBox} onPress={onPress}>
     <Ionicons name={icon} size={ICON_SIZES.large} color={color} />
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
-  </View>
+  </TouchableOpacity>
 );
 
-const StatsSection = ({ stats }) => (
+const StatsSection = ({ stats, onIncidentsPress, onGuidesPress }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Your Activity</Text>
     <View style={styles.statsRow}>
@@ -44,18 +42,21 @@ const StatsSection = ({ stats }) => (
         value={stats.total_alerts_received}
         label="Alerts"
         color={COLORS.primary}
+        onPress={() => {}} // Could navigate to alerts list
       />
       <StatBox
         icon="camera"
         value={stats.incidents_reported}
         label="Incidents"
         color={COLORS.warning}
+        onPress={onIncidentsPress}
       />
       <StatBox
         icon="book"
         value={stats.safety_guides_viewed}
         label="Guides"
         color={COLORS.info}
+        onPress={onGuidesPress}
       />
     </View>
   </View>
@@ -93,15 +94,24 @@ const RecentAlertsSection = ({ alerts, onAlertPress }) => (
   </View>
 );
 
-const ActionItem = ({ icon, text, color, onPress }) => (
+const ActionItem = ({ icon, text, color, onPress, badge }) => (
   <TouchableOpacity style={styles.actionItem} onPress={onPress}>
-    <Ionicons name={icon} size={ICON_SIZES.medium} color={color} />
-    <Text style={styles.actionText}>{text}</Text>
-    <Ionicons name="chevron-forward" size={ICON_SIZES.small} color={COLORS.gray.medium} />
+    <View style={styles.actionItemContent}>
+      <Ionicons name={icon} size={ICON_SIZES.medium} color={color} />
+      <Text style={styles.actionText}>{text}</Text>
+    </View>
+    <View style={styles.actionItemRight}>
+      {badge && badge > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={ICON_SIZES.small} color={COLORS.gray.medium} />
+    </View>
   </TouchableOpacity>
 );
 
-const QuickActionsSection = ({ onReportIncident, onSafetyGuides }) => (
+const QuickActionsSection = ({ onReportIncident, onMyIncidents, onSafetyGuides, incidentsCount }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Quick Actions</Text>
     <ActionItem
@@ -109,6 +119,13 @@ const QuickActionsSection = ({ onReportIncident, onSafetyGuides }) => (
       text="Report Incident"
       color={COLORS.primary}
       onPress={onReportIncident}
+    />
+    <ActionItem
+      icon="list"
+      text="My Incidents"
+      color={COLORS.warning}
+      onPress={onMyIncidents}
+      badge={incidentsCount}
     />
     <ActionItem
       icon="book"
@@ -156,6 +173,10 @@ const DashboardScreen = ({ navigation, route }) => {
     navigation.navigate('ReportIncident');
   };
 
+  const handleMyIncidents = () => {
+    navigation.navigate('MyIncidents');
+  };
+
   const handleSafetyGuides = () => {
     navigation.navigate('SafetyGuides');
   };
@@ -180,14 +201,20 @@ const DashboardScreen = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <StatsSection stats={stats} />
+          <StatsSection 
+            stats={stats} 
+            onIncidentsPress={handleMyIncidents}
+            onGuidesPress={handleSafetyGuides}
+          />
           <RecentAlertsSection
             alerts={recentAlerts}
             onAlertPress={handleAlertPress}
           />
           <QuickActionsSection
             onReportIncident={handleReportIncident}
+            onMyIncidents={handleMyIncidents}
             onSafetyGuides={handleSafetyGuides}
+            incidentsCount={stats.incidents_reported}
           />
           <LogoutButton onPress={handleLogout} />
         </ScrollView>

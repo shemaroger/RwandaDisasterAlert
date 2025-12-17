@@ -24,6 +24,11 @@ import SafetyGuideDetail from './src/screens/citizen/SafetyGuideDetail';
 // Alerts
 import Alerts from './src/screens/citizen/Alerts';
 
+// Chat Screens
+import ChatListScreen from './src/screens/chat/ChatListScreen';
+import ChatConversationScreen from './src/screens/chat/ChatConversationScreen';
+import StartNewChatScreen from './src/screens/chat/StartNewChatScreen';
+
 export type RootStackParamList = {
   // Auth
   Home: undefined;
@@ -46,6 +51,11 @@ export type RootStackParamList = {
   // Safety Guides
   SafetyGuides: undefined;
   SafetyGuideDetail: { guideId: string };
+  
+  // Chat
+  ChatList: undefined;
+  ChatConversation: { chatId: string };
+  StartNewChat: undefined;
   
   // Other (Placeholders)
   EmergencyContacts: undefined;
@@ -81,6 +91,7 @@ export default function App() {
           headerTintColor: '#FFF',
         }}
       >
+        {/* Auth Screens */}
         <Stack.Screen 
           name="Home" 
           component={Home} 
@@ -96,11 +107,15 @@ export default function App() {
           component={Signup} 
           options={{ title: "Create account", headerShown: false }} 
         />
+
+        {/* Main Dashboard */}
         <Stack.Screen 
           name="Dashboard" 
           component={DashboardScreen} 
           options={{ headerShown: false }} 
         />
+
+        {/* Alerts */}
         <Stack.Screen 
           name="Alerts" 
           component={Alerts}
@@ -111,6 +126,8 @@ export default function App() {
           component={PlaceholderScreen}
           options={{ title: "Alert Details" }}
         />
+
+        {/* Incident Management */}
         <Stack.Screen 
           name="ReportIncident" 
           component={ReportIncident}
@@ -131,6 +148,8 @@ export default function App() {
           component={IncidentDetail}
           options={{ title: "Incident Details" }}
         />
+
+        {/* Safety Guides */}
         <Stack.Screen 
           name="SafetyGuides" 
           component={SafetyGuides}
@@ -141,6 +160,34 @@ export default function App() {
           component={SafetyGuideDetail}
           options={{ headerShown: false }}
         />
+
+        {/* Chat / Messaging */}
+        <Stack.Screen 
+          name="ChatList" 
+          component={ChatListScreen}
+          options={{ 
+            headerShown: false,
+            title: "Messages" 
+          }}
+        />
+        <Stack.Screen 
+          name="ChatConversation" 
+          component={ChatConversationScreen}
+          options={{ 
+            headerShown: false,
+            title: "Chat" 
+          }}
+        />
+        <Stack.Screen 
+          name="StartNewChat" 
+          component={StartNewChatScreen}
+          options={{ 
+            headerShown: false,
+            title: "New Chat" 
+          }}
+        />
+
+        {/* Other Screens (Placeholders) */}
         {/* <Stack.Screen 
           name="EmergencyContacts" 
           component={PlaceholderScreen}
