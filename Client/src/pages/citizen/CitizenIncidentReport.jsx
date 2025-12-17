@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { 
   Camera, 
   MapPin, 
@@ -23,6 +25,9 @@ import {
 import apiService from '../../services/api';
 
 const CitizenIncidentReport = () => {
+  const { t, i18n } = useTranslation();
+  const { languageKey } = useLanguage();
+  
   const [formData, setFormData] = useState({
     report_type: '',
     disaster_type: '',
@@ -57,29 +62,29 @@ const CitizenIncidentReport = () => {
   const documentInputRef = useRef(null);
 
   const REPORT_TYPES = [
-    { value: 'emergency', label: 'Emergency', icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
-    { value: 'hazard', label: 'Hazard', icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50 border-orange-200' },
-    { value: 'infrastructure', label: 'Infrastructure Damage', icon: Building, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200' },
-    { value: 'health', label: 'Health Emergency', icon: Phone, color: 'text-pink-500', bg: 'bg-pink-50 border-pink-200' },
-    { value: 'security', label: 'Security Incident', icon: AlertTriangle, color: 'text-purple-500', bg: 'bg-purple-50 border-purple-200' },
-    { value: 'other', label: 'Other', icon: Clock, color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' }
+    { value: 'emergency', label: t('reportType.emergency', { defaultValue: 'Emergency' }), icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
+    { value: 'hazard', label: t('reportType.hazard', { defaultValue: 'Hazard' }), icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50 border-orange-200' },
+    { value: 'infrastructure', label: t('reportType.infrastructure', { defaultValue: 'Infrastructure Damage' }), icon: Building, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200' },
+    { value: 'health', label: t('reportType.health', { defaultValue: 'Health Emergency' }), icon: Phone, color: 'text-pink-500', bg: 'bg-pink-50 border-pink-200' },
+    { value: 'security', label: t('reportType.security', { defaultValue: 'Security Incident' }), icon: AlertTriangle, color: 'text-purple-500', bg: 'bg-purple-50 border-purple-200' },
+    { value: 'other', label: t('reportType.other', { defaultValue: 'Other' }), icon: Clock, color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' }
   ];
 
   const PROPERTY_DAMAGE_OPTIONS = [
-    { value: '', label: 'Select damage level' },
-    { value: 'none', label: 'No visible damage' },
-    { value: 'minor', label: 'Minor damage' },
-    { value: 'moderate', label: 'Moderate damage' },
-    { value: 'severe', label: 'Severe damage' },
-    { value: 'total', label: 'Total destruction' }
+    { value: '', label: t('propertyDamage.select', { defaultValue: 'Select damage level' }) },
+    { value: 'none', label: t('propertyDamage.none', { defaultValue: 'No visible damage' }) },
+    { value: 'minor', label: t('propertyDamage.minor', { defaultValue: 'Minor damage' }) },
+    { value: 'moderate', label: t('propertyDamage.moderate', { defaultValue: 'Moderate damage' }) },
+    { value: 'severe', label: t('propertyDamage.severe', { defaultValue: 'Severe damage' }) },
+    { value: 'total', label: t('propertyDamage.total', { defaultValue: 'Total destruction' }) }
   ];
 
   const ADMIN_LEVEL_LABELS = {
-    village: 'Village',
-    sector: 'Sector',
-    district: 'District',
-    province: 'Province',
-    national: 'National'
+    village: t('adminLevel.village', { defaultValue: 'Village' }),
+    sector: t('adminLevel.sector', { defaultValue: 'Sector' }),
+    district: t('adminLevel.district', { defaultValue: 'District' }),
+    province: t('adminLevel.province', { defaultValue: 'Province' }),
+    national: t('adminLevel.national', { defaultValue: 'National' })
   };
 
   useEffect(() => {
@@ -90,6 +95,8 @@ const CitizenIncidentReport = () => {
   const loadInitialData = async () => {
     setDataLoading(true);
     try {
+      console.log('🔄 Loading form initial data...');
+      
       // Fetch disaster types and locations in parallel
       const [disasterTypesRes, locationsRes] = await Promise.all([
         apiService.getDisasterTypes({ is_active: true, ordering: 'name' })
@@ -116,13 +123,15 @@ const CitizenIncidentReport = () => {
         setErrors(prev => ({ ...prev, loading: null }));
       }
       
-      console.log(`Loaded ${disasterTypesData.length} disaster types and ${locationsData.length} locations`);
+      console.log(`✅ Loaded ${disasterTypesData.length} disaster types and ${locationsData.length} locations`);
       
     } catch (error) {
-      console.error('Failed to load initial data:', error);
+      console.error('❌ Failed to load initial data:', error);
       setErrors(prev => ({
         ...prev,
-        loading: 'Failed to load form data. You can still submit the report, but some options may not be available.'
+        loading: t('messages.failedToLoadFormData', { 
+          defaultValue: 'Failed to load form data. You can still submit the report, but some options may not be available.' 
+        })
       }));
     } finally {
       setDataLoading(false);
@@ -138,7 +147,9 @@ const CitizenIncidentReport = () => {
     if (!navigator.geolocation) {
       setErrors(prev => ({
         ...prev,
-        location: 'Geolocation is not supported by your browser. Please enter address manually.'
+        location: t('messages.geolocationNotSupported', { 
+          defaultValue: 'Geolocation is not supported by your browser. Please enter address manually.' 
+        })
       }));
       return;
     }
@@ -170,20 +181,28 @@ const CitizenIncidentReport = () => {
         console.warn('Location access failed:', error);
         setLocationLoading(false);
         
-        let errorMessage = 'Unable to get your current location. ';
+        let errorMessage = t('messages.unableToGetLocation', { defaultValue: 'Unable to get your current location. ' });
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage += 'Location access was denied. Please enable location services and refresh the page, or enter your address manually.';
+            errorMessage += t('messages.locationPermissionDenied', { 
+              defaultValue: 'Location access was denied. Please enable location services and refresh the page, or enter your address manually.' 
+            });
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage += 'Your location is currently unavailable. Please enter your address manually.';
+            errorMessage += t('messages.locationUnavailable', { 
+              defaultValue: 'Your location is currently unavailable. Please enter your address manually.' 
+            });
             break;
           case error.TIMEOUT:
-            errorMessage += 'Location request timed out. Please try again or enter your address manually.';
+            errorMessage += t('messages.locationTimeout', { 
+              defaultValue: 'Location request timed out. Please try again or enter your address manually.' 
+            });
             break;
           default:
-            errorMessage += 'Please enter your address manually.';
+            errorMessage += t('messages.enterAddressManually', { 
+              defaultValue: 'Please enter your address manually.' 
+            });
             break;
         }
         
@@ -271,29 +290,45 @@ const CitizenIncidentReport = () => {
 
     const currentCount = mediaFiles[type].length;
     if (currentCount + files.length > maxFiles) {
-      newErrors[`${type}_count`] = `Maximum ${maxFiles} ${type} allowed`;
+      newErrors[`${type}_count`] = t('messages.maxFilesExceeded', { 
+        max: maxFiles, 
+        type: t(`fileType.${type}`, { defaultValue: type }),
+        defaultValue: `Maximum ${maxFiles} ${type} allowed` 
+      });
     }
 
     files.forEach((file, index) => {
       if (currentCount + index >= maxFiles) return;
 
       if (file.size > maxSize) {
-        newErrors[`${type}_size`] = `File "${file.name}" is too large. Maximum size is 10MB.`;
+        newErrors[`${type}_size`] = t('messages.fileTooLarge', { 
+          name: file.name, 
+          defaultValue: `File "${file.name}" is too large. Maximum size is 10MB.` 
+        });
         return;
       }
       
       if (type === 'images' && !file.type.startsWith('image/')) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid image file.`;
+        newErrors[`${type}_type`] = t('messages.invalidImageFile', { 
+          name: file.name, 
+          defaultValue: `"${file.name}" is not a valid image file.` 
+        });
         return;
       }
       
       if (type === 'videos' && !file.type.startsWith('video/')) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid video file.`;
+        newErrors[`${type}_type`] = t('messages.invalidVideoFile', { 
+          name: file.name, 
+          defaultValue: `"${file.name}" is not a valid video file.` 
+        });
         return;
       }
       
       if (type === 'documents' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(file.type)) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid document file. Please use PDF, Word, or Excel documents.`;
+        newErrors[`${type}_type`] = t('messages.invalidDocumentFile', { 
+          name: file.name, 
+          defaultValue: `"${file.name}" is not a valid document file. Please use PDF, Word, or Excel documents.` 
+        });
         return;
       }
       
@@ -343,30 +378,34 @@ const CitizenIncidentReport = () => {
     const newErrors = {};
 
     if (!formData.report_type) {
-      newErrors.report_type = 'Please select a report type';
+      newErrors.report_type = t('validation.reportTypeRequired', { defaultValue: 'Please select a report type' });
     }
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('validation.titleRequired', { defaultValue: 'Title is required' });
     } else if (formData.title.trim().length < 5) {
-      newErrors.title = 'Title must be at least 5 characters';
+      newErrors.title = t('validation.titleMinLength', { defaultValue: 'Title must be at least 5 characters' });
     } else if (formData.title.length > 200) {
-      newErrors.title = 'Title cannot exceed 200 characters';
+      newErrors.title = t('validation.titleMaxLength', { defaultValue: 'Title cannot exceed 200 characters' });
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = t('validation.descriptionRequired', { defaultValue: 'Description is required' });
     } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
+      newErrors.description = t('validation.descriptionMinLength', { defaultValue: 'Description must be at least 10 characters' });
     }
 
     if (formData.casualties && (isNaN(formData.casualties) || parseInt(formData.casualties) < 0)) {
-      newErrors.casualties = 'Casualties must be a valid number (0 or greater)';
+      newErrors.casualties = t('validation.casualtiesInvalid', { 
+        defaultValue: 'Casualties must be a valid number (0 or greater)' 
+      });
     }
 
     if (!formData.latitude || !formData.longitude) {
       if (!formData.address.trim() && !formData.location) {
-        newErrors.location_required = 'Location is required. Please enable GPS access or enter your address manually.';
+        newErrors.location_required = t('validation.locationRequired', { 
+          defaultValue: 'Location is required. Please enable GPS access or enter your address manually.' 
+        });
       }
     }
 
@@ -442,16 +481,18 @@ const CitizenIncidentReport = () => {
       
       const result = await apiService.createIncident(incidentData);
       
-      console.log('Incident created successfully:', result);
+      console.log('✅ Incident created successfully:', result);
       setSubmittedData(result);
       setSubmitted(true);
       
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
     } catch (error) {
-      console.error('Failed to submit incident:', error);
+      console.error('❌ Failed to submit incident:', error);
       
-      let errorMessage = 'Failed to submit incident report. Please try again.';
+      let errorMessage = t('messages.submitFailed', { 
+        defaultValue: 'Failed to submit incident report. Please try again.' 
+      });
       let fieldErrors = {};
       
       if (error.message && error.message.includes('ApiError:')) {
@@ -459,19 +500,19 @@ const CitizenIncidentReport = () => {
         const errors = errorText.split(', ');
         
         if (errors.length >= 3 && errors.every(e => e === 'This field is required.')) {
-          if (!formData.report_type) fieldErrors.report_type = 'This field is required.';
-          if (!formData.title.trim()) fieldErrors.title = 'This field is required.';
-          if (!formData.description.trim()) fieldErrors.description = 'This field is required.';
-          errorMessage = 'Please fill in all required fields.';
+          if (!formData.report_type) fieldErrors.report_type = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
+          if (!formData.title.trim()) fieldErrors.title = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
+          if (!formData.description.trim()) fieldErrors.description = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
+          errorMessage = t('messages.fillRequiredFields', { defaultValue: 'Please fill in all required fields.' });
         } else {
           errorMessage = errorText;
         }
       } else if (error.status === 400) {
-        errorMessage = 'Please check your form data and try again.';
+        errorMessage = t('messages.checkFormData', { defaultValue: 'Please check your form data and try again.' });
       } else if (error.status === 413) {
-        errorMessage = 'Files are too large. Please reduce file sizes and try again.';
+        errorMessage = t('messages.filesTooLarge', { defaultValue: 'Files are too large. Please reduce file sizes and try again.' });
       } else if (error.status === 0) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
+        errorMessage = t('messages.networkError', { defaultValue: 'Network error. Please check your internet connection and try again.' });
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -529,25 +570,28 @@ const CitizenIncidentReport = () => {
           <div className="bg-white rounded-xl shadow-lg p-8 text-center">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Report Submitted Successfully
+              {t('success.reportSubmitted', { defaultValue: 'Report Submitted Successfully' })}
             </h2>
             
             {submittedData && (
               <>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
                   <p className="text-green-800 mb-2 font-medium">
-                    Report ID: {submittedData.id}
+                    {t('success.reportId', { defaultValue: 'Report ID' })}: {submittedData.id}
                   </p>
                   <p className="text-green-800 mb-2">
-                    Your incident report "{submittedData.title}" has been received and assigned to{' '}
-                    <strong>{ADMIN_LEVEL_LABELS[submittedData.current_level] || 'local'}</strong> authorities.
+                    {t('success.reportReceived', { 
+                      title: submittedData.title,
+                      level: ADMIN_LEVEL_LABELS[submittedData.current_level] || t('adminLevel.local', { defaultValue: 'local' }),
+                      defaultValue: `Your incident report "${submittedData.title}" has been received and assigned to local authorities.`
+                    })}
                   </p>
                   <p className="text-sm text-green-600">
-                    Status: {submittedData.status_display || submittedData.status || 'Submitted'}
+                    {t('success.status', { defaultValue: 'Status' })}: {submittedData.status_display || submittedData.status || t('status.submitted', { defaultValue: 'Submitted' })}
                   </p>
                   {submittedData.priority && (
                     <p className="text-sm text-green-600">
-                      Priority: {submittedData.priority_display || `Level ${submittedData.priority}`}
+                      {t('success.priority', { defaultValue: 'Priority' })}: {submittedData.priority_display || `${t('level', { defaultValue: 'Level' })} ${submittedData.priority}`}
                     </p>
                   )}
                 </div>
@@ -557,12 +601,15 @@ const CitizenIncidentReport = () => {
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-blue-900">
-                      <p className="font-medium mb-2">What happens next?</p>
+                      <p className="font-medium mb-2">{t('success.whatHappensNext', { defaultValue: 'What happens next?' })}</p>
                       <ol className="list-decimal list-inside space-y-1 text-blue-800">
-                        <li>{ADMIN_LEVEL_LABELS[submittedData.current_level]} authorities will review your report</li>
-                        <li>They will document their response and actions taken</li>
-                        <li>If additional resources are needed, they'll escalate to higher authorities</li>
-                        <li>You'll receive notifications about updates and actions taken</li>
+                        <li>{t('success.step1', { 
+                          level: ADMIN_LEVEL_LABELS[submittedData.current_level],
+                          defaultValue: `${ADMIN_LEVEL_LABELS[submittedData.current_level]} authorities will review your report`
+                        })}</li>
+                        <li>{t('success.step2', { defaultValue: 'They will document their response and actions taken' })}</li>
+                        <li>{t('success.step3', { defaultValue: "If additional resources are needed, they'll escalate to higher authorities" })}</li>
+                        <li>{t('success.step4', { defaultValue: "You'll receive notifications about updates and actions taken" })}</li>
                       </ol>
                     </div>
                   </div>
@@ -575,22 +622,24 @@ const CitizenIncidentReport = () => {
                 onClick={resetForm}
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
-                Report Another Incident
+                {t('actions.reportAnother', { defaultValue: 'Report Another Incident' })}
               </button>
               <button
                 onClick={() => window.location.href = '/dashboard'}
                 className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors font-medium"
               >
-                Go to Dashboard
+                {t('actions.goToDashboard', { defaultValue: 'Go to Dashboard' })}
               </button>
             </div>
 
             <div className="pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-4">Need immediate emergency help?</p>
+              <p className="text-sm text-gray-600 mb-4">
+                {t('emergency.needImmediate', { defaultValue: 'Need immediate emergency help?' })}
+              </p>
               <div className="flex justify-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-red-500" />
-                  <span>Emergency: 912</span>
+                  <span>{t('emergency.call', { defaultValue: 'Emergency' })}: 912</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-blue-500" />
@@ -611,18 +660,22 @@ const CitizenIncidentReport = () => {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Report Emergency Incident</h1>
-              <p className="text-gray-600">Help emergency services respond quickly with accurate information</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {t('form.reportEmergency', { defaultValue: 'Report Emergency Incident' })}
+              </h1>
+              <p className="text-gray-600">
+                {t('form.helpResponders', { defaultValue: 'Help emergency services respond quickly with accurate information' })}
+              </p>
             </div>
             <div className="hidden md:flex items-center gap-4 text-sm text-gray-500">
               <div className="flex items-center gap-2">
                 <Monitor className="w-4 h-4" />
-                <span>Rwanda Emergency Portal</span>
+                <span>{t('portal.name', { defaultValue: 'Rwanda Emergency Portal' })}</span>
               </div>
               <span className="text-gray-300">|</span>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-red-500" />
-                <span>Emergency: 912</span>
+                <span>{t('emergency.call', { defaultValue: 'Emergency' })}: 912</span>
               </div>
             </div>
           </div>
@@ -638,14 +691,20 @@ const CitizenIncidentReport = () => {
               <div className="flex items-center gap-3 mb-2">
                 <AlertTriangle className="w-7 h-7" />
                 <div>
-                  <h2 className="text-xl font-bold">Emergency Incident Details</h2>
-                  <p className="text-red-100">Provide accurate information to help emergency responders</p>
+                  <h2 className="text-xl font-bold">
+                    {t('form.incidentDetails', { defaultValue: 'Emergency Incident Details' })}
+                  </h2>
+                  <p className="text-red-100">
+                    {t('form.provideAccurateInfo', { defaultValue: 'Provide accurate information to help emergency responders' })}
+                  </p>
                 </div>
               </div>
               {dataLoading && (
                 <div className="flex items-center gap-2 mt-3">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-red-100 text-sm">Loading form data...</span>
+                  <span className="text-red-100 text-sm">
+                    {t('loading', { defaultValue: 'Loading form data...' })}
+                  </span>
                 </div>
               )}
             </div>
@@ -666,7 +725,7 @@ const CitizenIncidentReport = () => {
                       className="flex items-center gap-1 text-amber-700 hover:text-amber-900 text-sm font-medium"
                     >
                       <RefreshCw className="w-4 h-4" />
-                      Retry
+                      {t('actions.retry', { defaultValue: 'Retry' })}
                     </button>
                   </div>
                 </div>
@@ -693,7 +752,7 @@ const CitizenIncidentReport = () => {
               {/* Emergency Type Selection */}
               <div>
                 <label className="block text-lg font-semibold text-gray-900 mb-4">
-                  What type of incident are you reporting? *
+                  {t('form.whatTypeOfIncident', { defaultValue: 'What type of incident are you reporting?' })} *
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {REPORT_TYPES.map((type) => {
@@ -741,7 +800,7 @@ const CitizenIncidentReport = () => {
                 {/* Disaster Type */}
                 <div>
                   <label htmlFor="disaster_type" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Specific Emergency/Disaster Type
+                    {t('form.specificType', { defaultValue: 'Specific Emergency/Disaster Type' })}
                   </label>
                   <select
                     id="disaster_type"
@@ -751,7 +810,7 @@ const CitizenIncidentReport = () => {
                     disabled={dataLoading || disasterTypes.length === 0}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
                   >
-                    <option value="">Select specific type (optional)</option>
+                    <option value="">{t('form.selectOptional', { defaultValue: 'Select specific type (optional)' })}</option>
                     {disasterTypes.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name}
@@ -761,7 +820,7 @@ const CitizenIncidentReport = () => {
                   {disasterTypes.length === 0 && !dataLoading && (
                     <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
-                      Emergency types unavailable - you can still submit
+                      {t('messages.typesUnavailable', { defaultValue: 'Emergency types unavailable - you can still submit' })}
                     </p>
                   )}
                 </div>
@@ -769,16 +828,18 @@ const CitizenIncidentReport = () => {
                 {/* Current Location Status */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Location Status
+                    {t('form.locationStatus', { defaultValue: 'Location Status' })}
                   </label>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     {formData.latitude && formData.longitude ? (
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-500" />
                         <div>
-                          <div className="font-medium text-green-700">GPS Location Captured</div>
+                          <div className="font-medium text-green-700">
+                            {t('location.gpsCaptured', { defaultValue: 'GPS Location Captured' })}
+                          </div>
                           <div className="text-sm text-green-600">
-                            Emergency responders can find you precisely
+                            {t('location.respondersCanFind', { defaultValue: 'Emergency responders can find you precisely' })}
                           </div>
                         </div>
                       </div>
@@ -786,16 +847,24 @@ const CitizenIncidentReport = () => {
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                         <div>
-                          <div className="font-medium text-blue-700">Getting Location...</div>
-                          <div className="text-sm text-blue-600">Please wait while we find you</div>
+                          <div className="font-medium text-blue-700">
+                            {t('location.getting', { defaultValue: 'Getting Location...' })}
+                          </div>
+                          <div className="text-sm text-blue-600">
+                            {t('location.pleaseWait', { defaultValue: 'Please wait while we find you' })}
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-amber-500" />
                         <div>
-                          <div className="font-medium text-amber-700">Manual Location Required</div>
-                          <div className="text-sm text-amber-600">Enter address details below</div>
+                          <div className="font-medium text-amber-700">
+                            {t('location.manualRequired', { defaultValue: 'Manual Location Required' })}
+                          </div>
+                          <div className="text-sm text-amber-600">
+                            {t('location.enterBelow', { defaultValue: 'Enter address details below' })}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -806,7 +875,7 @@ const CitizenIncidentReport = () => {
               {/* Incident Title */}
               <div>
                 <label htmlFor="title" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Incident Title *
+                  {t('form.incidentTitle', { defaultValue: 'Incident Title' })} *
                 </label>
                 <input
                   type="text"
@@ -814,7 +883,9 @@ const CitizenIncidentReport = () => {
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  placeholder="Brief, clear title describing what happened (e.g., 'House fire on Nyamirambo Street')"
+                  placeholder={t('form.titlePlaceholder', { 
+                    defaultValue: "Brief, clear title describing what happened (e.g., 'House fire on Nyamirambo Street')" 
+                  })}
                   maxLength="200"
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     errors.title ? 'border-red-300 bg-red-50' : 'border-gray-300'
@@ -836,7 +907,7 @@ const CitizenIncidentReport = () => {
               {/* Detailed Description */}
               <div>
                 <label htmlFor="description" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Detailed Description *
+                  {t('form.detailedDescription', { defaultValue: 'Detailed Description' })} *
                 </label>
                 <textarea
                   id="description"
@@ -844,7 +915,9 @@ const CitizenIncidentReport = () => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={5}
-                  placeholder="Provide as much detail as possible:&#10;• What exactly happened?&#10;• When did it occur?&#10;• Current situation?&#10;• Any immediate dangers?&#10;• How many people are affected?"
+                  placeholder={t('form.descriptionPlaceholder', { 
+                    defaultValue: "Provide as much detail as possible:\n• What exactly happened?\n• When did it occur?\n• Current situation?\n• Any immediate dangers?\n• How many people are affected?"
+                  })}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
@@ -858,35 +931,47 @@ const CitizenIncidentReport = () => {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-500">{formData.description.length} characters</span>
+                  <span className="text-gray-500">
+                    {formData.description.length} {t('form.characters', { defaultValue: 'characters' })}
+                  </span>
                 </div>
               </div>
 
               {/* Location Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Location Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                  {t('form.locationInfo', { defaultValue: 'Location Information' })}
+                </h3>
                 
                 {/* GPS Location - Primary Location Method */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h4 className="font-medium text-blue-900">Current Location (GPS) - Recommended</h4>
-                      <p className="text-sm text-blue-700">This helps emergency responders find you quickly</p>
+                      <h4 className="font-medium text-blue-900">
+                        {t('location.currentGPS', { defaultValue: 'Current Location (GPS) - Recommended' })}
+                      </h4>
+                      <p className="text-sm text-blue-700">
+                        {t('location.helpsResponders', { defaultValue: 'This helps emergency responders find you quickly' })}
+                      </p>
                     </div>
                     
                     <div className="text-right">
                       {locationLoading ? (
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          <span className="text-sm text-blue-600">Getting your location...</span>
+                          <span className="text-sm text-blue-600">
+                            {t('location.getting', { defaultValue: 'Getting your location...' })}
+                          </span>
                         </div>
                       ) : formData.latitude && formData.longitude ? (
                         <div className="flex items-center gap-2">
                           <Navigation className="w-4 h-4 text-green-500" />
                           <div className="text-sm">
-                            <div className="text-green-600 font-medium">Location captured</div>
+                            <div className="text-green-600 font-medium">
+                              {t('location.captured', { defaultValue: 'Location captured' })}
+                            </div>
                             <div className="text-green-500 text-xs">
-                              Accuracy: ±{Math.round(Math.random() * 50 + 10)}m
+                              {t('location.accuracy', { defaultValue: 'Accuracy' })}: ±{Math.round(Math.random() * 50 + 10)}m
                             </div>
                           </div>
                         </div>
@@ -896,7 +981,7 @@ const CitizenIncidentReport = () => {
                           onClick={getCurrentLocation}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                         >
-                          Use Current Location
+                          {t('location.useCurrent', { defaultValue: 'Use Current Location' })}
                         </button>
                       )}
                     </div>
@@ -907,7 +992,7 @@ const CitizenIncidentReport = () => {
                     <div className="bg-white rounded-lg p-3 border border-blue-200">
                       <div className="text-sm">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Coordinates:</span>
+                          <span className="text-gray-600">{t('location.coordinates', { defaultValue: 'Coordinates' })}:</span>
                           <span className="text-gray-900 font-mono text-xs">
                             {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                           </span>
@@ -920,7 +1005,7 @@ const CitizenIncidentReport = () => {
                           }}
                           className="text-blue-600 hover:text-blue-700 text-xs mt-1"
                         >
-                          Copy coordinates
+                          {t('location.copyCoords', { defaultValue: 'Copy coordinates' })}
                         </button>
                       </div>
                     </div>
@@ -936,7 +1021,7 @@ const CitizenIncidentReport = () => {
                 {/* Manual Address - Backup Method */}
                 <div>
                   <label htmlFor="address" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Address Details {!formData.latitude && <span className="text-red-500">*</span>}
+                    {t('form.addressDetails', { defaultValue: 'Address Details' })} {!formData.latitude && <span className="text-red-500">*</span>}
                   </label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-4 w-5 h-5 text-gray-400" />
@@ -948,16 +1033,16 @@ const CitizenIncidentReport = () => {
                       rows={3}
                       placeholder={
                         formData.latitude 
-                          ? "GPS location captured. Add more details: building name, floor, nearby landmarks..."
-                          : "Enter your address: District, Sector, Cell, Village, street names, landmarks, building details..."
+                          ? t('form.addressPlaceholderGPS', { defaultValue: 'GPS location captured. Add more details: building name, floor, nearby landmarks...' })
+                          : t('form.addressPlaceholderManual', { defaultValue: 'Enter your address: District, Sector, Cell, Village, street names, landmarks, building details...' })
                       }
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     {formData.latitude 
-                      ? "Your GPS location has been captured. Additional address details help responders find you faster."
-                      : "Provide as much location detail as possible to help emergency responders find you."
+                      ? t('form.addressHelpGPS', { defaultValue: 'Your GPS location has been captured. Additional address details help responders find you faster.' })
+                      : t('form.addressHelpManual', { defaultValue: 'Provide as much location detail as possible to help emergency responders find you.' })
                     }
                   </p>
                 </div>
@@ -965,7 +1050,7 @@ const CitizenIncidentReport = () => {
                 {/* Administrative Location - Optional */}
                 <div>
                   <label htmlFor="location" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Administrative Area (Optional)
+                    {t('form.administrativeArea', { defaultValue: 'Administrative Area (Optional)' })}
                   </label>
                   <select
                     id="location"
@@ -975,7 +1060,7 @@ const CitizenIncidentReport = () => {
                     disabled={dataLoading || locations.length === 0}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
                   >
-                    <option value="">Select district/province if known</option>
+                    <option value="">{t('form.selectDistrict', { defaultValue: 'Select district/province if known' })}</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>
                         {location.name} ({location.type})
@@ -983,20 +1068,24 @@ const CitizenIncidentReport = () => {
                     ))}
                   </select>
                   {locations.length === 0 && !dataLoading && (
-                    <p className="mt-1 text-xs text-gray-500">Administrative areas unavailable - your GPS location is sufficient</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t('messages.areasUnavailable', { defaultValue: 'Administrative areas unavailable - your GPS location is sufficient' })}
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Impact Assessment */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Impact Assessment</h3>
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                  {t('form.impactAssessment', { defaultValue: 'Impact Assessment' })}
+                </h3>
                 
                 <div className="grid md:grid-cols-3 gap-4">
                   {/* Casualties */}
                   <div>
                     <label htmlFor="casualties" className="block text-sm font-semibold text-gray-900 mb-2">
-                      People Affected
+                      {t('form.peopleAffected', { defaultValue: 'People Affected' })}
                     </label>
                     <div className="relative">
                       <Users className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -1008,7 +1097,7 @@ const CitizenIncidentReport = () => {
                         onChange={handleInputChange}
                         min="0"
                         max="9999"
-                        placeholder="Number of people"
+                        placeholder={t('form.numberOfPeople', { defaultValue: 'Number of people' })}
                         className={`w-full pl-11 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                           errors.casualties ? 'border-red-300 bg-red-50' : 'border-gray-300'
                         }`}
@@ -1025,7 +1114,7 @@ const CitizenIncidentReport = () => {
                   {/* Property Damage */}
                   <div className="md:col-span-2">
                     <label htmlFor="property_damage" className="block text-sm font-semibold text-gray-900 mb-2">
-                      Property Damage Assessment
+                      {t('form.propertyDamage', { defaultValue: 'Property Damage Assessment' })}
                     </label>
                     <select
                       id="property_damage"
@@ -1046,7 +1135,7 @@ const CitizenIncidentReport = () => {
                 {/* Immediate Needs */}
                 <div>
                   <label htmlFor="immediate_needs" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Immediate Needs/Resources Required
+                    {t('form.immediateNeeds', { defaultValue: 'Immediate Needs/Resources Required' })}
                   </label>
                   <textarea
                     id="immediate_needs"
@@ -1054,7 +1143,9 @@ const CitizenIncidentReport = () => {
                     value={formData.immediate_needs}
                     onChange={handleInputChange}
                     rows={3}
-                    placeholder="What immediate help is needed? (medical assistance, evacuation, rescue equipment, food, water, shelter, etc.)"
+                    placeholder={t('form.needsPlaceholder', { 
+                      defaultValue: 'What immediate help is needed? (medical assistance, evacuation, rescue equipment, food, water, shelter, etc.)' 
+                    })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1062,15 +1153,17 @@ const CitizenIncidentReport = () => {
 
               {/* Media Upload */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Visual Evidence</h3>
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                  {t('form.visualEvidence', { defaultValue: 'Visual Evidence' })}
+                </h3>
                 <p className="text-sm text-gray-600">
-                  Photos and videos help emergency responders understand the situation better and respond more effectively.
+                  {t('form.visualHelp', { defaultValue: 'Photos and videos help emergency responders understand the situation better and respond more effectively.' })}
                 </p>
 
                 {/* Image Upload */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Photos (Max 5 files, 10MB each)
+                    {t('form.photos', { defaultValue: 'Photos' })} ({t('form.maxFiles', { defaultValue: 'Max 5 files, 10MB each' })})
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                     <input
@@ -1089,10 +1182,10 @@ const CitizenIncidentReport = () => {
                         onClick={() => fileInputRef.current?.click()}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                       >
-                        Upload Photos
+                        {t('form.uploadPhotos', { defaultValue: 'Upload Photos' })}
                       </button>
                       <p className="text-sm text-gray-500 mt-2">
-                        JPG, PNG, GIF up to 10MB each
+                        {t('form.imageFormats', { defaultValue: 'JPG, PNG, GIF up to 10MB each' })}
                       </p>
                     </div>
                   </div>
@@ -1131,7 +1224,7 @@ const CitizenIncidentReport = () => {
                 {/* Video Upload */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Videos (Max 5 files, 10MB each)
+                    {t('form.videos', { defaultValue: 'Videos' })} ({t('form.maxFiles', { defaultValue: 'Max 5 files, 10MB each' })})
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                     <input
@@ -1150,10 +1243,10 @@ const CitizenIncidentReport = () => {
                         onClick={() => videoInputRef.current?.click()}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                       >
-                        Upload Videos
+                        {t('form.uploadVideos', { defaultValue: 'Upload Videos' })}
                       </button>
                       <p className="text-sm text-gray-500 mt-2">
-                        MP4, MOV, AVI up to 10MB each
+                        {t('form.videoFormats', { defaultValue: 'MP4, MOV, AVI up to 10MB each' })}
                       </p>
                     </div>
                   </div>
@@ -1197,7 +1290,7 @@ const CitizenIncidentReport = () => {
                 {/* Document Upload */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Documents (Max 5 files, 10MB each)
+                    {t('form.documents', { defaultValue: 'Documents' })} ({t('form.maxFiles', { defaultValue: 'Max 5 files, 10MB each' })})
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                     <input
@@ -1216,10 +1309,10 @@ const CitizenIncidentReport = () => {
                         onClick={() => documentInputRef.current?.click()}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                       >
-                        Upload Documents
+                        {t('form.uploadDocuments', { defaultValue: 'Upload Documents' })}
                       </button>
                       <p className="text-sm text-gray-500 mt-2">
-                        PDF, Word, Excel up to 10MB each
+                        {t('form.documentFormats', { defaultValue: 'PDF, Word, Excel up to 10MB each' })}
                       </p>
                     </div>
                   </div>
@@ -1266,19 +1359,25 @@ const CitizenIncidentReport = () => {
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-red-500 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-red-900 mb-2">Emergency Contacts</h4>
+                    <h4 className="font-semibold text-red-900 mb-2">
+                      {t('emergency.contacts', { defaultValue: 'Emergency Contacts' })}
+                    </h4>
                     <div className="grid md:grid-cols-2 gap-4 text-sm text-red-800">
                       <div>
-                        <p className="font-medium">Police Emergency: <span className="text-lg">912</span></p>
-                        <p>Medical Emergency: 114</p>
+                        <p className="font-medium">
+                          {t('emergency.police', { defaultValue: 'Police Emergency' })}: <span className="text-lg">912</span>
+                        </p>
+                        <p>{t('emergency.medical', { defaultValue: 'Medical Emergency' })}: 114</p>
                       </div>
                       <div>
-                        <p>Fire Emergency: 113</p>
-                        <p>SMS Emergency: 3030</p>
+                        <p>{t('emergency.fire', { defaultValue: 'Fire Emergency' })}: 113</p>
+                        <p>{t('emergency.sms', { defaultValue: 'SMS Emergency' })}: 3030</p>
                       </div>
                     </div>
                     <p className="text-xs text-red-600 mt-2">
-                      If this is a life-threatening emergency, please call emergency services immediately before or while submitting this report.
+                      {t('emergency.callFirst', { 
+                        defaultValue: 'If this is a life-threatening emergency, please call emergency services immediately before or while submitting this report.' 
+                      })}
                     </p>
                   </div>
                 </div>
@@ -1295,12 +1394,12 @@ const CitizenIncidentReport = () => {
                     {loading ? (
                       <>
                         <Loader2 className="w-6 h-6 animate-spin" />
-                        Submitting Report...
+                        {t('form.submitting', { defaultValue: 'Submitting Report...' })}
                       </>
                     ) : (
                       <>
                         <AlertTriangle className="w-6 h-6" />
-                        Submit Emergency Report
+                        {t('form.submitReport', { defaultValue: 'Submit Emergency Report' })}
                       </>
                     )}
                   </button>
@@ -1311,12 +1410,14 @@ const CitizenIncidentReport = () => {
                     disabled={loading}
                     className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                   >
-                    Clear Form
+                    {t('actions.clearForm', { defaultValue: 'Clear Form' })}
                   </button>
                 </div>
                 
                 <p className="text-center text-sm text-gray-600 mt-4">
-                  By submitting this report, you confirm that the information provided is accurate to the best of your knowledge and understand that false emergency reports are illegal.
+                  {t('form.disclaimer', { 
+                    defaultValue: 'By submitting this report, you confirm that the information provided is accurate to the best of your knowledge and understand that false emergency reports are illegal.' 
+                  })}
                 </p>
               </div>
             </form>

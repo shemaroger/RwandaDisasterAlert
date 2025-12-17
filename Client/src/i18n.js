@@ -1,6 +1,4 @@
-// i18n.js
-// Place this file in your React src/ directory
-
+// src/i18n/i18n.js
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -11,39 +9,40 @@ import frTranslation from './locales/fr/translation.json';
 import rwTranslation from './locales/rw/translation.json';
 
 i18n
-  // Detect user language
   .use(LanguageDetector)
-  // Pass the i18n instance to react-i18next
   .use(initReactI18next)
-  // Initialize i18next
   .init({
     resources: {
-      en: {
-        translation: enTranslation
-      },
-      fr: {
-        translation: frTranslation
-      },
-      rw: {
-        translation: rwTranslation
-      }
+      en: { translation: enTranslation },
+      fr: { translation: frTranslation },
+      rw: { translation: rwTranslation }
     },
     fallbackLng: 'en',
-    debug: false, // Set to true for debugging
-    
+    debug: process.env.NODE_ENV === 'development',
+
     interpolation: {
-      escapeValue: false // React already escapes values
+      escapeValue: false
     },
-    
+
     detection: {
-      // Order of detection methods
       order: ['localStorage', 'cookie', 'navigator'],
-      // Cache user language on
       caches: ['localStorage', 'cookie'],
-      // Cookie options
       cookieMinutes: 525600, // 1 year
-      cookieDomain: 'localhost', // Change this for production
+      cookieDomain: window.location.hostname === 'localhost' ? 'localhost' : '.yourdomain.com'
+    },
+
+    react: {
+      useSuspense: false,
+      bindI18n: 'languageChanged loaded',
+      bindStore: 'added removed',
+      nsMode: 'default'
     }
   });
+
+// Set HTML lang attribute and dispatch custom event
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.setAttribute('lang', lng);
+  window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lng } }));
+});
 
 export default i18n;

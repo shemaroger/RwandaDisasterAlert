@@ -19,7 +19,7 @@ const RWANDA_DISTRICTS = [
   'Nyaruguru', 'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro', 'Rwamagana'
 ];
 
-// Updated USER_TYPES with hierarchical levels
+// Updated USER_TYPES - Matching backend exactly
 const USER_TYPES = [
   { value: 'citizen', label: 'Citizen', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Users, level: 0 },
   { value: 'village', label: 'Village Officer', color: 'bg-green-50 text-green-700 border-green-200', icon: Home, level: 1 },
@@ -43,13 +43,17 @@ const getUserTypeConfig = (userType) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Never';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    return 'Invalid date';
+  }
 };
 
 const getUserLevelBadge = (userType) => {
@@ -105,11 +109,20 @@ const useUserManagement = () => {
       setLoading(true);
       setError(null);
 
+      // Build params object, filtering out empty values
       const params = {
-        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== '')),
         page,
         page_size: pagination.pageSize
       };
+
+      // Only add filter params if they have values
+      if (filters.search) params.search = filters.search;
+      if (filters.user_type) params.user_type = filters.user_type;
+      if (filters.is_active !== '') params.is_active = filters.is_active;
+      if (filters.is_verified !== '') params.is_verified = filters.is_verified;
+      if (filters.location) params.location = filters.location;
+
+      console.log('Fetching users with params:', params);
 
       const response = await apiService.getUsers(params);
       
@@ -123,11 +136,26 @@ const useUserManagement = () => {
         }));
       } else if (Array.isArray(response)) {
         setUsers(response);
-        setPagination(prev => ({ ...prev, page: 1, total: response.length, totalPages: 1 }));
+        setPagination(prev => ({ 
+          ...prev, 
+          page: 1, 
+          total: response.length, 
+          totalPages: 1 
+        }));
+      } else {
+        setUsers([]);
+        setPagination(prev => ({ 
+          ...prev, 
+          page: 1, 
+          total: 0, 
+          totalPages: 1 
+        }));
       }
     } catch (err) {
+      console.error('Error fetching users:', err);
       setError(err.message);
       toast.error(`Failed to load users: ${err.message}`);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -140,6 +168,7 @@ const useUserManagement = () => {
       await fetchUsers(pagination.page);
       return true;
     } catch (err) {
+      console.error('Error creating user:', err);
       toast.error(`Failed to create user: ${err.message}`);
       return false;
     }
@@ -152,6 +181,7 @@ const useUserManagement = () => {
       await fetchUsers(pagination.page);
       return true;
     } catch (err) {
+      console.error('Error updating user:', err);
       toast.error(`Failed to update user: ${err.message}`);
       return false;
     }
@@ -164,6 +194,7 @@ const useUserManagement = () => {
       await fetchUsers(pagination.page);
       return true;
     } catch (err) {
+      console.error('Error deleting user:', err);
       toast.error(`Failed to delete user: ${err.message}`);
       return false;
     }
@@ -171,9 +202,10 @@ const useUserManagement = () => {
 
   const getUserById = useCallback(async (userId) => {
     try {
-      const user = await apiService.getUser(userId);
+      const user = await apiService.getUserById(userId);
       return user;
     } catch (err) {
+      console.error('Error fetching user:', err);
       toast.error(`Failed to fetch user: ${err.message}`);
       return null;
     }
@@ -265,53 +297,59 @@ const UserCard = ({ user, onEdit, onView, onDelete, onToggleStatus, onVerify }) 
           </button>
 
           {showDropdown && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-              <button
-                onClick={() => { onView(user); setShowDropdown(false); }}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Details
-              </button>
-              <button
-                onClick={() => { onEdit(user); setShowDropdown(false); }}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit User
-              </button>
-              {!user.is_verified && (
+            <>
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
                 <button
-                  onClick={() => { onVerify(user.id); setShowDropdown(false); }}
-                  className="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                  onClick={() => { onView(user); setShowDropdown(false); }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  <UserCheck className="w-4 h-4 mr-2" />
-                  Verify User
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
                 </button>
-              )}
-              <button
-                onClick={() => { onToggleStatus(user.id, !user.is_active); setShowDropdown(false); }}
-                className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-50 ${
-                  user.is_active ? 'text-red-700' : 'text-green-700'
-                }`}
-              >
-                {user.is_active ? <UserX className="w-4 h-4 mr-2" /> : <UserCheck className="w-4 h-4 mr-2" />}
-                {user.is_active ? 'Deactivate' : 'Activate'}
-              </button>
-              <hr className="my-1" />
-              <button
-                onClick={() => { 
-                  if (window.confirm('Are you sure you want to delete this user?')) {
-                    onDelete(user.id);
-                  }
-                  setShowDropdown(false);
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete User
-              </button>
-            </div>
+                <button
+                  onClick={() => { onEdit(user); setShowDropdown(false); }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit User
+                </button>
+                {!user.is_verified && (
+                  <button
+                    onClick={() => { onVerify(user.id); setShowDropdown(false); }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                  >
+                    <UserCheck className="w-4 h-4 mr-2" />
+                    Verify User
+                  </button>
+                )}
+                <button
+                  onClick={() => { onToggleStatus(user.id, !user.is_active); setShowDropdown(false); }}
+                  className={`flex items-center w-full px-4 py-2 text-sm hover:bg-gray-50 ${
+                    user.is_active ? 'text-red-700' : 'text-green-700'
+                  }`}
+                >
+                  {user.is_active ? <UserX className="w-4 h-4 mr-2" /> : <UserCheck className="w-4 h-4 mr-2" />}
+                  {user.is_active ? 'Deactivate' : 'Activate'}
+                </button>
+                <hr className="my-1" />
+                <button
+                  onClick={() => { 
+                    if (window.confirm('Are you sure you want to delete this user?')) {
+                      onDelete(user.id);
+                    }
+                    setShowDropdown(false);
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete User
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -320,7 +358,7 @@ const UserCard = ({ user, onEdit, onView, onDelete, onToggleStatus, onVerify }) 
         <div className="flex items-center space-x-4 text-sm text-gray-500">
           <div className="flex items-center space-x-1">
             <MapPin className="w-4 h-4" />
-            <span>{user.district || user.location || 'No location'}</span>
+            <span>{user.district || 'No location'}</span>
           </div>
           <div className="flex items-center space-x-1">
             <Calendar className="w-4 h-4" />
@@ -476,7 +514,6 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
     phone_number: '',
     user_type: 'citizen',
     district: '',
-    location: '',
     preferred_language: 'rw',
     is_active: true,
     is_verified: false
@@ -490,14 +527,13 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
       setFormData({
         username: user.username || '',
         email: user.email || '',
-        password: '',
-        password_confirm: '',
+        password: '', // Always empty in edit mode
+        password_confirm: '', // Always empty in edit mode
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         phone_number: user.phone_number || '',
         user_type: user.user_type || 'citizen',
         district: user.district || '',
-        location: user.location || '',
         preferred_language: user.preferred_language || 'rw',
         is_active: user.is_active !== undefined ? user.is_active : true,
         is_verified: user.is_verified !== undefined ? user.is_verified : false
@@ -513,34 +549,100 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
         phone_number: '',
         user_type: 'citizen',
         district: '',
-        location: '',
         preferred_language: 'rw',
         is_active: true,
         is_verified: false
       });
     }
-  }, [user, mode]);
+    setErrors({});
+  }, [user, mode, isOpen]);
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Username validation
+    if (!formData.username.trim()) {
+      newErrors.username = 'Username is required';
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+
+    // First name validation
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'First name is required';
+    }
+
+    // Last name validation
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Last name is required';
+    }
+
+    // Password validation
+    if (mode === 'create') {
+      if (!formData.password) {
+        newErrors.password = 'Password is required';
+      } else if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
+
+      if (!formData.password_confirm) {
+        newErrors.password_confirm = 'Please confirm your password';
+      } else if (formData.password !== formData.password_confirm) {
+        newErrors.password_confirm = 'Passwords do not match';
+      }
+    } else if (mode === 'edit' && formData.password) {
+      // Only validate password in edit mode if it's provided
+      if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
+      if (formData.password !== formData.password_confirm) {
+        newErrors.password_confirm = 'Passwords do not match';
+      }
+    }
+
+    return newErrors;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Password validation for create mode or when password is provided
-    if ((mode === 'create' || formData.password) && formData.password !== formData.password_confirm) {
-      setErrors({ password_confirm: 'Passwords do not match' });
+    // Validate form
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      toast.error('Please fix the form errors');
       return;
     }
 
     try {
       setLoading(true);
+      setErrors({});
+      
+      // Build submit data
       const submitData = { ...formData };
       
-      // Remove password confirmation from submission
-      delete submitData.password_confirm;
-      
-      // For edit mode, only include password if it's provided
-      if (mode === 'edit' && !formData.password) {
-        delete submitData.password;
+      // Handle password fields based on mode
+      if (mode === 'edit') {
+        // In edit mode, only include password fields if a new password was entered
+        if (!submitData.password || submitData.password.trim() === '') {
+          // No password change - remove both password fields completely
+          delete submitData.password;
+          delete submitData.password_confirm;
+        }
+        // If password is provided, keep both password and password_confirm
       }
+      // In create mode, always keep password and password_confirm (they're required)
+
+      console.log('Submitting user data:', { 
+        ...submitData, 
+        password: submitData.password ? '***' : undefined,
+        password_confirm: submitData.password_confirm ? '***' : undefined 
+      });
 
       if (mode === 'edit') {
         await apiService.updateUser(user.id, submitData);
@@ -558,14 +660,15 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
         setFormData({
           username: '', email: '', password: '', password_confirm: '',
           first_name: '', last_name: '', phone_number: '', user_type: 'citizen',
-          district: '', location: '', preferred_language: 'rw', is_active: true, is_verified: false
+          district: '', preferred_language: 'rw', is_active: true, is_verified: false
         });
       }
     } catch (err) {
+      console.error('Error submitting user form:', err);
       const action = mode === 'edit' ? 'update' : 'create';
       toast.error(`Failed to ${action} user: ${err.message}`);
-      if (err.response?.data) {
-        setErrors(err.response.data);
+      if (err.data && typeof err.data === 'object') {
+        setErrors(err.data);
       }
     } finally {
       setLoading(false);
@@ -617,58 +720,92 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Username <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.username ? 'border-red-300' : 'border-gray-300'
+                    errors.username ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
+                  placeholder="Enter username"
                   required
                 />
                 {errors.username && (
-                  <p className="text-red-600 text-sm mt-1">{errors.username}</p>
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.username}
+                  </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
+                    errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
+                  placeholder="user@example.com"
                   required
                 />
                 {errors.email && (
-                  <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.email}
+                  </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.first_name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter first name"
                   required
                 />
+                {errors.first_name && (
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.first_name}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.last_name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter last name"
                   required
                 />
+                {errors.last_name && (
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.last_name}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -682,32 +819,52 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password {mode === 'edit' && <span className="text-gray-500 text-xs">(leave blank to keep current)</span>}
+                  Password {mode === 'create' && <span className="text-red-500">*</span>}
+                  {mode === 'edit' && <span className="text-gray-500 text-xs ml-1">(leave blank to keep current)</span>}
                 </label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder={mode === 'create' ? 'Enter password' : 'Leave blank to keep current'}
                   required={mode === 'create'}
                   minLength="8"
                 />
+                {errors.password ? (
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.password}
+                  </p>
+                ) : mode === 'create' && (
+                  <p className="text-xs text-gray-500 mt-1">Minimum 8 characters required</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password {mode === 'create' && <span className="text-red-500">*</span>}
+                  {mode === 'edit' && formData.password && <span className="text-red-500">*</span>}
+                </label>
                 <input
                   type="password"
                   name="password_confirm"
                   value={formData.password_confirm}
                   onChange={handleChange}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.password_confirm ? 'border-red-300' : 'border-gray-300'
+                    errors.password_confirm ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
-                  required={mode === 'create' || formData.password}
+                  placeholder={mode === 'create' || formData.password ? 'Confirm password' : 'Not required'}
+                  required={mode === 'create' || !!formData.password}
+                  disabled={mode === 'edit' && !formData.password}
                 />
                 {errors.password_confirm && (
-                  <p className="text-red-600 text-sm mt-1">{errors.password_confirm}</p>
+                  <p className="text-red-600 text-xs mt-1 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {errors.password_confirm}
+                  </p>
                 )}
               </div>
             </div>
@@ -744,17 +901,6 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
                     <option key={district} value={district}>{district}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location / Address</label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Sector, Cell, Village"
-                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Language</label>
@@ -834,11 +980,13 @@ const UserModal = ({ isOpen, onClose, onSuccess, user = null, mode = 'create' })
             </div>
           </div>
 
+          {/* Form Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              disabled={loading}
             >
               Cancel
             </button>
@@ -944,14 +1092,6 @@ const UserViewModal = ({ isOpen, onClose, user }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Location</label>
-                <div className="flex items-center space-x-2">
-                  <Home className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-900">{user.location || 'Not specified'}</span>
-                </div>
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Preferred Language</label>
                 <div className="flex items-center space-x-2">
                   <Globe className="w-4 h-4 text-gray-400" />
@@ -1025,7 +1165,7 @@ const UserViewModal = ({ isOpen, onClose, user }) => {
             <div className="grid grid-cols-3 gap-4">
               <div className="flex items-center space-x-2">
                 <Bell className={`w-4 h-4 ${user.push_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
-                <span className="text-sm text-gray-700">Push Notifications</span>
+                <span className="text-sm text-gray-700">Push</span>
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   user.push_notifications_enabled 
                     ? 'bg-green-100 text-green-700' 
@@ -1037,7 +1177,7 @@ const UserViewModal = ({ isOpen, onClose, user }) => {
               
               <div className="flex items-center space-x-2">
                 <Mail className={`w-4 h-4 ${user.email_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
-                <span className="text-sm text-gray-700">Email Notifications</span>
+                <span className="text-sm text-gray-700">Email</span>
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   user.email_notifications_enabled 
                     ? 'bg-green-100 text-green-700' 
@@ -1049,7 +1189,7 @@ const UserViewModal = ({ isOpen, onClose, user }) => {
               
               <div className="flex items-center space-x-2">
                 <Phone className={`w-4 h-4 ${user.sms_notifications_enabled ? 'text-green-600' : 'text-gray-400'}`} />
-                <span className="text-sm text-gray-700">SMS Notifications</span>
+                <span className="text-sm text-gray-700">SMS</span>
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   user.sms_notifications_enabled 
                     ? 'bg-green-100 text-green-700' 
@@ -1160,6 +1300,10 @@ const UserManagement = ({ user, onLogout }) => {
     setShowViewModal(false);
   }, []);
 
+  const handleModalSuccess = useCallback(() => {
+    fetchUsers(pagination.page);
+  }, [fetchUsers, pagination.page]);
+
   // Auth check
   if (!user) {
     return (
@@ -1212,9 +1356,10 @@ const UserManagement = ({ user, onLogout }) => {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => fetchUsers(pagination.page)}
-                className="inline-flex items-center px-4 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                disabled={loading}
+                className="inline-flex items-center px-4 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
               
@@ -1421,9 +1566,6 @@ const UserManagement = ({ user, onLogout }) => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <div>{userData.district || 'Not specified'}</div>
-                              {userData.location && (
-                                <div className="text-xs text-gray-400">{userData.location}</div>
-                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
@@ -1546,14 +1688,14 @@ const UserManagement = ({ user, onLogout }) => {
       <UserModal
         isOpen={showCreateModal}
         onClose={handleModalClose}
-        onSuccess={fetchUsers}
+        onSuccess={handleModalSuccess}
         mode="create"
       />
 
       <UserModal
         isOpen={showEditModal}
         onClose={handleModalClose}
-        onSuccess={fetchUsers}
+        onSuccess={handleModalSuccess}
         user={selectedUser}
         mode="edit"
       />

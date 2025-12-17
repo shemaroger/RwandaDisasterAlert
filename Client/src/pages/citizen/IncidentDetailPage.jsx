@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { 
   Edit, 
   CheckCircle, 
@@ -88,18 +90,19 @@ const getMediaUrl = (media) => {
 
 // Resolution Modal Component
 const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!notes.trim()) {
-      setError('Please provide resolution notes');
+      setError(t('modal.provideResolutionNotes', { defaultValue: 'Please provide resolution notes' }));
       return;
     }
 
     if (notes.trim().length < 10) {
-      setError('Resolution notes must be at least 10 characters');
+      setError(t('modal.resolutionNotesMinLength', { defaultValue: 'Resolution notes must be at least 10 characters' }));
       return;
     }
 
@@ -111,7 +114,7 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
       setNotes('');
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to submit resolution notes');
+      setError(err.message || t('messages.failedToResolve', { defaultValue: 'Failed to submit resolution notes' }));
     } finally {
       setIsSubmitting(false);
     }
@@ -149,10 +152,10 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Resolve Incident
+                  {t('modal.resolveIncident', { defaultValue: 'Resolve Incident' })}
                 </h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Mark this incident as resolved
+                  {t('modal.markAsResolved', { defaultValue: 'Mark this incident as resolved' })}
                 </p>
               </div>
             </div>
@@ -168,7 +171,7 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
           <div className="p-6 space-y-4">
             <div className="bg-gray-50 rounded-lg p-4 border">
               <p className="text-sm font-medium text-gray-700 mb-1">
-                Incident
+                {t('modal.incident', { defaultValue: 'Incident' })}
               </p>
               <p className="text-gray-900">{incidentTitle}</p>
             </div>
@@ -178,7 +181,7 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
                 htmlFor="resolution-notes" 
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Resolution Notes <span className="text-red-500">*</span>
+                {t('modal.resolutionNotes', { defaultValue: 'Resolution Notes' })} <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="resolution-notes"
@@ -191,10 +194,12 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
                 onKeyDown={handleKeyDown}
                 disabled={isSubmitting}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-                placeholder="Describe how the incident was resolved, actions taken, and any follow-up required..."
+                placeholder={t('modal.resolutionNotesPlaceholder', { 
+                  defaultValue: 'Describe how the incident was resolved, actions taken, and any follow-up required...' 
+                })}
               />
               <p className="text-xs text-gray-500 mt-2">
-                Minimum 10 characters. Press Ctrl+Enter to submit quickly.
+                {t('modal.minCharacters', { defaultValue: 'Minimum 10 characters. Press Ctrl+Enter to submit quickly.' })}
               </p>
             </div>
 
@@ -207,13 +212,13 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm font-medium text-blue-900 mb-2">
-                Guidelines for Resolution Notes:
+                {t('modal.resolutionGuidelines', { defaultValue: 'Guidelines for Resolution Notes:' })}
               </p>
               <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                <li>Describe the actions taken to resolve the incident</li>
-                <li>Include any resources deployed or personnel involved</li>
-                <li>Note any remaining concerns or follow-up required</li>
-                <li>Mention if the reporter was contacted/satisfied</li>
+                <li>{t('modal.guidelineActions', { defaultValue: 'Describe the actions taken to resolve the incident' })}</li>
+                <li>{t('modal.guidelineResources', { defaultValue: 'Include any resources deployed or personnel involved' })}</li>
+                <li>{t('modal.guidelineFollowUp', { defaultValue: 'Note any remaining concerns or follow-up required' })}</li>
+                <li>{t('modal.guidelineReporterContact', { defaultValue: 'Mention if the reporter was contacted/satisfied' })}</li>
               </ul>
             </div>
           </div>
@@ -224,7 +229,7 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
               disabled={isSubmitting}
               className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Cancel
+              {t('actions.cancel', { defaultValue: 'Cancel' })}
             </button>
             <button
               onClick={handleSubmit}
@@ -234,12 +239,12 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Resolving...
+                  {t('actions.resolving', { defaultValue: 'Resolving...' })}
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Mark as Resolved
+                  {t('actions.markAsResolved', { defaultValue: 'Mark as Resolved' })}
                 </>
               )}
             </button>
@@ -252,26 +257,27 @@ const ResolutionModal = ({ isOpen, onClose, onSubmit, incidentTitle }) => {
 
 // Escalation Modal Component
 const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLevel, nextLevel }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const LEVEL_LABELS = {
-    village: 'Village',
-    sector: 'Sector',
-    district: 'District',
-    province: 'Province',
-    national: 'National'
+    village: t('adminLevel.village', { defaultValue: 'Village' }),
+    sector: t('adminLevel.sector', { defaultValue: 'Sector' }),
+    district: t('adminLevel.district', { defaultValue: 'District' }),
+    province: t('adminLevel.province', { defaultValue: 'Province' }),
+    national: t('adminLevel.national', { defaultValue: 'National' })
   };
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      setError('Please provide an escalation reason');
+      setError(t('modal.provideEscalationReason', { defaultValue: 'Please provide an escalation reason' }));
       return;
     }
 
     if (reason.trim().length < 10) {
-      setError('Escalation reason must be at least 10 characters');
+      setError(t('modal.escalationReasonMinLength', { defaultValue: 'Escalation reason must be at least 10 characters' }));
       return;
     }
 
@@ -283,7 +289,7 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
       setReason('');
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to escalate incident');
+      setError(err.message || t('messages.failedToEscalate', { defaultValue: 'Failed to escalate incident' }));
     } finally {
       setIsSubmitting(false);
     }
@@ -315,10 +321,14 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Escalate Incident
+                  {t('modal.escalateIncident', { defaultValue: 'Escalate Incident' })}
                 </h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Escalate from {LEVEL_LABELS[currentLevel]} to {LEVEL_LABELS[nextLevel]} level
+                  {t('modal.escalateFrom', { 
+                    from: LEVEL_LABELS[currentLevel], 
+                    to: LEVEL_LABELS[nextLevel],
+                    defaultValue: `Escalate from ${LEVEL_LABELS[currentLevel]} to ${LEVEL_LABELS[nextLevel]} level`
+                  })}
                 </p>
               </div>
             </div>
@@ -334,7 +344,7 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
           <div className="p-6 space-y-4">
             <div className="bg-gray-50 rounded-lg p-4 border">
               <p className="text-sm font-medium text-gray-700 mb-1">
-                Incident
+                {t('modal.incident', { defaultValue: 'Incident' })}
               </p>
               <p className="text-gray-900">{incidentTitle}</p>
             </div>
@@ -344,7 +354,7 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
                 htmlFor="escalation-reason" 
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Reason for Escalation <span className="text-red-500">*</span>
+                {t('modal.reasonForEscalation', { defaultValue: 'Reason for Escalation' })} <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="escalation-reason"
@@ -356,10 +366,12 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
                 }}
                 disabled={isSubmitting}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-                placeholder="Explain why this incident needs to be escalated to the next level (e.g., resources beyond our capacity, specialized expertise required, wider impact than initially assessed...)"
+                placeholder={t('modal.escalationPlaceholder', { 
+                  defaultValue: 'Explain why this incident needs to be escalated to the next level (e.g., resources beyond our capacity, specialized expertise required, wider impact than initially assessed...)' 
+                })}
               />
               <p className="text-xs text-gray-500 mt-2">
-                Minimum 10 characters. Be specific about what resources or capabilities are needed.
+                {t('modal.escalationMinCharacters', { defaultValue: 'Minimum 10 characters. Be specific about what resources or capabilities are needed.' })}
               </p>
             </div>
 
@@ -372,13 +384,13 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm font-medium text-blue-900 mb-2">
-                When to escalate:
+                {t('modal.whenToEscalate', { defaultValue: 'When to escalate:' })}
               </p>
               <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                <li>Resources or expertise beyond current level's capacity</li>
-                <li>Impact wider than initially assessed</li>
-                <li>Requires coordination across multiple areas</li>
-                <li>Specialized equipment or personnel needed</li>
+                <li>{t('modal.escalationReason1', { defaultValue: "Resources or expertise beyond current level's capacity" })}</li>
+                <li>{t('modal.escalationReason2', { defaultValue: 'Impact wider than initially assessed' })}</li>
+                <li>{t('modal.escalationReason3', { defaultValue: 'Requires coordination across multiple areas' })}</li>
+                <li>{t('modal.escalationReason4', { defaultValue: 'Specialized equipment or personnel needed' })}</li>
               </ul>
             </div>
           </div>
@@ -389,7 +401,7 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
               disabled={isSubmitting}
               className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Cancel
+              {t('actions.cancel', { defaultValue: 'Cancel' })}
             </button>
             <button
               onClick={handleSubmit}
@@ -399,12 +411,12 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Escalating...
+                  {t('actions.escalating', { defaultValue: 'Escalating...' })}
                 </>
               ) : (
                 <>
                   <ArrowUpCircle className="w-4 h-4" />
-                  Escalate to {LEVEL_LABELS[nextLevel]}
+                  {t('modal.escalateTo', { level: LEVEL_LABELS[nextLevel], defaultValue: `Escalate to ${LEVEL_LABELS[nextLevel]}` })}
                 </>
               )}
             </button>
@@ -417,17 +429,28 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
 
 // Media Gallery Component
 const MediaGallery = ({ mediaFiles }) => {
+  const { t, i18n } = useTranslation();
+  
   const images = mediaFiles.filter(m => m.media_type === 'image');
   const videos = mediaFiles.filter(m => m.media_type === 'video');
   const documents = mediaFiles.filter(m => m.media_type === 'document');
 
+  const currentLocale = i18n.language || 'en-US';
+  const safeLocale = ['en', 'en-US', 'fr', 'rw', 'sw', 'fr-FR', 'rw-RW', 'sw-KE'].includes(currentLocale) 
+    ? currentLocale 
+    : 'en-US';
+
   const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown date';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    if (!dateString) return t('unknownDate', { defaultValue: 'Unknown date' });
+    try {
+      return new Date(dateString).toLocaleDateString(safeLocale, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return t('unknownDate', { defaultValue: 'Unknown date' });
+    }
   };
 
   return (
@@ -436,7 +459,9 @@ const MediaGallery = ({ mediaFiles }) => {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <ImageIcon className="w-5 h-5 text-gray-700" />
-            <h3 className="font-medium text-gray-900">Images ({images.length})</h3>
+            <h3 className="font-medium text-gray-900">
+              {t('media.images', { defaultValue: 'Images' })} ({images.length})
+            </h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {images.map((media) => {
@@ -445,7 +470,7 @@ const MediaGallery = ({ mediaFiles }) => {
                 <div key={media.id} className="relative group">
                   <img
                     src={imageUrl}
-                    alt={media.caption || 'Incident evidence'}
+                    alt={media.caption || t('media.incidentEvidence', { defaultValue: 'Incident evidence' })}
                     className="w-full h-32 object-cover rounded-lg border cursor-pointer hover:opacity-75 transition-opacity"
                     onClick={() => window.open(imageUrl, '_blank')}
                     onLoad={() => console.log('✅ Image loaded:', imageUrl)}
@@ -457,9 +482,14 @@ const MediaGallery = ({ mediaFiles }) => {
                   />
                   <div className="hidden w-full h-32 bg-gray-100 rounded-lg border items-center justify-center flex-col p-2">
                     <XCircle className="w-8 h-8 text-red-400 mb-2" />
-                    <span className="text-gray-500 text-xs text-center mb-2">Image unavailable</span>
-                    <button onClick={() => window.open(imageUrl, '_blank')} className="text-blue-600 text-xs hover:underline">
-                      Try opening directly
+                    <span className="text-gray-500 text-xs text-center mb-2">
+                      {t('media.imageUnavailable', { defaultValue: 'Image unavailable' })}
+                    </span>
+                    <button 
+                      onClick={() => window.open(imageUrl, '_blank')} 
+                      className="text-blue-600 text-xs hover:underline"
+                    >
+                      {t('media.tryOpeningDirectly', { defaultValue: 'Try opening directly' })}
                     </button>
                   </div>
                   {media.caption && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{media.caption}</p>}
@@ -477,7 +507,9 @@ const MediaGallery = ({ mediaFiles }) => {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Video className="w-5 h-5 text-gray-700" />
-            <h3 className="font-medium text-gray-900">Videos ({videos.length})</h3>
+            <h3 className="font-medium text-gray-900">
+              {t('media.videos', { defaultValue: 'Videos' })} ({videos.length})
+            </h3>
           </div>
           <div className="space-y-4">
             {videos.map((media) => {
@@ -496,17 +528,26 @@ const MediaGallery = ({ mediaFiles }) => {
                       e.target.nextSibling.style.display = 'block';
                     }}
                   >
-                    Your browser does not support the video tag.
+                    {t('media.browserNotSupported', { defaultValue: 'Your browser does not support the video tag.' })}
                   </video>
                   <div className="hidden bg-gray-100 rounded-lg border p-4 text-center">
                     <XCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                    <span className="text-gray-500 block mb-2">Video unavailable</span>
-                    <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
-                      Try opening directly
+                    <span className="text-gray-500 block mb-2">
+                      {t('media.videoUnavailable', { defaultValue: 'Video unavailable' })}
+                    </span>
+                    <a 
+                      href={videoUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-600 text-sm hover:underline"
+                    >
+                      {t('media.tryOpeningDirectly', { defaultValue: 'Try opening directly' })}
                     </a>
                   </div>
                   {media.caption && <p className="text-sm text-gray-700 mt-2">{media.caption}</p>}
-                  <p className="text-xs text-gray-500 mt-1">Uploaded {formatDate(media.uploaded_at)}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('media.uploaded', { defaultValue: 'Uploaded' })} {formatDate(media.uploaded_at)}
+                  </p>
                 </div>
               );
             })}
@@ -518,18 +559,28 @@ const MediaGallery = ({ mediaFiles }) => {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <FileText className="w-5 h-5 text-gray-700" />
-            <h3 className="font-medium text-gray-900">Documents ({documents.length})</h3>
+            <h3 className="font-medium text-gray-900">
+              {t('media.documents', { defaultValue: 'Documents' })} ({documents.length})
+            </h3>
           </div>
           <div className="space-y-2">
             {documents.map((media) => {
               const docUrl = getMediaUrl(media);
               const fileName = media.file.split('/').pop();
               return (
-                <a key={media.id} href={docUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                <a 
+                  key={media.id} 
+                  href={docUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
                   <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{media.caption || fileName}</p>
-                    <p className="text-xs text-gray-500">Uploaded {formatDate(media.uploaded_at)}</p>
+                    <p className="text-xs text-gray-500">
+                      {t('media.uploaded', { defaultValue: 'Uploaded' })} {formatDate(media.uploaded_at)}
+                    </p>
                   </div>
                   <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 </a>
@@ -544,6 +595,9 @@ const MediaGallery = ({ mediaFiles }) => {
 
 const IncidentDetailPage = ({ citizenView = false }) => {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { languageKey } = useLanguage();
+  
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -551,6 +605,11 @@ const IncidentDetailPage = ({ citizenView = false }) => {
   const [showEscalationModal, setShowEscalationModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const currentLocale = i18n.language || 'en-US';
+  const safeLocale = ['en', 'en-US', 'fr', 'rw', 'sw', 'fr-FR', 'rw-RW', 'sw-KE'].includes(currentLocale) 
+    ? currentLocale 
+    : 'en-US';
 
   const STATUS_COLORS = {
     'submitted': 'bg-blue-100 text-blue-800 border-blue-200',
@@ -578,11 +637,11 @@ const IncidentDetailPage = ({ citizenView = false }) => {
   };
 
   const LEVEL_LABELS = {
-    'village': 'Village',
-    'sector': 'Sector',
-    'district': 'District',
-    'province': 'Province',
-    'national': 'National'
+    'village': t('adminLevel.village', { defaultValue: 'Village' }),
+    'sector': t('adminLevel.sector', { defaultValue: 'Sector' }),
+    'district': t('adminLevel.district', { defaultValue: 'District' }),
+    'province': t('adminLevel.province', { defaultValue: 'Province' }),
+    'national': t('adminLevel.national', { defaultValue: 'National' })
   };
 
   const REPORT_TYPE_ICONS = {
@@ -611,7 +670,7 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       const incidentData = response.data || response;
       
       if (citizenView && user?.user_type === 'citizen' && incidentData.reporter !== user.id) {
-        setError('You can only view your own incident reports.');
+        setError(t('messages.onlyViewOwnReports', { defaultValue: 'You can only view your own incident reports.' }));
         return;
       }
       
@@ -622,7 +681,10 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       setIncident(incidentData);
     } catch (err) {
       console.error('❌ Load incident error:', err);
-      setError(`Failed to load incident details: ${err.message || 'Unknown error'}`);
+      setError(t('messages.failedToLoadDetails', { 
+        error: err.message || t('unknownError', { defaultValue: 'Unknown error' }),
+        defaultValue: `Failed to load incident details: ${err.message || 'Unknown error'}` 
+      }));
     } finally {
       setLoading(false);
     }
@@ -639,14 +701,14 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      notification.textContent = 'Incident resolved successfully!';
+      notification.textContent = t('messages.incidentResolvedSuccess', { defaultValue: 'Incident resolved successfully!' });
       document.body.appendChild(notification);
       setTimeout(() => notification.remove(), 3000);
       
       await loadIncident();
     } catch (err) {
       console.error('❌ Resolution error:', err);
-      throw new Error(err.message || 'Failed to resolve incident');
+      throw new Error(err.message || t('messages.failedToResolve', { defaultValue: 'Failed to resolve incident' }));
     }
   };
 
@@ -661,14 +723,17 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-orange-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      notification.textContent = `Incident escalated to ${LEVEL_LABELS[updatedIncident.current_level]} level!`;
+      notification.textContent = t('messages.incidentEscalatedSuccess', { 
+        level: LEVEL_LABELS[updatedIncident.current_level],
+        defaultValue: `Incident escalated to ${LEVEL_LABELS[updatedIncident.current_level]} level!` 
+      });
       document.body.appendChild(notification);
       setTimeout(() => notification.remove(), 3000);
       
       await loadIncident();
     } catch (err) {
       console.error('❌ Escalation error:', err);
-      throw new Error(err.message || 'Failed to escalate incident');
+      throw new Error(err.message || t('messages.failedToEscalate', { defaultValue: 'Failed to escalate incident' }));
     }
   };
 
@@ -692,14 +757,18 @@ const IncidentDetailPage = ({ citizenView = false }) => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!dateString) return t('notSet', { defaultValue: 'Not set' });
+    try {
+      return new Date(dateString).toLocaleString(safeLocale, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return t('invalidDate', { defaultValue: 'Invalid Date' });
+    }
   };
 
   const getGoogleMapsLink = (lat, lng) => {
@@ -719,7 +788,7 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading incident details...</p>
+          <p className="text-gray-600">{t('incidentDetail.loadingDetails', { defaultValue: 'Loading incident details...' })}</p>
         </div>
       </div>
     );
@@ -730,10 +799,15 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Incident</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {t('incidentDetail.errorLoading', { defaultValue: 'Error Loading Incident' })}
+          </h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button onClick={() => navigate(getBackPath())} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Back to Reports
+          <button 
+            onClick={() => navigate(getBackPath())} 
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {t('incidentDetail.backToReports', { defaultValue: 'Back to Reports' })}
           </button>
         </div>
       </div>
@@ -745,10 +819,17 @@ const IncidentDetailPage = ({ citizenView = false }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Incident Not Found</h2>
-          <p className="text-gray-600 mb-4">The incident you're looking for doesn't exist.</p>
-          <button onClick={() => navigate(getBackPath())} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Back to Reports
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {t('incidentDetail.incidentNotFound', { defaultValue: 'Incident Not Found' })}
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {t('messages.incidentNotFoundMessage', { defaultValue: "The incident you're looking for doesn't exist." })}
+          </p>
+          <button 
+            onClick={() => navigate(getBackPath())} 
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {t('incidentDetail.backToReports', { defaultValue: 'Back to Reports' })}
           </button>
         </div>
       </div>
@@ -766,7 +847,10 @@ const IncidentDetailPage = ({ citizenView = false }) => {
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
                 <Link to={getBackPath()} className="hover:text-gray-700 flex items-center gap-1">
                   <ArrowLeft className="w-4 h-4" />
-                  {citizenView ? 'My Reports' : 'All Incidents'}
+                  {citizenView 
+                    ? t('incidentDetail.myReports', { defaultValue: 'My Reports' })
+                    : t('incidentDetail.allIncidents', { defaultValue: 'All Incidents' })
+                  }
                 </Link>
                 <span>/</span>
                 <span className="text-gray-900">#{incident.id.slice(0, 8)}</span>
@@ -780,18 +864,20 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   <h1 className="text-2xl font-bold text-gray-900 mb-2 break-words">{incident.title}</h1>
                   <div className="flex items-center flex-wrap gap-2">
                     <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${STATUS_COLORS[incident.status] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-                      {incident.status_display || incident.status.replace('_', ' ')}
+                      {t(`status.${incident.status}`, { defaultValue: incident.status_display || incident.status.replace('_', ' ') })}
                     </span>
                     <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${LEVEL_COLORS[incident.current_level] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-                      {LEVEL_LABELS[incident.current_level]} Level
+                      {LEVEL_LABELS[incident.current_level]} {t('level', { defaultValue: 'Level' })}
                     </span>
                     <span className="text-sm text-gray-500 capitalize flex items-center gap-1">
                       <ReportTypeIcon className="w-4 h-4" />
-                      {incident.report_type}
+                      {t(`reportType.${incident.report_type}`, { defaultValue: incident.report_type })}
                     </span>
                     <div className="flex items-center">
                       <div className={`w-3 h-3 rounded-full ${PRIORITY_COLORS[incident.priority] || 'bg-gray-300'} mr-2`}></div>
-                      <span className="text-sm text-gray-600">Priority {incident.priority}</span>
+                      <span className="text-sm text-gray-600">
+                        {t('priority.display', { defaultValue: 'Priority' })} {incident.priority}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -802,7 +888,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   <div className="flex items-start gap-2">
                     <ArrowUpCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-orange-900">Escalation Requested</p>
+                      <p className="text-sm font-medium text-orange-900">
+                        {t('details.escalationRequested', { defaultValue: 'Escalation Requested' })}
+                      </p>
                       {incident.escalation_reason && <p className="text-sm text-orange-800 mt-1">{incident.escalation_reason}</p>}
                     </div>
                   </div>
@@ -812,21 +900,30 @@ const IncidentDetailPage = ({ citizenView = false }) => {
             
             <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2">
               {canEscalate() && (
-                <button onClick={() => setShowEscalationModal(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2 transition-colors">
+                <button 
+                  onClick={() => setShowEscalationModal(true)} 
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   <ArrowUpCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Escalate</span>
+                  <span className="hidden sm:inline">{t('actions.escalate', { defaultValue: 'Escalate' })}</span>
                 </button>
               )}
               {canResolve() && (
-                <button onClick={() => setShowResolutionModal(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors">
+                <button 
+                  onClick={() => setShowResolutionModal(true)} 
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   <CheckCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Resolve</span>
+                  <span className="hidden sm:inline">{t('actions.resolve', { defaultValue: 'Resolve' })}</span>
                 </button>
               )}
               {canEdit() && (
-                <Link to={getEditPath()} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors">
+                <Link 
+                  to={getEditPath()} 
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors"
+                >
                   <Edit className="w-4 h-4" />
-                  <span className="hidden sm:inline">Edit</span>
+                  <span className="hidden sm:inline">{t('actions.edit', { defaultValue: 'Edit' })}</span>
                 </Link>
               )}
             </div>
@@ -838,7 +935,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Description</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('incidentDetail.description', { defaultValue: 'Description' })}
+              </h2>
               <div className="prose max-w-none">
                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{incident.description}</p>
               </div>
@@ -848,7 +947,7 @@ const IncidentDetailPage = ({ citizenView = false }) => {
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5" />
-                  Response History ({incident.level_responses.length})
+                  {t('incidentDetail.responseHistory', { defaultValue: 'Response History' })} ({incident.level_responses.length})
                 </h2>
                 <div className="space-y-4">
                   {incident.level_responses.map((response) => (
@@ -873,19 +972,25 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                       <p className="text-sm text-gray-700 mb-2">{response.notes}</p>
                       {response.resources_deployed && (
                         <div className="bg-blue-100 rounded p-2 mb-2">
-                          <p className="text-xs font-medium text-blue-900 mb-1">Resources Deployed:</p>
+                          <p className="text-xs font-medium text-blue-900 mb-1">
+                            {t('response.resourcesDeployed', { defaultValue: 'Resources Deployed:' })}
+                          </p>
                           <p className="text-xs text-blue-800">{response.resources_deployed}</p>
                         </div>
                       )}
                       {response.outcome && (
                         <div className="bg-green-100 rounded p-2 mb-2">
-                          <p className="text-xs font-medium text-green-900 mb-1">Outcome:</p>
+                          <p className="text-xs font-medium text-green-900 mb-1">
+                            {t('response.outcome', { defaultValue: 'Outcome:' })}
+                          </p>
                           <p className="text-xs text-green-800">{response.outcome}</p>
                         </div>
                       )}
                       {response.escalation_needed && response.escalation_reason && (
                         <div className="bg-orange-100 rounded p-2">
-                          <p className="text-xs font-medium text-orange-900 mb-1">Escalation Reason:</p>
+                          <p className="text-xs font-medium text-orange-900 mb-1">
+                            {t('response.escalationReason', { defaultValue: 'Escalation Reason:' })}
+                          </p>
                           <p className="text-xs text-orange-800">{response.escalation_reason}</p>
                         </div>
                       )}
@@ -896,13 +1001,17 @@ const IncidentDetailPage = ({ citizenView = false }) => {
             )}
 
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Location Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('incidentDetail.locationInfo', { defaultValue: 'Location Information' })}
+              </h2>
               <div className="space-y-4">
                 {incident.location_name && (
                   <div className="flex items-start gap-3">
                     <Building className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-900 block">Administrative Area</span>
+                      <span className="font-medium text-gray-900 block">
+                        {t('location.administrativeArea', { defaultValue: 'Administrative Area' })}
+                      </span>
                       <p className="text-gray-700">{incident.location_name}</p>
                     </div>
                   </div>
@@ -911,7 +1020,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   <div className="flex items-start gap-3">
                     <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-900 block">Address Details</span>
+                      <span className="font-medium text-gray-900 block">
+                        {t('location.addressDetails', { defaultValue: 'Address Details' })}
+                      </span>
                       <p className="text-gray-700">{incident.address}</p>
                     </div>
                   </div>
@@ -920,13 +1031,20 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   <div className="flex items-start gap-3">
                     <Navigation className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-900 block">GPS Coordinates</span>
+                      <span className="font-medium text-gray-900 block">
+                        {t('location.gpsCoordinates', { defaultValue: 'GPS Coordinates' })}
+                      </span>
                       <p className="text-gray-900 font-mono text-sm">
                         {parseFloat(incident.latitude).toFixed(6)}, {parseFloat(incident.longitude).toFixed(6)}
                       </p>
-                      <a href={getGoogleMapsLink(incident.latitude, incident.longitude)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 mt-1">
+                      <a 
+                        href={getGoogleMapsLink(incident.latitude, incident.longitude)} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 mt-1"
+                      >
                         <ExternalLink className="w-4 h-4" />
-                        View on Google Maps
+                        {t('location.viewOnMaps', { defaultValue: 'View on Google Maps' })}
                       </a>
                     </div>
                   </div>
@@ -936,14 +1054,20 @@ const IncidentDetailPage = ({ citizenView = false }) => {
 
             {(incident.casualties || incident.property_damage || incident.immediate_needs) && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Impact Assessment</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  {t('incidentDetail.impactAssessment', { defaultValue: 'Impact Assessment' })}
+                </h2>
                 <div className="space-y-4">
                   {incident.casualties && (
                     <div className="flex items-start gap-3">
                       <Users className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-medium text-gray-900 block">People Affected</span>
-                        <p className="text-gray-700">{incident.casualties} people</p>
+                        <span className="font-medium text-gray-900 block">
+                          {t('impact.peopleAffected', { defaultValue: 'People Affected' })}
+                        </span>
+                        <p className="text-gray-700">
+                          {incident.casualties} {t('impact.people', { defaultValue: 'people' })}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -951,8 +1075,14 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                     <div className="flex items-start gap-3">
                       <Building className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-medium text-gray-900 block">Property Damage</span>
-                        <p className="text-gray-700 capitalize">{incident.property_damage.replace('_', ' ')}</p>
+                        <span className="font-medium text-gray-900 block">
+                          {t('impact.propertyDamage', { defaultValue: 'Property Damage' })}
+                        </span>
+                        <p className="text-gray-700 capitalize">
+                          {t(`propertyDamage.${incident.property_damage}`, { 
+                            defaultValue: incident.property_damage.replace('_', ' ') 
+                          })}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -960,7 +1090,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-medium text-gray-900 block">Immediate Needs</span>
+                        <span className="font-medium text-gray-900 block">
+                          {t('impact.immediateNeeds', { defaultValue: 'Immediate Needs' })}
+                        </span>
                         <p className="text-gray-700">{incident.immediate_needs}</p>
                       </div>
                     </div>
@@ -973,7 +1105,7 @@ const IncidentDetailPage = ({ citizenView = false }) => {
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <ImageIcon className="w-5 h-5" />
-                  Media Evidence ({incident.media_files.length})
+                  {t('incidentDetail.mediaEvidence', { defaultValue: 'Media Evidence' })} ({incident.media_files.length})
                 </h2>
                 <MediaGallery mediaFiles={incident.media_files} />
                 {import.meta.env.DEV && (
@@ -981,26 +1113,26 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                     <details>
                       <summary className="cursor-pointer text-sm font-medium text-yellow-900 mb-2 flex items-center gap-2">
                         <Info className="w-4 h-4" />
-                        Debug: Media Files Data
+                        {t('media.debugMediaFiles', { defaultValue: 'Debug: Media Files Data' })}
                       </summary>
                       <div className="text-xs space-y-2 mt-3 max-h-96 overflow-y-auto">
                         <div className="bg-white p-2 rounded border">
-                          <strong>API Base URL:</strong> {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}
+                          <strong>{t('media.apiBaseUrl', { defaultValue: 'API Base URL' })}:</strong> {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}
                         </div>
                         <div className="bg-white p-2 rounded border">
-                          <strong>Total Files:</strong> {incident.media_files.length}
+                          <strong>{t('media.totalFiles', { defaultValue: 'Total Files' })}:</strong> {incident.media_files.length}
                         </div>
                         {incident.media_files.map((media, i) => (
                           <div key={i} className="bg-white p-3 rounded border space-y-1">
                             <div><strong>#{i + 1} - ID:</strong> {media.id}</div>
-                            <div><strong>Type:</strong> {media.media_type}</div>
-                            <div><strong>File Path:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{media.file}</code></div>
-                            <div><strong>File URL:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{media.file_url || 'Not provided by backend'}</code></div>
-                            <div><strong>Constructed:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded break-all">{getMediaUrl(media)}</code></div>
+                            <div><strong>{t('media.type', { defaultValue: 'Type' })}:</strong> {media.media_type}</div>
+                            <div><strong>{t('media.filePath', { defaultValue: 'File Path' })}:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{media.file}</code></div>
+                            <div><strong>{t('media.fileUrl', { defaultValue: 'File URL' })}:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{media.file_url || 'Not provided by backend'}</code></div>
+                            <div><strong>{t('media.constructed', { defaultValue: 'Constructed' })}:</strong> <code className="text-xs bg-gray-100 px-1 py-0.5 rounded break-all">{getMediaUrl(media)}</code></div>
                             <div className="pt-2">
                               <a href={getMediaUrl(media)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs inline-flex items-center gap-1">
                                 <ExternalLink className="w-3 h-3" />
-                                Test direct link
+                                {t('media.testDirectLink', { defaultValue: 'Test direct link' })}
                               </a>
                             </div>
                           </div>
@@ -1017,9 +1149,15 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-green-900 mb-2">Resolution</h2>
+                    <h2 className="text-lg font-semibold text-green-900 mb-2">
+                      {t('incidentDetail.resolution', { defaultValue: 'Resolution' })}
+                    </h2>
                     <p className="text-green-800 whitespace-pre-wrap">{incident.resolution_notes}</p>
-                    {incident.resolved_at && <p className="text-sm text-green-600 mt-2">Resolved on {formatDate(incident.resolved_at)}</p>}
+                    {incident.resolved_at && (
+                      <p className="text-sm text-green-600 mt-2">
+                        {t('response.resolvedOn', { defaultValue: 'Resolved on' })} {formatDate(incident.resolved_at)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1028,15 +1166,21 @@ const IncidentDetailPage = ({ citizenView = false }) => {
 
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Incident Details</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('incidentDetail.title', { defaultValue: 'Incident Details' })}
+              </h2>
               <dl className="space-y-4">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">ID</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.id', { defaultValue: 'ID' })}
+                  </dt>
                   <dd className="text-sm text-gray-900 font-mono break-all">{incident.id}</dd>
                 </div>
                 {!citizenView && incident.reporter_name && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Reporter</dt>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">
+                      {t('details.reporter', { defaultValue: 'Reporter' })}
+                    </dt>
                     <dd className="flex items-center text-sm text-gray-900">
                       <User className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                       <span className="truncate">{incident.reporter_name}</span>
@@ -1044,7 +1188,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   </div>
                 )}
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Current Level</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.currentLevel', { defaultValue: 'Current Level' })}
+                  </dt>
                   <dd>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${LEVEL_COLORS[incident.current_level]}`}>
                       {LEVEL_LABELS[incident.current_level]}
@@ -1052,42 +1198,58 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Report Type</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.reportType', { defaultValue: 'Report Type' })}
+                  </dt>
                   <dd className="text-sm text-gray-900 capitalize flex items-center">
                     <ReportTypeIcon className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-                    <span className="truncate">{incident.report_type}</span>
+                    <span className="truncate">
+                      {t(`reportType.${incident.report_type}`, { defaultValue: incident.report_type })}
+                    </span>
                   </dd>
                 </div>
                 {incident.disaster_type_name && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Disaster Type</dt>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">
+                      {t('details.disasterType', { defaultValue: 'Disaster Type' })}
+                    </dt>
                     <dd className="text-sm text-gray-900">{incident.disaster_type_name}</dd>
                   </div>
                 )}
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Status</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.status', { defaultValue: 'Status' })}
+                  </dt>
                   <dd>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[incident.status] || 'bg-gray-100 text-gray-800'}`}>
-                      {incident.status_display || incident.status.replace('_', ' ')}
+                      {t(`status.${incident.status}`, { defaultValue: incident.status_display || incident.status.replace('_', ' ') })}
                     </span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Priority</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.priority', { defaultValue: 'Priority' })}
+                  </dt>
                   <dd className="flex items-center text-sm text-gray-900">
                     <div className={`w-3 h-3 rounded-full ${PRIORITY_COLORS[incident.priority] || 'bg-gray-300'} mr-2 flex-shrink-0`}></div>
-                    <span>{incident.priority_display || `Priority ${incident.priority}`}</span>
+                    <span>
+                      {t('priority.label', { level: incident.priority, defaultValue: `Priority ${incident.priority}` })}
+                    </span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Created</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.created', { defaultValue: 'Created' })}
+                  </dt>
                   <dd className="flex items-start text-sm text-gray-900">
                     <Calendar className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
                     <span className="break-words">{formatDate(incident.created_at)}</span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-1">Last Updated</dt>
+                  <dt className="text-sm font-medium text-gray-500 mb-1">
+                    {t('details.lastUpdated', { defaultValue: 'Last Updated' })}
+                  </dt>
                   <dd className="flex items-start text-sm text-gray-900">
                     <Clock className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
                     <span className="break-words">{formatDate(incident.updated_at)}</span>
@@ -1095,7 +1257,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                 </div>
                 {!citizenView && incident.assigned_to_name && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Assigned To</dt>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">
+                      {t('details.assignedTo', { defaultValue: 'Assigned To' })}
+                    </dt>
                     <dd className="flex items-center text-sm text-gray-900">
                       <User className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                       <span className="truncate">{incident.assigned_to_name}</span>
@@ -1104,7 +1268,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                 )}
                 {incident.response_count > 0 && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Responses</dt>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">
+                      {t('details.responses', { defaultValue: 'Responses' })}
+                    </dt>
                     <dd className="flex items-center text-sm text-gray-900">
                       <MessageSquare className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                       {incident.response_count}
@@ -1113,7 +1279,9 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                 )}
                 {incident.media_files && incident.media_files.length > 0 && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 mb-1">Media Files</dt>
+                    <dt className="text-sm font-medium text-gray-500 mb-1">
+                      {t('details.mediaFiles', { defaultValue: 'Media Files' })}
+                    </dt>
                     <dd className="flex items-center text-sm text-gray-900">
                       <ImageIcon className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                       {incident.media_files.length}
@@ -1124,34 +1292,53 @@ const IncidentDetailPage = ({ citizenView = false }) => {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {t('incidentDetail.quickActions', { defaultValue: 'Quick Actions' })}
+              </h2>
               <div className="space-y-3">
                 {canEdit() && (
-                  <Link to={getEditPath()} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors">
+                  <Link 
+                    to={getEditPath()} 
+                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+                  >
                     <Edit className="w-4 h-4" />
-                    Edit Incident
+                    {t('actions.editIncident', { defaultValue: 'Edit Incident' })}
                   </Link>
                 )}
                 {canEscalate() && (
-                  <button onClick={() => setShowEscalationModal(true)} className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2 transition-colors">
+                  <button 
+                    onClick={() => setShowEscalationModal(true)} 
+                    className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2 transition-colors"
+                  >
                     <ArrowUpCircle className="w-4 h-4" />
-                    Escalate to Next Level
+                    {t('actions.escalateToNextLevel', { defaultValue: 'Escalate to Next Level' })}
                   </button>
                 )}
                 {canResolve() && (
-                  <button onClick={() => setShowResolutionModal(true)} className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors">
+                  <button 
+                    onClick={() => setShowResolutionModal(true)} 
+                    className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
+                  >
                     <CheckCircle className="w-4 h-4" />
-                    Mark as Resolved
+                    {t('actions.markAsResolved', { defaultValue: 'Mark as Resolved' })}
                   </button>
                 )}
-                <button onClick={() => window.print()} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors">
+                <button 
+                  onClick={() => window.print()} 
+                  className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors"
+                >
                   <Download className="w-4 h-4" />
-                  Print Report
+                  {t('actions.printReport', { defaultValue: 'Print Report' })}
                 </button>
                 {incident.latitude && incident.longitude && (
-                  <a href={getGoogleMapsLink(incident.latitude, incident.longitude)} target="_blank" rel="noopener noreferrer" className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors">
+                  <a 
+                    href={getGoogleMapsLink(incident.latitude, incident.longitude)} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors"
+                  >
                     <ExternalLink className="w-4 h-4" />
-                    Open in Maps
+                    {t('actions.openInMaps', { defaultValue: 'Open in Maps' })}
                   </a>
                 )}
               </div>
@@ -1162,16 +1349,26 @@ const IncidentDetailPage = ({ citizenView = false }) => {
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-semibold text-red-900 mb-2">Emergency Contacts</h3>
+                    <h3 className="font-semibold text-red-900 mb-2">
+                      {t('emergency.contacts', { defaultValue: 'Emergency Contacts' })}
+                    </h3>
                     <div className="space-y-2 text-sm text-red-800">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="font-medium">Police: <a href="tel:912" className="text-base underline">912</a></p>
-                          <p>Medical: <a href="tel:114" className="underline">114</a></p>
+                          <p className="font-medium">
+                            {t('emergency.police', { defaultValue: 'Police' })}: <a href="tel:912" className="text-base underline">912</a>
+                          </p>
+                          <p>
+                            {t('emergency.medical', { defaultValue: 'Medical' })}: <a href="tel:114" className="underline">114</a>
+                          </p>
                         </div>
                         <div>
-                          <p>Fire: <a href="tel:113" className="underline">113</a></p>
-                          <p>SMS: <a href="sms:3030" className="underline">3030</a></p>
+                          <p>
+                            {t('emergency.fire', { defaultValue: 'Fire' })}: <a href="tel:113" className="underline">113</a>
+                          </p>
+                          <p>
+                            {t('emergency.sms', { defaultValue: 'SMS' })}: <a href="sms:3030" className="underline">3030</a>
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1183,8 +1380,20 @@ const IncidentDetailPage = ({ citizenView = false }) => {
         </div>
       </div>
 
-      <ResolutionModal isOpen={showResolutionModal} onClose={() => setShowResolutionModal(false)} onSubmit={handleResolveSubmit} incidentTitle={incident.title} />
-      <EscalationModal isOpen={showEscalationModal} onClose={() => setShowEscalationModal(false)} onSubmit={handleEscalateSubmit} incidentTitle={incident.title} currentLevel={incident.current_level} nextLevel={incident.next_level} />
+      <ResolutionModal 
+        isOpen={showResolutionModal} 
+        onClose={() => setShowResolutionModal(false)} 
+        onSubmit={handleResolveSubmit} 
+        incidentTitle={incident.title} 
+      />
+      <EscalationModal 
+        isOpen={showEscalationModal} 
+        onClose={() => setShowEscalationModal(false)} 
+        onSubmit={handleEscalateSubmit} 
+        incidentTitle={incident.title} 
+        currentLevel={incident.current_level} 
+        nextLevel={incident.next_level} 
+      />
     </div>
   );
 };

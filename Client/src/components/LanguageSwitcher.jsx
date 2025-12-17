@@ -1,5 +1,5 @@
 // components/LanguageSwitcher.jsx
-// Updated with better styling and backend synchronization
+// Fixed to use 'rw' instead of 'kinya' and improved backend sync
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,17 +17,19 @@ const LanguageSwitcher = ({
   const languages = [
     { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
     { code: 'fr', name: 'Français', flag: '🇫🇷', nativeName: 'Français' },
-    { code: 'rw', name: 'Kinyarwanda', flag: '🇷🇼', nativeName: 'Ikinyarwanda' }
+    { code: 'rw', name: 'Kinyarwanda', flag: '🇷🇼', nativeName: 'Ikinyarwanda' } // ✅ FIXED: 'rw' not 'kinya'
   ];
 
   // Initialize language from localStorage or user preference
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') || 
-                         localStorage.getItem('preferred_language') || 
-                         'en';
+                          localStorage.getItem('preferred_language') || 
+                          'en';
     
-    if (i18n.language !== savedLanguage) {
-      i18n.changeLanguage(savedLanguage).catch(err => {
+    const effectiveLanguage = languages.some(l => l.code === savedLanguage) ? savedLanguage : 'en';
+
+    if (i18n.language !== effectiveLanguage) {
+      i18n.changeLanguage(effectiveLanguage).catch(err => {
         console.error('Failed to initialize language:', err);
       });
     }
@@ -57,7 +59,7 @@ const LanguageSwitcher = ({
       console.log(`✅ Language changed to: ${languageCode}`);
     } catch (error) {
       console.error('❌ Error changing language:', error);
-      setError('Failed to change language');
+      setError(t('error.language_change') || 'Failed to change language');
       
       // Revert to previous language
       const previousLang = localStorage.getItem('language') || 'en';
@@ -73,7 +75,7 @@ const LanguageSwitcher = ({
       await apiService.updateProfile({ preferred_language: language });
       console.log('✅ Backend language sync successful');
     } catch (error) {
-      console.warn('⚠️ Failed to sync language with backend:', error);
+      console.warn('⚠️  Failed to sync language with backend:', error);
       // Don't throw error - frontend language change should still work
     }
   };
@@ -104,7 +106,7 @@ const LanguageSwitcher = ({
         <div className="flex items-center justify-between mb-2">
           <label className="text-xs font-medium text-slate-600 flex items-center">
             <Globe className="h-3 w-3 mr-1" />
-            {t('language') || 'Language'}:
+            {t('common.language') || 'Language'}:
           </label>
           {error && (
             <span className="text-xs text-red-600">{error}</span>
@@ -125,7 +127,7 @@ const LanguageSwitcher = ({
         </select>
         {isChanging && (
           <div className="text-xs text-slate-500 mt-1 flex items-center">
-            <span className="animate-pulse">Changing language...</span>
+            <span className="animate-pulse">{t('status.changing_language') || 'Changing language...'}</span>
           </div>
         )}
       </div>
@@ -140,7 +142,7 @@ const LanguageSwitcher = ({
             htmlFor="language-select" 
             className="text-xs font-medium text-slate-600 mr-2 hidden sm:inline-block"
           >
-            {t('language')}:
+            {t('common.language')}:
           </label>
         )}
         <div className="relative inline-block">

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { 
   Camera,
   Upload,
@@ -29,6 +31,9 @@ const getMediaUrl = (mediaPath) => {
 };
 
 const IncidentEditPage = () => {
+  const { t, i18n } = useTranslation();
+  const { languageKey } = useLanguage();
+  
   const [formData, setFormData] = useState({
     report_type: '',
     disaster_type: '',
@@ -66,48 +71,62 @@ const IncidentEditPage = () => {
   const videoInputRef = useRef(null);
   const documentInputRef = useRef(null);
 
+  const currentLocale = i18n.language || 'en-US';
+  const safeLocale = ['en', 'en-US', 'fr', 'rw', 'sw', 'fr-FR', 'rw-RW', 'sw-KE'].includes(currentLocale) 
+    ? currentLocale 
+    : 'en-US';
+
   const REPORT_TYPES = [
-    { value: 'emergency', label: 'Emergency' },
-    { value: 'hazard', label: 'Hazard' },
-    { value: 'infrastructure', label: 'Infrastructure Damage' },
-    { value: 'health', label: 'Health Emergency' },
-    { value: 'security', label: 'Security Incident' },
-    { value: 'other', label: 'Other' }
+    { value: 'emergency', label: t('reportType.emergency', { defaultValue: 'Emergency' }) },
+    { value: 'hazard', label: t('reportType.hazard', { defaultValue: 'Hazard' }) },
+    { value: 'infrastructure', label: t('reportType.infrastructure', { defaultValue: 'Infrastructure Damage' }) },
+    { value: 'health', label: t('reportType.health', { defaultValue: 'Health Emergency' }) },
+    { value: 'security', label: t('reportType.security', { defaultValue: 'Security Incident' }) },
+    { value: 'other', label: t('reportType.other', { defaultValue: 'Other' }) }
   ];
 
   const STATUS_OPTIONS = [
-    { value: 'submitted', label: 'Submitted' },
-    { value: 'under_review', label: 'Under Review' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'escalated', label: 'Escalated' },
-    { value: 'resolved', label: 'Resolved' },
-    { value: 'dismissed', label: 'Dismissed' }
+    { value: 'submitted', label: t('status.submitted', { defaultValue: 'Submitted' }) },
+    { value: 'under_review', label: t('status.under_review', { defaultValue: 'Under Review' }) },
+    { value: 'in_progress', label: t('status.in_progress', { defaultValue: 'In Progress' }) },
+    { value: 'escalated', label: t('status.escalated', { defaultValue: 'Escalated' }) },
+    { value: 'resolved', label: t('status.resolved', { defaultValue: 'Resolved' }) },
+    { value: 'dismissed', label: t('status.dismissed', { defaultValue: 'Dismissed' }) }
   ];
 
   const ADMIN_LEVELS = [
-    { value: 'village', label: 'Village' },
-    { value: 'sector', label: 'Sector' },
-    { value: 'district', label: 'District' },
-    { value: 'province', label: 'Province' },
-    { value: 'national', label: 'National' }
+    { value: 'village', label: t('adminLevel.village', { defaultValue: 'Village' }) },
+    { value: 'sector', label: t('adminLevel.sector', { defaultValue: 'Sector' }) },
+    { value: 'district', label: t('adminLevel.district', { defaultValue: 'District' }) },
+    { value: 'province', label: t('adminLevel.province', { defaultValue: 'Province' }) },
+    { value: 'national', label: t('adminLevel.national', { defaultValue: 'National' }) }
   ];
 
   const PRIORITY_OPTIONS = [
-    { value: 1, label: 'Priority 1 (Critical)' },
-    { value: 2, label: 'Priority 2 (High)' },
-    { value: 3, label: 'Priority 3 (Medium)' },
-    { value: 4, label: 'Priority 4 (Low)' },
-    { value: 5, label: 'Priority 5 (Minimal)' }
+    { value: 1, label: t('priority.critical', { defaultValue: 'Priority 1 (Critical)' }) },
+    { value: 2, label: t('priority.high', { defaultValue: 'Priority 2 (High)' }) },
+    { value: 3, label: t('priority.medium', { defaultValue: 'Priority 3 (Medium)' }) },
+    { value: 4, label: t('priority.low', { defaultValue: 'Priority 4 (Low)' }) },
+    { value: 5, label: t('priority.minimal', { defaultValue: 'Priority 5 (Minimal)' }) }
   ];
 
   const PROPERTY_DAMAGE_OPTIONS = [
-    { value: '', label: 'Select damage level' },
-    { value: 'none', label: 'No visible damage' },
-    { value: 'minor', label: 'Minor damage' },
-    { value: 'moderate', label: 'Moderate damage' },
-    { value: 'severe', label: 'Severe damage' },
-    { value: 'total', label: 'Total destruction' }
+    { value: '', label: t('propertyDamage.select', { defaultValue: 'Select damage level' }) },
+    { value: 'none', label: t('propertyDamage.none', { defaultValue: 'No visible damage' }) },
+    { value: 'minor', label: t('propertyDamage.minor', { defaultValue: 'Minor damage' }) },
+    { value: 'moderate', label: t('propertyDamage.moderate', { defaultValue: 'Moderate damage' }) },
+    { value: 'severe', label: t('propertyDamage.severe', { defaultValue: 'Severe damage' }) },
+    { value: 'total', label: t('propertyDamage.total', { defaultValue: 'Total destruction' }) }
   ];
+
+  const formatDate = (dateString) => {
+    if (!dateString) return t('na', { defaultValue: 'N/A' });
+    try {
+      return new Date(dateString).toLocaleDateString(safeLocale);
+    } catch {
+      return t('invalidDate', { defaultValue: 'Invalid Date' });
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -118,6 +137,7 @@ const IncidentEditPage = () => {
 
   const loadIncident = async () => {
     try {
+      console.log('📡 Loading incident for editing:', id);
       const response = await apiService.getIncident(id);
       const incident = response.data || response;
       
@@ -138,14 +158,15 @@ const IncidentEditPage = () => {
         current_level: incident.current_level || 'village'
       });
 
-      // Handle media files from IncidentMedia model
       setMediaFiles(prev => ({
         ...prev,
         existingMedia: incident.media_files || []
       }));
+      
+      console.log('✅ Incident loaded for editing');
     } catch (err) {
-      setError('Failed to load incident details');
-      console.error('Load incident error:', err);
+      console.error('❌ Load incident error:', err);
+      setError(t('messages.failedToLoadIncident', { defaultValue: 'Failed to load incident details' }));
     }
   };
 
@@ -196,27 +217,44 @@ const IncidentEditPage = () => {
 
     files.forEach((file, index) => {
       if (currentCount + index >= maxFiles) {
-        newErrors[`${type}_count`] = `Maximum ${maxFiles} ${type} allowed`;
+        newErrors[`${type}_count`] = t('validation.maxFilesExceeded', { 
+          max: maxFiles, 
+          type: t(`fileType.${type}`, { defaultValue: type }),
+          defaultValue: `Maximum ${maxFiles} ${type} allowed` 
+        });
         return;
       }
 
       if (file.size > maxSize) {
-        newErrors[`${type}_size`] = `File "${file.name}" is too large. Maximum size is 10MB.`;
+        newErrors[`${type}_size`] = t('validation.fileTooLarge', {
+          fileName: file.name,
+          maxSize: '10MB',
+          defaultValue: `File "${file.name}" is too large. Maximum size is 10MB.`
+        });
         return;
       }
       
       if (type === 'images' && !file.type.startsWith('image/')) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid image file.`;
+        newErrors[`${type}_type`] = t('validation.invalidImageFile', {
+          fileName: file.name,
+          defaultValue: `"${file.name}" is not a valid image file.`
+        });
         return;
       }
       
       if (type === 'videos' && !file.type.startsWith('video/')) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid video file.`;
+        newErrors[`${type}_type`] = t('validation.invalidVideoFile', {
+          fileName: file.name,
+          defaultValue: `"${file.name}" is not a valid video file.`
+        });
         return;
       }
       
       if (type === 'documents' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(file.type)) {
-        newErrors[`${type}_type`] = `"${file.name}" is not a valid document file.`;
+        newErrors[`${type}_type`] = t('validation.invalidDocumentFile', {
+          fileName: file.name,
+          defaultValue: `"${file.name}" is not a valid document file.`
+        });
         return;
       }
       
@@ -263,23 +301,23 @@ const IncidentEditPage = () => {
     const newErrors = {};
 
     if (!formData.report_type) {
-      newErrors.report_type = 'Report type is required';
+      newErrors.report_type = t('validation.reportTypeRequired', { defaultValue: 'Report type is required' });
     }
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('validation.titleRequired', { defaultValue: 'Title is required' });
     } else if (formData.title.trim().length < 5) {
-      newErrors.title = 'Title must be at least 5 characters';
+      newErrors.title = t('validation.titleMinLength', { defaultValue: 'Title must be at least 5 characters' });
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = t('validation.descriptionRequired', { defaultValue: 'Description is required' });
     } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
+      newErrors.description = t('validation.descriptionMinLength', { defaultValue: 'Description must be at least 10 characters' });
     }
 
     if (formData.casualties && (isNaN(formData.casualties) || parseInt(formData.casualties) < 0)) {
-      newErrors.casualties = 'Casualties must be a valid number';
+      newErrors.casualties = t('validation.casualtiesInvalid', { defaultValue: 'Casualties must be a valid number' });
     }
 
     setErrors(newErrors);
@@ -306,7 +344,6 @@ const IncidentEditPage = () => {
         current_level: formData.current_level
       };
 
-      // Add optional fields
       if (formData.disaster_type) {
         updateData.disaster_type = formData.disaster_type;
       }
@@ -336,7 +373,6 @@ const IncidentEditPage = () => {
         updateData.immediate_needs = formData.immediate_needs.trim();
       }
 
-      // Add new media files
       if (mediaFiles.images.length > 0) {
         updateData.images = mediaFiles.images;
       }
@@ -349,27 +385,18 @@ const IncidentEditPage = () => {
         updateData.documents = mediaFiles.documents;
       }
 
-      console.log('Updating incident with data:', updateData);
+      console.log('💾 Updating incident:', updateData);
       const result = await apiService.updateIncident(id, updateData);
-      
-      // Delete removed existing media
-      const existingIds = mediaFiles.existingMedia.map(m => m.id);
-      const originalMedia = (await apiService.getIncident(id)).media_files || [];
-      const removedMedia = originalMedia.filter(m => !existingIds.includes(m.id));
-      
-      // Note: You may need to add a delete media endpoint to your API
-      // for (const media of removedMedia) {
-      //   await apiService.deleteIncidentMedia(media.id);
-      // }
+      console.log('✅ Incident updated successfully');
 
       navigate(`/incidents/${id}/view`, { 
-        state: { message: 'Incident updated successfully' }
+        state: { message: t('messages.incidentUpdatedSuccess', { defaultValue: 'Incident updated successfully' }) }
       });
     } catch (err) {
-      console.error('Update incident error:', err);
+      console.error('❌ Update incident error:', err);
       setErrors(prev => ({
         ...prev,
-        submit: err.message || 'Failed to update incident. Please try again.'
+        submit: err.message || t('messages.failedToUpdate', { defaultValue: 'Failed to update incident. Please try again.' })
       }));
     } finally {
       setSaving(false);
@@ -381,7 +408,7 @@ const IncidentEditPage = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading incident details...</p>
+          <p className="text-gray-600">{t('loading.incidentDetails', { defaultValue: 'Loading incident details...' })}</p>
         </div>
       </div>
     );
@@ -392,13 +419,15 @@ const IncidentEditPage = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Incident</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {t('error.loadingIncident', { defaultValue: 'Error Loading Incident' })}
+          </h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => navigate('/incidents')}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
           >
-            Back to Incidents
+            {t('actions.backToIncidents', { defaultValue: 'Back to Incidents' })}
           </button>
         </div>
       </div>
@@ -415,24 +444,28 @@ const IncidentEditPage = () => {
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
                 <Link to="/incidents" className="hover:text-gray-700 flex items-center gap-1">
                   <ArrowLeft className="w-4 h-4" />
-                  Incidents
+                  {t('nav.incidents', { defaultValue: 'Incidents' })}
                 </Link>
                 <span>/</span>
                 <Link to={`/incidents/${id}/view`} className="hover:text-gray-700">
                   #{id.slice(0, 8)}
                 </Link>
                 <span>/</span>
-                <span className="text-gray-900">Edit</span>
+                <span className="text-gray-900">{t('nav.edit', { defaultValue: 'Edit' })}</span>
               </nav>
-              <h1 className="text-2xl font-bold text-gray-900">Edit Incident Report</h1>
-              <p className="text-gray-600">Update incident details and information</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {t('edit.title', { defaultValue: 'Edit Incident Report' })}
+              </h1>
+              <p className="text-gray-600">
+                {t('edit.subtitle', { defaultValue: 'Update incident details and information' })}
+              </p>
             </div>
             <div className="flex items-center space-x-3">
               <Link
                 to={`/incidents/${id}/view`}
                 className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('actions.cancel', { defaultValue: 'Cancel' })}
               </Link>
             </div>
           </div>
@@ -456,7 +489,7 @@ const IncidentEditPage = () => {
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="report_type" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Report Type *
+                  {t('form.reportType', { defaultValue: 'Report Type' })} *
                 </label>
                 <select
                   id="report_type"
@@ -467,7 +500,7 @@ const IncidentEditPage = () => {
                     errors.report_type ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
                 >
-                  <option value="">Select report type</option>
+                  <option value="">{t('form.selectReportType', { defaultValue: 'Select report type' })}</option>
                   {REPORT_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
@@ -481,7 +514,7 @@ const IncidentEditPage = () => {
 
               <div>
                 <label htmlFor="disaster_type" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Disaster Type
+                  {t('form.disasterType', { defaultValue: 'Disaster Type' })}
                 </label>
                 <select
                   id="disaster_type"
@@ -491,7 +524,7 @@ const IncidentEditPage = () => {
                   disabled={disasterTypes.length === 0}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                 >
-                  <option value="">Select disaster type (optional)</option>
+                  <option value="">{t('form.selectDisasterType', { defaultValue: 'Select disaster type (optional)' })}</option>
                   {disasterTypes.map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -499,7 +532,9 @@ const IncidentEditPage = () => {
                   ))}
                 </select>
                 {disasterTypes.length === 0 && (
-                  <p className="mt-1 text-xs text-gray-500">No disaster types available</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {t('messages.noDisasterTypes', { defaultValue: 'No disaster types available' })}
+                  </p>
                 )}
               </div>
             </div>
@@ -508,7 +543,7 @@ const IncidentEditPage = () => {
             <div className="grid md:grid-cols-3 gap-6">
               <div>
                 <label htmlFor="status" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Status
+                  {t('form.status', { defaultValue: 'Status' })}
                 </label>
                 <select
                   id="status"
@@ -527,7 +562,7 @@ const IncidentEditPage = () => {
 
               <div>
                 <label htmlFor="priority" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Priority
+                  {t('form.priority', { defaultValue: 'Priority' })}
                 </label>
                 <select
                   id="priority"
@@ -546,7 +581,7 @@ const IncidentEditPage = () => {
 
               <div>
                 <label htmlFor="current_level" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Current Level
+                  {t('form.currentLevel', { defaultValue: 'Current Level' })}
                 </label>
                 <select
                   id="current_level"
@@ -567,7 +602,7 @@ const IncidentEditPage = () => {
             {/* Title */}
             <div>
               <label htmlFor="title" className="block text-sm font-semibold text-gray-900 mb-2">
-                Incident Title *
+                {t('form.incidentTitle', { defaultValue: 'Incident Title' })} *
               </label>
               <input
                 type="text"
@@ -591,7 +626,7 @@ const IncidentEditPage = () => {
             {/* Description */}
             <div>
               <label htmlFor="description" className="block text-sm font-semibold text-gray-900 mb-2">
-                Description *
+                {t('form.description', { defaultValue: 'Description' })} *
               </label>
               <textarea
                 id="description"
@@ -610,12 +645,14 @@ const IncidentEditPage = () => {
 
             {/* Location */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Location</h3>
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                {t('form.location', { defaultValue: 'Location' })}
+              </h3>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="location" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Administrative Area
+                    {t('form.administrativeArea', { defaultValue: 'Administrative Area' })}
                   </label>
                   <select
                     id="location"
@@ -625,7 +662,7 @@ const IncidentEditPage = () => {
                     disabled={locations.length === 0}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                   >
-                    <option value="">Select area (optional)</option>
+                    <option value="">{t('form.selectArea', { defaultValue: 'Select area (optional)' })}</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>
                         {location.name} ({location.type})
@@ -633,13 +670,15 @@ const IncidentEditPage = () => {
                     ))}
                   </select>
                   {locations.length === 0 && (
-                    <p className="mt-1 text-xs text-gray-500">No locations available</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t('messages.noLocations', { defaultValue: 'No locations available' })}
+                    </p>
                   )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    GPS Coordinates
+                    {t('form.gpsCoordinates', { defaultValue: 'GPS Coordinates' })}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <input
@@ -647,7 +686,7 @@ const IncidentEditPage = () => {
                       name="latitude"
                       value={formData.latitude || ''}
                       onChange={handleInputChange}
-                      placeholder="Latitude"
+                      placeholder={t('form.latitude', { defaultValue: 'Latitude' })}
                       step="any"
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -656,7 +695,7 @@ const IncidentEditPage = () => {
                       name="longitude"
                       value={formData.longitude || ''}
                       onChange={handleInputChange}
-                      placeholder="Longitude"
+                      placeholder={t('form.longitude', { defaultValue: 'Longitude' })}
                       step="any"
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -666,7 +705,7 @@ const IncidentEditPage = () => {
 
               <div>
                 <label htmlFor="address" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Address Details
+                  {t('form.addressDetails', { defaultValue: 'Address Details' })}
                 </label>
                 <textarea
                   id="address"
@@ -674,7 +713,7 @@ const IncidentEditPage = () => {
                   value={formData.address}
                   onChange={handleInputChange}
                   rows={3}
-                  placeholder="Enter detailed address, landmarks, or location description..."
+                  placeholder={t('form.addressPlaceholder', { defaultValue: 'Enter detailed address, landmarks, or location description...' })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -682,12 +721,14 @@ const IncidentEditPage = () => {
 
             {/* Impact Assessment */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Impact Assessment</h3>
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                {t('form.impactAssessment', { defaultValue: 'Impact Assessment' })}
+              </h3>
               
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
                   <label htmlFor="casualties" className="block text-sm font-semibold text-gray-900 mb-2">
-                    People Affected
+                    {t('form.peopleAffected', { defaultValue: 'People Affected' })}
                   </label>
                   <input
                     type="number"
@@ -696,7 +737,7 @@ const IncidentEditPage = () => {
                     value={formData.casualties}
                     onChange={handleInputChange}
                     min="0"
-                    placeholder="Number of people"
+                    placeholder={t('form.numberOfPeople', { defaultValue: 'Number of people' })}
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.casualties ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
@@ -708,7 +749,7 @@ const IncidentEditPage = () => {
 
                 <div className="md:col-span-2">
                   <label htmlFor="property_damage" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Property Damage
+                    {t('form.propertyDamage', { defaultValue: 'Property Damage' })}
                   </label>
                   <select
                     id="property_damage"
@@ -728,7 +769,7 @@ const IncidentEditPage = () => {
 
               <div>
                 <label htmlFor="immediate_needs" className="block text-sm font-semibold text-gray-900 mb-2">
-                  Immediate Needs
+                  {t('form.immediateNeeds', { defaultValue: 'Immediate Needs' })}
                 </label>
                 <textarea
                   id="immediate_needs"
@@ -736,7 +777,7 @@ const IncidentEditPage = () => {
                   value={formData.immediate_needs}
                   onChange={handleInputChange}
                   rows={3}
-                  placeholder="What immediate help or resources are needed?"
+                  placeholder={t('form.immediateNeedsPlaceholder', { defaultValue: 'What immediate help or resources are needed?' })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -744,17 +785,23 @@ const IncidentEditPage = () => {
 
             {/* Media Management */}
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Media Files</h3>
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
+                {t('form.mediaFiles', { defaultValue: 'Media Files' })}
+              </h3>
 
               {/* Existing Media */}
               {mediaFiles.existingMedia.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Current Media Files</h4>
+                  <h4 className="font-medium text-gray-900 mb-3">
+                    {t('form.currentMediaFiles', { defaultValue: 'Current Media Files' })}
+                  </h4>
                   <div className="space-y-4">
                     {/* Images */}
                     {mediaFiles.existingMedia.filter(m => m.media_type === 'image').length > 0 && (
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Images</p>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {t('media.images', { defaultValue: 'Images' })}
+                        </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                           {mediaFiles.existingMedia
                             .filter(m => m.media_type === 'image')
@@ -764,7 +811,7 @@ const IncidentEditPage = () => {
                                 <div key={media.id} className="relative">
                                   <img
                                     src={imageUrl}
-                                    alt={media.caption || 'Incident media'}
+                                    alt={media.caption || t('media.incidentMedia', { defaultValue: 'Incident media' })}
                                     className="w-full h-24 object-cover rounded-lg border"
                                     onError={(e) => {
                                       console.error('Image failed to load:', imageUrl);
@@ -775,6 +822,7 @@ const IncidentEditPage = () => {
                                     type="button"
                                     onClick={() => removeExistingMedia(media.id)}
                                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                    aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                                   >
                                     <X className="w-4 h-4" />
                                   </button>
@@ -791,7 +839,9 @@ const IncidentEditPage = () => {
                     {/* Videos */}
                     {mediaFiles.existingMedia.filter(m => m.media_type === 'video').length > 0 && (
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Videos</p>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {t('media.videos', { defaultValue: 'Videos' })}
+                        </p>
                         <div className="space-y-3">
                           {mediaFiles.existingMedia
                             .filter(m => m.media_type === 'video')
@@ -807,10 +857,10 @@ const IncidentEditPage = () => {
                                     />
                                     <div>
                                       <p className="text-sm font-medium text-gray-900">
-                                        {media.caption || 'Video'}
+                                        {media.caption || t('media.video', { defaultValue: 'Video' })}
                                       </p>
                                       <p className="text-xs text-gray-500">
-                                        Uploaded {new Date(media.uploaded_at).toLocaleDateString()}
+                                        {t('media.uploaded', { defaultValue: 'Uploaded' })} {formatDate(media.uploaded_at)}
                                       </p>
                                     </div>
                                   </div>
@@ -818,6 +868,7 @@ const IncidentEditPage = () => {
                                     type="button"
                                     onClick={() => removeExistingMedia(media.id)}
                                     className="text-red-500 hover:text-red-700"
+                                    aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                                   >
                                     <X className="w-5 h-5" />
                                   </button>
@@ -831,7 +882,9 @@ const IncidentEditPage = () => {
                     {/* Documents */}
                     {mediaFiles.existingMedia.filter(m => m.media_type === 'document').length > 0 && (
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Documents</p>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {t('media.documents', { defaultValue: 'Documents' })}
+                        </p>
                         <div className="space-y-2">
                           {mediaFiles.existingMedia
                             .filter(m => m.media_type === 'document')
@@ -847,7 +900,7 @@ const IncidentEditPage = () => {
                                         {media.caption || fileName}
                                       </p>
                                       <p className="text-xs text-gray-500">
-                                        Uploaded {new Date(media.uploaded_at).toLocaleDateString()}
+                                        {t('media.uploaded', { defaultValue: 'Uploaded' })} {formatDate(media.uploaded_at)}
                                       </p>
                                     </div>
                                   </div>
@@ -855,6 +908,7 @@ const IncidentEditPage = () => {
                                     type="button"
                                     onClick={() => removeExistingMedia(media.id)}
                                     className="text-red-500 hover:text-red-700"
+                                    aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                                   >
                                     <X className="w-5 h-5" />
                                   </button>
@@ -871,7 +925,7 @@ const IncidentEditPage = () => {
               {/* New Images */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Add New Images (Max 5 total, 10MB each)
+                  {t('form.addNewImages', { defaultValue: 'Add New Images (Max 5 total, 10MB each)' })}
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                   <input
@@ -890,9 +944,11 @@ const IncidentEditPage = () => {
                       onClick={() => fileInputRef.current?.click()}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      Upload Images
+                      {t('actions.uploadImages', { defaultValue: 'Upload Images' })}
                     </button>
-                    <p className="text-sm text-gray-500 mt-1">JPG, PNG, GIF up to 10MB each</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {t('form.imageFormats', { defaultValue: 'JPG, PNG, GIF up to 10MB each' })}
+                    </p>
                   </div>
                 </div>
 
@@ -902,13 +958,14 @@ const IncidentEditPage = () => {
                       <div key={index} className="relative">
                         <img
                           src={URL.createObjectURL(file)}
-                          alt={`New upload ${index + 1}`}
+                          alt={t('media.newUpload', { number: index + 1, defaultValue: `New upload ${index + 1}` })}
                           className="w-full h-24 object-cover rounded-lg border"
                         />
                         <button
                           type="button"
                           onClick={() => removeFile('images', index)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                          aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -928,7 +985,7 @@ const IncidentEditPage = () => {
               {/* New Videos */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Add New Videos (Max 5 total, 10MB each)
+                  {t('form.addNewVideos', { defaultValue: 'Add New Videos (Max 5 total, 10MB each)' })}
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                   <input
@@ -947,9 +1004,11 @@ const IncidentEditPage = () => {
                       onClick={() => videoInputRef.current?.click()}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      Upload Videos
+                      {t('actions.uploadVideos', { defaultValue: 'Upload Videos' })}
                     </button>
-                    <p className="text-sm text-gray-500 mt-1">MP4, MOV, AVI up to 10MB each</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {t('form.videoFormats', { defaultValue: 'MP4, MOV, AVI up to 10MB each' })}
+                    </p>
                   </div>
                 </div>
 
@@ -972,6 +1031,7 @@ const IncidentEditPage = () => {
                           type="button"
                           onClick={() => removeFile('videos', index)}
                           className="text-red-500 hover:text-red-700"
+                          aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -990,7 +1050,7 @@ const IncidentEditPage = () => {
               {/* New Documents */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Add New Documents (Max 5 total, 10MB each)
+                  {t('form.addNewDocuments', { defaultValue: 'Add New Documents (Max 5 total, 10MB each)' })}
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
                   <input
@@ -1009,9 +1069,11 @@ const IncidentEditPage = () => {
                       onClick={() => documentInputRef.current?.click()}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      Upload Documents
+                      {t('actions.uploadDocuments', { defaultValue: 'Upload Documents' })}
                     </button>
-                    <p className="text-sm text-gray-500 mt-1">PDF, Word, Excel up to 10MB each</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {t('form.documentFormats', { defaultValue: 'PDF, Word, Excel up to 10MB each' })}
+                    </p>
                   </div>
                 </div>
 
@@ -1034,6 +1096,7 @@ const IncidentEditPage = () => {
                           type="button"
                           onClick={() => removeFile('documents', index)}
                           className="text-red-500 hover:text-red-700"
+                          aria-label={t('actions.remove', { defaultValue: 'Remove' })}
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -1060,12 +1123,12 @@ const IncidentEditPage = () => {
                 {saving ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Updating...
+                    {t('actions.updating', { defaultValue: 'Updating...' })}
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Update Incident
+                    {t('actions.updateIncident', { defaultValue: 'Update Incident' })}
                   </>
                 )}
               </button>
@@ -1074,7 +1137,7 @@ const IncidentEditPage = () => {
                 to={`/incidents/${id}/view`}
                 className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-center font-medium"
               >
-                Cancel
+                {t('actions.cancel', { defaultValue: 'Cancel' })}
               </Link>
             </div>
           </form>

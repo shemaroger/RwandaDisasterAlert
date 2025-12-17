@@ -50,50 +50,247 @@ class DisasterTypeSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
-class UserSerializer(serializers.ModelSerializer):
-    district_name = serializers.CharField(source='district.name', read_only=True)
-    full_name = serializers.SerializerMethodField()
+# class UserSerializer(serializers.ModelSerializer):
+#     district_name = serializers.CharField(source='district.name', read_only=True)
+#     full_name = serializers.SerializerMethodField()
     
+#     class Meta:
+#         model = User
+#         fields = [
+#             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+#             'user_type', 'phone_number', 'preferred_language', 'location_lat',
+#             'location_lng', 'district', 'district_name', 'push_notifications_enabled',
+#             'sms_notifications_enabled', 'email_notifications_enabled', 
+#             'is_verified', 'created_at', 'updated_at'
+#         ]
+#         extra_kwargs = {
+#             'password': {'write_only': True}
+#         }
+    
+#     def get_full_name(self, obj):
+#         return f"{obj.first_name} {obj.last_name}".strip()
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    User serializer with proper field handling
+    """
+    full_name = serializers.SerializerMethodField()
+    user_type_display = serializers.CharField(source='get_user_type_display', read_only=True)
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-            'user_type', 'phone_number', 'preferred_language', 'location_lat',
-            'location_lng', 'district', 'district_name', 'push_notifications_enabled',
-            'sms_notifications_enabled', 'email_notifications_enabled', 
-            'is_verified', 'created_at', 'updated_at'
+            'user_type', 'user_type_display',
+            'phone_number', 'preferred_language', 
+            'location_lat', 'location_lng', 
+            'district',
+            'push_notifications_enabled',
+            'sms_notifications_enabled', 
+            'email_notifications_enabled',
+            'is_verified', 
+            'is_active',
+            'last_login',
+            'created_at', 
+            'updated_at'
         ]
         extra_kwargs = {
-            'password': {'write_only': True}
+            'password': {'write_only': True},
+            'last_login': {'read_only': True},
+            'created_at': {'read_only': True},
+            'updated_at': {'read_only': True}
         }
-    
+
     def get_full_name(self, obj):
-        return f"{obj.first_name} {obj.last_name}".strip()
+        """Return full name or username if names not set"""
+        full = f"{obj.first_name} {obj.last_name}".strip()
+        return full if full else obj.username
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
-    password_confirm = serializers.CharField(write_only=True)
+    """
+    User registration serializer
+    UPDATED: Better validation and error messages
+    """
+    password = serializers.CharField(
+        write_only=True, 
+        min_length=8,
+        style={'input_type': 'password'},
+        help_text="Minimum 8 characters"
+    )
+    password_confirm = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'},
+        help_text="Must match password"
+    )
     
     class Meta:
         model = User
         fields = [
-            'username', 'email', 'password', 'password_confirm', 'first_name',
-            'last_name', 'phone_number', 'preferred_language', 'district'
+            'username', 'email', 'password', 'password_confirm', 
+            'first_name', 'last_name', 'phone_number', 
+            'preferred_language', 'district', 'user_type'
         ]
+        extra_kwargs = {
+            'username': {'required': True},
+            'email': {'required': True},
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'user_type': {'required': True},
+        }
     
     def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError("Passwords don't match")
+        """Validate password match"""
+        password = attrs.get('password')
+        password_confirm = attrs.get('password_confirm')
+        
+        if not password:
+            raise serializers.ValidationError({"password": "Password is required"})
+        
+        if not password_confirm:
+            raise serializers.ValidationError({"password_confirm": "Password confirmation is required"})
+        
+        if password != password_confirm:
+            raise serializers.ValidationError({"password_confirm": "Passwords don't match"})
+        
         return attrs
     
     def create(self, validated_data):
+        """Create user with hashed password"""
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        
+        # Create user
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
+        
         return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    User update serializer - UPDATED
+    Allows partial updates without requiring password
+    Password confirmation only required if password is being changed
+    """
+    password = serializers.CharField(
+        write_only=True, 
+        min_length=8, 
+        required=False, 
+        allow_blank=False,  # Changed: don't allow blank passwords
+        style={'input_type': 'password'}
+    )
+    password_confirm = serializers.CharField(
+        write_only=True, 
+        required=False, 
+        allow_blank=False,  # Changed: don't allow blank confirmations
+        style={'input_type': 'password'}
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'first_name', 'last_name',
+            'phone_number', 'preferred_language', 
+            'location_lat', 'location_lng', 'district',
+            'user_type', 'is_verified', 'is_active',
+            'push_notifications_enabled',
+            'sms_notifications_enabled',
+            'email_notifications_enabled',
+            'password', 'password_confirm'
+        ]
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+        }
+
+    def validate(self, attrs):
+        """
+        Validate password match if password is being updated
+        UPDATED: Better handling of password fields
+        """
+        password = attrs.get('password')
+        password_confirm = attrs.get('password_confirm')
+        
+        # If password is provided, confirmation must also be provided and match
+        if password is not None:
+            if password_confirm is None:
+                raise serializers.ValidationError({
+                    "password_confirm": "Password confirmation is required when changing password"
+                })
+            if password != password_confirm:
+                raise serializers.ValidationError({
+                    "password_confirm": "Passwords don't match"
+                })
+        
+        # If password_confirm is provided but password is not, that's an error
+        elif password_confirm is not None:
+            raise serializers.ValidationError({
+                "password": "Password is required when providing password confirmation"
+            })
+        
+        return attrs
+
+    def update(self, instance, validated_data):
+        """Update user with optional password change"""
+        # Remove password fields from validated_data
+        password = validated_data.pop('password', None)
+        validated_data.pop('password_confirm', None)
+        
+        # Update all other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # Update password if provided
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for user lists
+    Includes only essential fields for better performance
+    """
+    full_name = serializers.SerializerMethodField()
+    user_type_display = serializers.CharField(source='get_user_type_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+            'user_type', 'user_type_display', 'district', 'phone_number',
+            'is_verified', 'is_active', 'created_at'
+        ]
+
+    def get_full_name(self, obj):
+        full = f"{obj.first_name} {obj.last_name}".strip()
+        return full if full else obj.username
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Serializer for password change"""
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, min_length=8, write_only=True)
+    new_password_confirm = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        """Validate new passwords match"""
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({"new_password_confirm": "Passwords don't match"})
+        return attrs
+
+    def validate_old_password(self, value):
+        """Validate old password is correct"""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect")
+        return value
 
 
 class AlertDeliverySerializer(serializers.ModelSerializer):

@@ -1,7 +1,10 @@
-// src/App.jsx - Complete Hierarchical Escalation System
-import React from 'react';
+// src/App.jsx - Complete Hierarchical Escalation System with i18n
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { I18nextProvider, useTranslation } from 'react-i18next'; // <-- ADDED useTranslation
+import i18n from './i18n';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
@@ -19,9 +22,7 @@ import SectorDashboard from './pages/dashboard/SectorDashboard';
 import DistrictDashboard from './pages/dashboard/DistrictDashboard';
 import ProvinceDashboard from './pages/dashboard/ProvinceDashboard';
 import NationalDashboard from './pages/dashboard/NationalDashboard';
-
 import Home from './pages/Home';
-import UserManagement from './pages/UserManagement';
 
 // Safety & Emergency pages
 import SafetyCheckin from './pages/safety/SafetyCheckin';
@@ -29,6 +30,7 @@ import EmergencyContacts from './pages/safety/EmergencyContacts';
 import EmergencyGuide from './pages/safety/EmergencyGuide';
 
 // Admin pages
+import UserManagement from './pages/UserManagement';
 import LocationManagement from './pages/admin/LocationManagement';
 import DisasterTypes from './pages/admin/DisasterTypes';
 import AlertsManagement from './pages/admin/AlertsManagement';
@@ -71,27 +73,28 @@ import './App.css';
 // Layout wrapper component that provides user context and notifications
 function AppLayout({ children }) {
   const { user, logout } = useAuth();
-  
+
   // Mock notifications - replace with your actual notification service
   const notifications = [];
-  
+
   // Mock handlers - replace with your actual implementations
   const handlePageChange = (page) => {
     console.log('Page changed to:', page);
   };
-  
+
   const handleLanguageChange = (language) => {
     console.log('Language changed to:', language);
+    // The language change is already handled by the LanguageSwitcher and i18n
   };
-  
+
   const handleEmergencyAlert = () => {
     console.log('Emergency alert triggered');
   };
-  
+
   const handleQuickAction = (actionType) => {
     console.log('Quick action:', actionType);
   };
-  
+
   return (
     <Layout
       user={user}
@@ -110,14 +113,14 @@ function AppLayout({ children }) {
 // Wrapper component to provide user context to UserManagement
 function UserManagementWrapper() {
   const { user, logout } = useAuth();
-  
+
   return <UserManagement user={user} onLogout={logout} />;
 }
 
 // Dashboard redirect component based on user_type
 function DashboardRedirect() {
   const { user, loading, getRedirectPath } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -128,32 +131,35 @@ function DashboardRedirect() {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/" replace />;
   }
-  
+
   // Use the getRedirectPath function from AuthContext
   const redirectPath = getRedirectPath(user.user_type);
   return <Navigate to={redirectPath} replace />;
 }
 
 function AppRoutes() {
+  // FIX: Import the translation function 't' using the useTranslation hook
+  const { t } = useTranslation();
+
   return (
     <Routes>
       {/* Default route - redirect to login */}
       <Route path="/" element={<Login />} />
-      
+
       {/* Dashboard - Auto redirect to appropriate dashboard */}
-      <Route 
-        path="/dashboard" 
+      <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <AppLayout>
               <DashboardRedirect />
             </AppLayout>
           </ProtectedRoute>
-        } 
+        }
       />
 
       {/* ==================== PUBLIC AUTH ROUTES ==================== */}
@@ -182,7 +188,6 @@ function AppRoutes() {
       />
 
       {/* ==================== HIERARCHICAL DASHBOARDS ==================== */}
-      
       {/* Village Level Dashboard */}
       <Route
         path="/village/dashboard"
@@ -256,41 +261,40 @@ function AppRoutes() {
       />
 
       {/* ==================== USER MANAGEMENT (ADMIN ONLY) ==================== */}
-      <Route 
-        path="/users" 
+      <Route
+        path="/users"
         element={
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <UserManagementWrapper />
             </AppLayout>
           </ProtectedRoute>
-        } 
+        }
       />
 
-      <Route 
-        path="/admin/users" 
+      <Route
+        path="/admin/users"
         element={
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <UserManagementWrapper />
             </AppLayout>
           </ProtectedRoute>
-        } 
+        }
       />
 
-      <Route 
-        path="/user/management" 
+      <Route
+        path="/user/management"
         element={
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <UserManagementWrapper />
             </AppLayout>
           </ProtectedRoute>
-        } 
+        }
       />
 
       {/* ==================== INCIDENT MANAGEMENT ==================== */}
-      
       {/* General incidents route */}
       <Route
         path="/incidents"
@@ -418,10 +422,9 @@ function AppRoutes() {
       />
 
       {/* ==================== ALERT MANAGEMENT ==================== */}
-      
       {/* Alert Management - District Level and Above */}
-      <Route 
-        path="/admin/disaster-types" 
+      <Route
+        path="/admin/disaster-types"
         element={
           <ProtectedRoute requiredUserTypes={["admin", "district", "province", "national"]}>
             <AppLayout>
@@ -430,7 +433,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/admin/alerts"
         element={
@@ -533,7 +536,6 @@ function AppRoutes() {
       />
 
       {/* ==================== ANALYTICS ==================== */}
-      
       {/* Analytics - District Level and Above */}
       <Route
         path="/analytics"
@@ -547,7 +549,6 @@ function AppRoutes() {
       />
 
       {/* ==================== SAFETY GUIDES ==================== */}
-      
       {/* Admin Safety Guide Routes - Sector Level and Above */}
       <Route
         path="/safety-guides"
@@ -613,7 +614,6 @@ function AppRoutes() {
       />
 
       {/* ==================== LOCATION MANAGEMENT (ADMIN ONLY) ==================== */}
-      
       <Route
         path="/locations"
         element={
@@ -626,7 +626,6 @@ function AppRoutes() {
       />
 
       {/* ==================== SAFETY & EMERGENCY ROUTES ==================== */}
-      
       <Route
         path="/safety/checkin"
         element={
@@ -683,7 +682,6 @@ function AppRoutes() {
       />
 
       {/* ==================== CHAT/MESSAGING ROUTES ==================== */}
-      
       <Route
         path="/chat"
         element={
@@ -718,15 +716,14 @@ function AppRoutes() {
       />
 
       {/* ==================== ADMIN SYSTEM ROUTES ==================== */}
-      
       <Route
         path="/admin/settings"
         element={
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">System Settings</h1>
-                <p className="text-gray-600">System configuration coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.systemSettings')}</h1>
+                <p className="text-gray-600">{t('admin.systemConfigComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -739,8 +736,8 @@ function AppRoutes() {
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">System Settings</h1>
-                <p className="text-gray-600">System configuration coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.systemSettings')}</h1>
+                <p className="text-gray-600">{t('admin.systemConfigComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -753,8 +750,8 @@ function AppRoutes() {
           <ProtectedRoute requiredUserType="admin">
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">System Health</h1>
-                <p className="text-gray-600">System health monitoring coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.systemHealth')}</h1>
+                <p className="text-gray-600">{t('admin.healthMonitoringComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -767,8 +764,8 @@ function AppRoutes() {
           <ProtectedRoute requiredUserTypes={["admin", "district", "province", "national"]}>
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">Notification Templates</h1>
-                <p className="text-gray-600">Template management coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.notificationTemplates')}</h1>
+                <p className="text-gray-600">{t('admin.templateManagementComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -776,15 +773,14 @@ function AppRoutes() {
       />
 
       {/* ==================== PROFILE & USER SETTINGS ==================== */}
-      
       <Route
         path="/profile"
         element={
           <ProtectedRoute>
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">User Profile</h1>
-                <p className="text-gray-600">Profile management coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('profile.userProfile')}</h1>
+                <p className="text-gray-600">{t('profile.profileManagementComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -797,8 +793,8 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">Notification Preferences</h1>
-                <p className="text-gray-600">Preference management coming soon...</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('profile.notificationPreferences')}</h1>
+                <p className="text-gray-600">{t('profile.preferenceManagementComingSoon')}</p>
               </div>
             </AppLayout>
           </ProtectedRoute>
@@ -806,7 +802,6 @@ function AppRoutes() {
       />
 
       {/* ==================== ERROR ROUTES ==================== */}
-      
       <Route path="/unauthorized" element={<Unauthorized />} />
 
       <Route
@@ -826,13 +821,26 @@ function AppRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <div className="App">
-            <AppRoutes />
-          </div>
-        </Router>
-      </AuthProvider>
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider>
+          <AuthProvider>
+            <Router>
+              <div className="App">
+                <Suspense fallback={
+                  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-red-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading application...</p>
+                    </div>
+                  </div>
+                }>
+                  <AppRoutes />
+                </Suspense>
+              </div>
+            </Router>
+          </AuthProvider>
+        </LanguageProvider>
+      </I18nextProvider>
     </ErrorBoundary>
   );
 }

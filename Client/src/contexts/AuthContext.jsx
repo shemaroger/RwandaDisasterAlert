@@ -787,4 +787,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext.Provider;
+export default AuthContext;

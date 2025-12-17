@@ -39,36 +39,60 @@ class RegisterView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            
+            # Create auth token
+            token, created = Token.objects.get_or_create(user=user)
+            
             return Response({
                 'user': UserSerializer(user).data,
+                'token': token.key,
                 'message': 'User registered successfully'
             }, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class LoginView(APIView):
-    """User login endpoint"""
+    """User login endpoint - FIXED"""
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-        
+
         if not username or not password:
             return Response({
                 'error': 'Username and password are required'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        # Authenticate user
         user = authenticate(username=username, password=password)
+        
         if user:
             # Create or get authentication token
             token, created = Token.objects.get_or_create(user=user)
-            
+
+            # Serialize user data - this should now include all fields
+            serializer = UserSerializer(user)
+            user_data = serializer.data
+
+            # Debug logging (remove in production)
+            print(f"✅ Login successful for user: {username}")
+            print(f"✅ User type: {user.user_type}")
+            print(f"✅ User data keys: {user_data.keys()}")
+
+            # Verify user_type is present
+            if 'user_type' not in user_data or not user_data['user_type']:
+                # This should never happen now, but keep as safety
+                print("⚠️ WARNING: user_type missing, using model value")
+                user_data['user_type'] = user.user_type
+
             return Response({
                 'token': token.key,
-                'user': UserSerializer(user).data,
+                'user': user_data,
                 'message': 'Login successful'
             }, status=status.HTTP_200_OK)
-        
+
         return Response({
             'error': 'Invalid credentials'
         }, status=status.HTTP_401_UNAUTHORIZED)
@@ -79,50 +103,382 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
+        # Delete the auth token
+        try:
+            request.user.auth_token.delete()
+        except Exception as e:
+            print(f"Error deleting token: {e}")
+        
+        # Logout
         logout(request)
+        
         return Response({
             'message': 'Logout successful'
         }, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
-    """Get current user profile"""
+    """Get/Update current user profile"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
+        """Get current user profile"""
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+    
+    def patch(self, request):
+        """Update current user profile"""
+        serializer = UserUpdateSerializer(
+            request.user, 
+            data=request.data, 
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'user': UserSerializer(request.user).data,
+                'message': 'Profile updated successfully'
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ChangePasswordView(APIView):
-    """Change user password"""
+    """Change user password - IMPROVED"""
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        old_password = request.data.get('old_password')
-        new_password = request.data.get('new_password')
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request}
+        )
         
-        if not old_password or not new_password:
+        if serializer.is_valid():
+            # Set new password
+            request.user.set_password(serializer.validated_data['new_password'])
+            request.user.save()
+            
+            # Delete old token and create new one for security
+            try:
+                request.user.auth_token.delete()
+            except Exception:
+                pass
+            
+            token = Token.objects.create(user=request.user)
+            
             return Response({
-                'error': 'Both old and new passwords are required'
+                'message': 'Password changed successfully',
+                'token': token.key  # Return new token
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RequestPasswordResetView(APIView):
+    """Request password reset email"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        
+        if not email:
+            return Response({
+                'error': 'Email is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if not check_password(old_password, request.user.password):
+        # TODO: Implement password reset email logic
+        # 1. Find user by email
+        # 2. Generate reset token
+        # 3. Send email with reset link
+        
+        return Response({
+            'message': 'If an account with that email exists, a password reset link has been sent'
+        }, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(APIView):
+    """Reset password with token"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        
+        if not token or not new_password:
             return Response({
-                'error': 'Invalid old password'
+                'error': 'Token and new password are required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         if len(new_password) < 8:
             return Response({
-                'error': 'New password must be at least 8 characters'
+                'error': 'Password must be at least 8 characters'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        request.user.set_password(new_password)
-        request.user.save()
+        # TODO: Implement token validation and password reset
+        # 1. Validate token
+        # 2. Find user
+        # 3. Reset password
         
         return Response({
-            'message': 'Password changed successfully'
+            'message': 'Password reset successful'
         }, status=status.HTTP_200_OK)
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    User management viewset - FIXED
+    
+    Endpoints:
+    - GET /api/users/ - List all users (with filtering)
+    - POST /api/users/ - Create new user
+    - GET /api/users/{id}/ - Get user details
+    - PATCH /api/users/{id}/ - Update user
+    - DELETE /api/users/{id}/ - Delete user
+    - GET /api/users/me/ - Get current user profile
+    - PATCH /api/users/me/ - Update current user profile
+    """
+    queryset = User.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['user_type', 'is_active', 'is_verified', 'district', 'preferred_language']
+    search_fields = ['username', 'email', 'first_name', 'last_name', 'phone_number']
+    ordering_fields = ['created_at', 'username', 'email', 'user_type']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        """Use different serializers for different actions"""
+        if self.action == 'list':
+            return UserListSerializer  # Lightweight for lists
+        elif self.action in ['create']:
+            return UserRegistrationSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UserUpdateSerializer
+        return UserSerializer
+
+    def get_permissions(self):
+        """
+        Set permissions based on action
+        - Create: AllowAny (for registration)
+        - List/Retrieve: IsAuthenticated
+        - Update/Delete: IsAdminUser
+        """
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        """
+        Filter queryset based on user permissions and query params
+        FIXED: Proper filtering for user management table
+        """
+        queryset = User.objects.all()
+        
+        # Admin sees all users
+        if self.request.user.is_authenticated and self.request.user.user_type == 'admin':
+            return queryset
+        
+        # Other authenticated users see only themselves and citizens
+        if self.request.user.is_authenticated:
+            return queryset.filter(
+                Q(id=self.request.user.id) | Q(user_type='citizen')
+            )
+        
+        return queryset.none()
+
+    def list(self, request, *args, **kwargs):
+        """
+        List users with enhanced filtering
+        FIXED: Return proper structure with all fields
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Additional filtering from query params
+        user_type = request.query_params.get('user_type')
+        is_active = request.query_params.get('is_active')
+        is_verified = request.query_params.get('is_verified')
+        location = request.query_params.get('location')  # district
+        
+        if user_type:
+            queryset = queryset.filter(user_type=user_type)
+        
+        if is_active is not None:
+            is_active_bool = is_active.lower() == 'true'
+            queryset = queryset.filter(is_active=is_active_bool)
+        
+        if is_verified is not None:
+            is_verified_bool = is_verified.lower() == 'true'
+            queryset = queryset.filter(is_verified=is_verified_bool)
+        
+        if location:
+            queryset = queryset.filter(district__icontains=location)
+        
+        # Pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create new user
+        FIXED: Return full user data with token
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        # Create auth token if this is a registration
+        from rest_framework.authtoken.models import Token
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response({
+            'user': UserSerializer(user).data,
+            'token': token.key,
+            'message': 'User created successfully'
+        }, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update user
+        FIXED: Use UserUpdateSerializer for proper validation
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'user': UserSerializer(user).data,
+            'message': 'User updated successfully'
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete user"""
+        instance = self.get_object()
+        
+        # Prevent deleting yourself
+        if instance.id == request.user.id:
+            return Response({
+                'error': 'Cannot delete your own account'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        username = instance.username
+        self.perform_destroy(instance)
+        
+        return Response({
+            'message': f'User {username} deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get', 'patch'], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        """
+        Get or update current user profile
+        Endpoint: /api/users/me/
+        """
+        if request.method == 'GET':
+            serializer = UserSerializer(request.user)
+            return Response(serializer.data)
+        
+        elif request.method == 'PATCH':
+            serializer = UserUpdateSerializer(
+                request.user, 
+                data=request.data, 
+                partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            
+            return Response({
+                'user': UserSerializer(user).data,
+                'message': 'Profile updated successfully'
+            })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def verify(self, request, pk=None):
+        """
+        Verify a user
+        Endpoint: /api/users/{id}/verify/
+        """
+        user = self.get_object()
+        user.is_verified = True
+        user.save()
+        
+        return Response({
+            'user': UserSerializer(user).data,
+            'message': f'User {user.username} verified successfully'
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def deactivate(self, request, pk=None):
+        """
+        Deactivate a user
+        Endpoint: /api/users/{id}/deactivate/
+        """
+        user = self.get_object()
+        
+        if user.id == request.user.id:
+            return Response({
+                'error': 'Cannot deactivate your own account'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.is_active = False
+        user.save()
+        
+        return Response({
+            'user': UserSerializer(user).data,
+            'message': f'User {user.username} deactivated successfully'
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def activate(self, request, pk=None):
+        """
+        Activate a user
+        Endpoint: /api/users/{id}/activate/
+        """
+        user = self.get_object()
+        user.is_active = True
+        user.save()
+        
+        return Response({
+            'user': UserSerializer(user).data,
+            'message': f'User {user.username} activated successfully'
+        })
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def statistics(self, request):
+        """
+        Get user statistics
+        Endpoint: /api/users/statistics/
+        """
+        total = User.objects.count()
+        active = User.objects.filter(is_active=True).count()
+        verified = User.objects.filter(is_verified=True).count()
+        
+        by_type = {}
+        for user_type, label in User.USER_TYPES:
+            by_type[user_type] = {
+                'count': User.objects.filter(user_type=user_type).count(),
+                'label': label
+            }
+        
+        by_district = {}
+        districts = User.objects.exclude(district='').values_list('district', flat=True).distinct()
+        for district in districts:
+            if district:
+                by_district[district] = User.objects.filter(district=district).count()
+        
+        return Response({
+            'total': total,
+            'active': active,
+            'verified': verified,
+            'by_type': by_type,
+            'by_district': by_district
+        })
 
 
 # ======================== VIEWSETS ========================
@@ -238,46 +594,46 @@ class DisasterTypeViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(obj).data)
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    """ViewSet for user management"""
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['user_type', 'district', 'is_verified']
-    search_fields = ['username', 'email', 'first_name', 'last_name']
+# class UserViewSet(viewsets.ModelViewSet):
+#     """ViewSet for user management"""
+#     queryset = User.objects.all()
+#     serializer_class = UserSerializer
+#     permission_classes = [permissions.IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, SearchFilter]
+#     filterset_fields = ['user_type', 'district', 'is_verified']
+#     search_fields = ['username', 'email', 'first_name', 'last_name']
     
-    def get_permissions(self):
-        if self.action == 'create':
-            return [permissions.AllowAny()]
-        elif self.action in ['retrieve', 'update', 'partial_update']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+#     def get_permissions(self):
+#         if self.action == 'create':
+#             return [permissions.AllowAny()]
+#         elif self.action in ['retrieve', 'update', 'partial_update']:
+#             return [permissions.IsAuthenticated()]
+#         return [permissions.IsAdminUser()]
     
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return UserRegistrationSerializer
-        return UserSerializer
+#     def get_serializer_class(self):
+#         if self.action == 'create':
+#             return UserRegistrationSerializer
+#         return UserSerializer
     
-    def get_queryset(self):
-        if self.request.user.is_superuser or self.request.user.user_type == 'admin':
-            return User.objects.all()
-        elif self.action in ['retrieve', 'update', 'partial_update']:
-            return User.objects.filter(id=self.request.user.id)
-        return User.objects.none()
+#     def get_queryset(self):
+#         if self.request.user.is_superuser or self.request.user.user_type == 'admin':
+#             return User.objects.all()
+#         elif self.action in ['retrieve', 'update', 'partial_update']:
+#             return User.objects.filter(id=self.request.user.id)
+#         return User.objects.none()
     
-    @action(detail=False, methods=['get', 'patch'])
-    def me(self, request):
-        """Get or update current user profile"""
-        if request.method == 'GET':
-            serializer = self.get_serializer(request.user)
-            return Response(serializer.data)
-        elif request.method == 'PATCH':
-            serializer = self.get_serializer(request.user, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     @action(detail=False, methods=['get', 'patch'])
+#     def me(self, request):
+#         """Get or update current user profile"""
+#         if request.method == 'GET':
+#             serializer = self.get_serializer(request.user)
+#             return Response(serializer.data)
+#         elif request.method == 'PATCH':
+#             serializer = self.get_serializer(request.user, data=request.data, partial=True)
+#             if serializer.is_valid():
+#                 serializer.save()
+#                 return Response(serializer.data)
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertViewSet(viewsets.ModelViewSet):

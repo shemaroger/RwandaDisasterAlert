@@ -1,5 +1,7 @@
+// components/Layout.jsx - Minimal update for language switching fix only
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, Wifi, WifiOff, Shield, X, Menu, ChevronLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
@@ -14,6 +16,7 @@ const Layout = ({
   onEmergencyAlert,
   onQuickAction
 }) => {
+  const { i18n } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -31,24 +34,6 @@ const Layout = ({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Responsive breakpoint detection
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-      
-      // Auto-close sidebar on mobile when screen becomes larger
-      if (width >= 1024 && sidebarOpen) {
-        setSidebarOpen(false);
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, [sidebarOpen]);
 
   // Responsive breakpoint detection
   useEffect(() => {
@@ -197,11 +182,26 @@ const Layout = ({
     }
   }, [onLogout]);
 
+  // ✅ UPDATED: Enhanced language change handler
   const handleLanguageChange = useCallback((language) => {
-    if (onLanguageChange) {
-      onLanguageChange(language);
-    }
-  }, [onLanguageChange]);
+    console.log('Layout: Language change to:', language);
+    
+    // Update i18n
+    i18n.changeLanguage(language).then(() => {
+      console.log('✅ Layout: Language changed successfully');
+      
+      // Store preference
+      localStorage.setItem('language', language);
+      localStorage.setItem('preferred_language', language);
+      
+      // Call parent handler
+      if (onLanguageChange) {
+        onLanguageChange(language);
+      }
+    }).catch(error => {
+      console.error('❌ Layout: Language change error:', error);
+    });
+  }, [onLanguageChange, i18n]); // ← UPDATED: Added i18n dependency
 
   const handleEmergencyAlert = useCallback(() => {
     if (onEmergencyAlert) {
@@ -354,6 +354,7 @@ const Layout = ({
             onQuickAction={handleQuickAction}
             isMobile={isMobile}
             isTablet={isTablet}
+            key={i18n.language}
           />
         </div>
 
