@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/api';
+import logo from '../../assets/images/logo.png';
 
 const DisasterAnalyticsReport = () => {
     const navigate = useNavigate();
@@ -277,6 +278,9 @@ const DisasterAnalyticsReport = () => {
             return;
         }
 
+        // Convert logo to base64 for embedding
+        const logoBase64 = logo;
+
         const printWindow = window.open('', '_blank');
         const reportHTML = `
             <!DOCTYPE html>
@@ -302,8 +306,27 @@ const DisasterAnalyticsReport = () => {
                         background: #dc2626;
                         color: white;
                         padding: 30px;
-                        text-align: center;
                         border-bottom: 2px solid #000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+                    .header-left {
+                        display: flex;
+                        align-items: center;
+                        gap: 20px;
+                    }
+                    .logo-container {
+                        background: white;
+                        padding: 10px;
+                        border-radius: 8px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .logo-container img {
+                        height: 80px;
+                        width: auto;
                     }
                     .system-info h1 {
                         margin: 0;
@@ -318,14 +341,13 @@ const DisasterAnalyticsReport = () => {
                     .report-title {
                         font-size: 20px;
                         font-weight: bold;
-                        margin: 20px 0 10px 0;
+                        margin: 10px 0 5px 0;
                         text-transform: uppercase;
                         letter-spacing: 1px;
-                        border-bottom: 1px solid white;
-                        padding-bottom: 5px;
                     }
                     .report-date {
                         font-size: 12px;
+                        text-align: right;
                     }
                     .content {
                         padding: 20px;
@@ -383,6 +405,10 @@ const DisasterAnalyticsReport = () => {
                     .table tr:nth-child(even) {
                         background: #fafafa;
                     }
+                    .severity-critical { color: #dc2626; font-weight: bold; }
+                    .severity-high { color: #f97316; font-weight: bold; }
+                    .severity-medium { color: #eab308; font-weight: bold; }
+                    .severity-low { color: #3b82f6; font-weight: bold; }
                     .footer {
                         margin-top: 30px;
                         padding: 20px;
@@ -418,68 +444,35 @@ const DisasterAnalyticsReport = () => {
             <body>
                 <div class="container">
                     <div class="header">
-                        <div class="system-info">
-                            <h1>MINEMA Alert System</h1>
-                            <p>Ministry in Charge of Emergency Management</p>
-                            <p>Rwanda Disaster Management & Emergency Response</p>
+                        <div class="header-left">
+                            <div class="logo-container">
+                                <img src="${logoBase64}" alt="MINEMA Logo" />
+                            </div>
+                            <div class="system-info">
+                                <h1>MINEMA Alert System</h1>
+                                <p>Ministry in Charge of Emergency Management</p>
+                                <p>Rwanda Disaster Management & Emergency Response</p>
+                            </div>
                         </div>
-                        <div class="report-title">Disaster Analytics Report</div>
-                        <div class="report-date">Generated on ${new Date().toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })}</div>
+                        <div class="header-right">
+                            <div class="report-title">Analytics Report</div>
+                            <div class="report-date">Generated: ${new Date().toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}</div>
+                        </div>
                     </div>
                     
                     <div class="content">
-                        <h2 class="section-title">Emergency Alert Statistics</h2>
-                        <div class="stats-grid">
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.totalAlerts}</div>
-                                <div class="stat-label">Total Alerts</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.activeAlerts}</div>
-                                <div class="stat-label">Active Alerts</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.criticalAlerts}</div>
-                                <div class="stat-label">Critical Level</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.districtsAffected}</div>
-                                <div class="stat-label">Districts Affected</div>
-                            </div>
-                        </div>
-
-                        <h2 class="section-title">Severity Distribution</h2>
-                        <div class="stats-grid">
-                            <div class="stat-box">
-                                <div class="stat-value" style="color: #dc2626;">${stats.criticalAlerts}</div>
-                                <div class="stat-label">Critical</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value" style="color: #f97316;">${stats.highAlerts}</div>
-                                <div class="stat-label">High</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value" style="color: #eab308;">${stats.mediumAlerts}</div>
-                                <div class="stat-label">Medium</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value" style="color: #3b82f6;">${stats.lowAlerts}</div>
-                                <div class="stat-label">Low</div>
-                            </div>
-                        </div>
-
-                        <h2 class="section-title">Alert Details</h2>
+                        <h2 class="section-title">Comprehensive Alert & Incident Report</h2>
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Alert Title</th>
+                                    <th>Type</th>
+                                    <th>Title/Description</th>
                                     <th>Severity</th>
                                     <th>District</th>
                                     <th>Date/Time</th>
@@ -489,46 +482,29 @@ const DisasterAnalyticsReport = () => {
                             <tbody>
                                 ${filteredAlerts.map(alert => `
                                     <tr>
+                                        <td><strong>ALERT</strong></td>
                                         <td>${alert.title || 'N/A'}</td>
-                                        <td>${(alert.severity || 'N/A').toUpperCase()}</td>
+                                        <td class="severity-${alert.severity || 'low'}">${(alert.severity || 'N/A').toUpperCase()}</td>
                                         <td>${alert.district || 'Multiple'}</td>
                                         <td>${formatDate(alert.created_at)}</td>
                                         <td>${(alert.status || 'N/A').toUpperCase()}</td>
                                     </tr>
                                 `).join('')}
+                                ${filteredIncidents.map(incident => `
+                                    <tr>
+                                        <td><strong>INCIDENT</strong></td>
+                                        <td>${incident.description || incident.title || 'N/A'}</td>
+                                        <td class="severity-${incident.severity || 'low'}">${(incident.severity || 'N/A').toUpperCase()}</td>
+                                        <td>${incident.district || 'N/A'}</td>
+                                        <td>${formatDate(incident.created_at)}</td>
+                                        <td>${incident.is_verified ? 'VERIFIED' : 'PENDING'}</td>
+                                    </tr>
+                                `).join('')}
                             </tbody>
                         </table>
-
-                        <h2 class="section-title">Incident Reports</h2>
-                        <div class="stats-grid">
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.totalIncidents}</div>
-                                <div class="stat-label">Total Incidents</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.verifiedIncidents}</div>
-                                <div class="stat-label">Verified</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.resolvedIncidents}</div>
-                                <div class="stat-label">Resolved</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.pendingIncidents}</div>
-                                <div class="stat-label">Pending</div>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="footer">
-                        <div style="margin-bottom: 20px;">
-                            <h3 style="margin: 0 0 10px 0;">Analytics Summary</h3>
-                            <p style="margin: 5px 0;"><strong>Total Alerts Issued:</strong> ${stats.totalAlerts}</p>
-                            <p style="margin: 5px 0;"><strong>Total Incidents Reported:</strong> ${stats.totalIncidents}</p>
-                            <p style="margin: 5px 0;"><strong>Districts Covered:</strong> ${stats.districtsAffected}</p>
-                            <p style="margin: 5px 0;"><strong>Active Disaster Types:</strong> ${stats.disasterTypesActive}</p>
-                            <p style="margin: 5px 0;"><strong>System Users:</strong> ${stats.totalUsers}</p>
-                        </div>
                         <div class="signature-section">
                             <div class="signature-grid">
                                 <div class="signature-box">
@@ -973,7 +949,7 @@ const DisasterAnalyticsReport = () => {
                     </div>
                 </div>
 
-                {/* System Users Summary - Updated for Admin and Citizen only */}
+                {/* System Users Summary */}
                 <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
                     <h3 className="text-lg font-bold text-gray-900 uppercase mb-6 flex items-center">
                         <Users className="w-5 h-5 mr-2 text-red-600" />
