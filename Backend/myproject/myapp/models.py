@@ -348,7 +348,6 @@ class IncidentReport(models.Model):
             notes=f"Escalated to {next_level}: {reason}"
         )
 
-
 class IncidentLevelResponse(models.Model):
     """Tracks actions taken at each administrative level"""
     ACTION_TYPES = [
@@ -360,16 +359,16 @@ class IncidentLevelResponse(models.Model):
         ('resolved', 'Resolved'),
         ('closed', 'Closed'),
     ]
-    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     incident = models.ForeignKey(
-        IncidentReport, 
-        on_delete=models.CASCADE, 
+        IncidentReport,
+        on_delete=models.CASCADE,
         related_name='level_responses'
     )
     responder = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
+        User,
+        on_delete=models.SET_NULL,
         null=True,
         related_name='incident_responses'
     )
@@ -378,36 +377,46 @@ class IncidentLevelResponse(models.Model):
         choices=IncidentReport.ADMIN_LEVELS,
         help_text="Administrative level at which this action was taken"
     )
-    
+
     action_type = models.CharField(max_length=20, choices=ACTION_TYPES)
     notes = models.TextField(help_text="What was done at this level")
-    
+
     # Resources deployed
     resources_deployed = models.TextField(
         blank=True,
         help_text="Resources, personnel, or equipment deployed"
     )
-    
+
     # Outcome at this level
     outcome = models.TextField(
         blank=True,
         help_text="Result of actions taken at this level"
     )
-    
+
     # If escalating, why?
     escalation_needed = models.BooleanField(default=False)
     escalation_reason = models.TextField(
         blank=True,
         help_text="Why this needs to go to the next level"
     )
-    
+
+    # Feedback fields
+    feedback_for_reporter = models.TextField(
+        blank=True,
+        help_text="Feedback or updates for the original reporter"
+    )
+    feedback_for_lower_levels = models.TextField(
+        blank=True,
+        help_text="Feedback or updates for lower administrative levels"
+    )
+
     # Attachments (photos of actions taken, documents, etc.)
     attachments = models.JSONField(
-        blank=True, 
+        blank=True,
         null=True,
         help_text="Photos/documents of response actions"
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -420,7 +429,6 @@ class IncidentLevelResponse(models.Model):
 
     def __str__(self):
         return f"{self.get_admin_level_display()} - {self.get_action_type_display()} on {self.incident.title}"
-
 
 class IncidentMedia(models.Model):
     """Media files attached to incidents"""
@@ -806,6 +814,19 @@ class AlertResponse(models.Model):
     def __str__(self):
         return f"{self.user.username} -> {self.alert.title}: {self.get_response_type_display()}"
 
+class Notification(models.Model):
+    """Stores notifications for users about incident updates"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    incident = models.ForeignKey(IncidentReport, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.user.username} about {self.incident.title}"
 
 class NotificationTemplate(models.Model):
     """Templates for different types of notifications"""

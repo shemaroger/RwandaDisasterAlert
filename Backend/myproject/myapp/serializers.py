@@ -499,14 +499,15 @@ class IncidentLevelResponseSerializer(serializers.ModelSerializer):
     responder_name = serializers.CharField(source='responder.username', read_only=True)
     admin_level_display = serializers.CharField(source='get_admin_level_display', read_only=True)
     action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
-    
+
     class Meta:
         model = IncidentLevelResponse
         fields = [
             'id', 'incident', 'responder', 'responder_name', 'admin_level',
             'admin_level_display', 'action_type', 'action_type_display',
             'notes', 'resources_deployed', 'outcome', 'escalation_needed',
-            'escalation_reason', 'attachments', 'created_at', 'updated_at'
+            'escalation_reason', 'attachments', 'created_at', 'updated_at',
+            'feedback_for_reporter', 'feedback_for_lower_levels'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -930,6 +931,15 @@ class SafetyGuideCreateUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data['updated_by'] = self.context['request'].user
         return super().update(instance, validated_data)
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializer for user notifications"""
+    incident_title = serializers.CharField(source='incident.title', read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'incident', 'incident_title', 'message', 'is_read', 'created_at']
+        read_only_fields = ['id', 'incident', 'message', 'is_read', 'created_at']
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):
     disaster_type_name = serializers.CharField(source='disaster_type.name', read_only=True)
