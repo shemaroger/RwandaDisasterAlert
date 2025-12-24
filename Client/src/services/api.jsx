@@ -778,22 +778,397 @@ getWebSocketUrl(chatRoomId) {
   //   return this.request('/incidents/priority/');
   // }
 // -------- Incidents --------
+// async getIncidents(params = {}) {
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/${query ? `?${query}` : ''}`);
+// }
+
+// async getIncident(id) {
+//   return this.request(`/incidents/${id}/`);
+// }
+
+// async createIncident(incidentData) {
+//   const formData = new FormData();
+//   Object.keys(incidentData || {}).forEach((key) => {
+//     const val = incidentData[key];
+//     if (val !== null && val !== undefined) {
+//       if (key === 'images' || key === 'videos' || key === 'documents') {
+//         // Handle file arrays
+//         if (Array.isArray(val)) {
+//           val.forEach((file, index) => {
+//             formData.append(`${key}[${index}]`, file);
+//           });
+//         }
+//       } else {
+//         formData.append(key, val);
+//       }
+//     }
+//   });
+//   return this.request('/incidents/', { method: 'POST', body: formData });
+// }
+
+// async updateIncident(id, incidentData) {
+//   // Check if we have files to upload
+//   const hasFiles = (incidentData.images && incidentData.images.length > 0) ||
+//                    (incidentData.videos && incidentData.videos.length > 0) ||
+//                    (incidentData.documents && incidentData.documents.length > 0);
+  
+//   if (hasFiles) {
+//     // Use FormData for file uploads
+//     const formData = new FormData();
+//     Object.keys(incidentData || {}).forEach((key) => {
+//       const val = incidentData[key];
+//       if (val !== null && val !== undefined) {
+//         if (key === 'images' || key === 'videos' || key === 'documents') {
+//           // Handle file arrays
+//           if (Array.isArray(val)) {
+//             val.forEach((file, index) => {
+//               formData.append(`${key}[${index}]`, file);
+//             });
+//           }
+//         } else {
+//           formData.append(key, val);
+//         }
+//       }
+//     });
+//     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: formData });
+//   } else {
+//     // Use JSON for regular updates without files
+//     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: incidentData });
+//   }
+// }
+
+// async deleteIncident(id) {
+//   return this.request(`/incidents/${id}/`, { method: 'DELETE' });
+// }
+
+// // -------- Incident Assignment & Status --------
+// async assignIncident(id, assignedToId) {
+//   return this.request(`/incidents/${id}/assign/`, {
+//     method: 'POST',
+//     body: { assigned_to: assignedToId },
+//   });
+// }
+
+// async updateIncidentStatus(id, status, resolutionNotes = '') {
+//   return this.request(`/incidents/${id}/update-status/`, {
+//     method: 'POST',
+//     body: { 
+//       status,
+//       resolution_notes: resolutionNotes 
+//     },
+//   });
+// }
+
+// async resolveIncident(id, resolutionNotes = '') {
+//   return this.request(`/incidents/${id}/resolve/`, {
+//     method: 'POST',
+//     body: { resolution_notes: resolutionNotes },
+//   });
+// }
+
+// async dismissIncident(id, dismissalReason = '') {
+//   return this.request(`/incidents/${id}/dismiss/`, {
+//     method: 'POST',
+//     body: { dismissal_reason: dismissalReason },
+//   });
+// }
+
+// // -------- Hierarchical Response System --------
+// async addIncidentResponse(id, responseData) {
+//   /**
+//    * Document actions taken at current administrative level
+//    * @param {string} id - Incident ID
+//    * @param {Object} responseData - Response data
+//    * @param {string} responseData.action_type - Type of action (received, assessed, in_progress, action_taken, escalated, resolved, closed)
+//    * @param {string} responseData.notes - What was done at this level
+//    * @param {string} [responseData.resources_deployed] - Resources deployed
+//    * @param {string} [responseData.outcome] - Result of actions
+//    * @param {boolean} [responseData.escalation_needed] - Whether escalation is needed
+//    * @param {string} [responseData.escalation_reason] - Why escalation is needed
+//    * @param {Object} [responseData.attachments] - Attachments/photos
+//    */
+//   return this.request(`/incidents/${id}/add-response/`, {
+//     method: 'POST',
+//     body: responseData,
+//   });
+// }
+
+// async escalateIncident(id, reason) {
+//   /**
+//    * Escalate incident to next administrative level
+//    * @param {string} id - Incident ID
+//    * @param {string} reason - Reason for escalation (minimum 10 characters)
+//    */
+//   return this.request(`/incidents/${id}/escalate/`, {
+//     method: 'POST',
+//     body: { reason },
+//   });
+// }
+
+// async getIncidentResponseHistory(id) {
+//   /**
+//    * Get complete response history across all administrative levels
+//    * @param {string} id - Incident ID
+//    */
+//   return this.request(`/incidents/${id}/response-history/`);
+// }
+
+// async uploadIncidentMedia(id, mediaData) {
+//   /**
+//    * Upload additional media files to an incident
+//    * @param {string} id - Incident ID
+//    * @param {Object} mediaData - Media data
+//    * @param {string} mediaData.media_type - Type (image, video, document)
+//    * @param {File} mediaData.file - File to upload
+//    * @param {string} [mediaData.caption] - Optional caption
+//    */
+//   const formData = new FormData();
+//   formData.append('media_type', mediaData.media_type);
+//   formData.append('file', mediaData.file);
+//   if (mediaData.caption) {
+//     formData.append('caption', mediaData.caption);
+//   }
+  
+//   return this.request(`/incidents/${id}/upload-media/`, {
+//     method: 'POST',
+//     body: formData,
+//   });
+// }
+
+// async deleteIncidentMedia(mediaId) {
+//   /**
+//    * Delete a specific media file from an incident
+//    * @param {string} mediaId - Media file ID to delete
+//    */
+//   return this.request(`/incident-media/${mediaId}/`, {
+//     method: 'DELETE',
+//   });
+// }
+
+// // -------- Filtered Incident Lists --------
+// async getMyIncidentReports(params = {}) {
+//   /**
+//    * Get incidents reported by current user (citizens only)
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/my-reports/${query ? `?${query}` : ''}`);
+// }
+
+// async getAssignedIncidents(params = {}) {
+//   /**
+//    * Get incidents assigned to current user (administrative users)
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/assigned-to-me/${query ? `?${query}` : ''}`);
+// }
+
+// async getMyLevelIncidents(params = {}) {
+//   /**
+//    * Get incidents at current user's administrative level
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/my-level/${query ? `?${query}` : ''}`);
+// }
+
+// async getNeedsEscalation(params = {}) {
+//   /**
+//    * Get incidents flagged for escalation at current user's level
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/needs-escalation/${query ? `?${query}` : ''}`);
+// }
+
+// async getPriorityIncidents(params = {}) {
+//   /**
+//    * Get high priority incidents (priority 1-2)
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/priority/${query ? `?${query}` : ''}`);
+// }
+
+// async getRecentIncidents(params = {}) {
+//   /**
+//    * Get recent incidents (last 24 hours)
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/recent/${query ? `?${query}` : ''}`);
+// }
+
+// // -------- Statistics & Analytics --------
+// async getIncidentStats(params = {}) {
+//   /**
+//    * Get incident statistics and analytics
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/stats/${query ? `?${query}` : ''}`);
+// }
+
+// async exportIncidents(format = 'json', params = {}) {
+//   /**
+//    * Export incidents data
+//    * @param {string} format - Export format (json, csv, xlsx)
+//    * @param {Object} params - Additional filter parameters
+//    */
+//   const query = new URLSearchParams({ ...params, format }).toString();
+//   return this.request(`/incidents/export/?${query}`);
+// }
+
+// // -------- Level Response Management --------
+// async getLevelResponses(incidentId, params = {}) {
+//   /**
+//    * Get all level responses for an incident
+//    * @param {string} incidentId - Incident ID
+//    * @param {Object} params - Optional filter parameters
+//    */
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/${incidentId}/level-responses/${query ? `?${query}` : ''}`);
+// }
+
+// async updateLevelResponse(responseId, responseData) {
+//   /**
+//    * Update a specific level response
+//    * @param {string} responseId - Response ID
+//    * @param {Object} responseData - Updated response data
+//    */
+//   return this.request(`/level-responses/${responseId}/`, {
+//     method: 'PATCH',
+//     body: responseData,
+//   });
+// }
+
+// async deleteLevelResponse(responseId) {
+//   /**
+//    * Delete a level response
+//    * @param {string} responseId - Response ID
+//    */
+//   return this.request(`/level-responses/${responseId}/`, {
+//     method: 'DELETE',
+//   });
+// }
+
+// // -------- Bulk Operations --------
+// async bulkUpdateIncidents(incidentIds, updateData) {
+//   /**
+//    * Update multiple incidents at once
+//    * @param {Array<string>} incidentIds - Array of incident IDs
+//    * @param {Object} updateData - Data to update
+//    */
+//   return this.request('/incidents/bulk-update/', {
+//     method: 'POST',
+//     body: {
+//       incident_ids: incidentIds,
+//       update_data: updateData
+//     },
+//   });
+// }
+
+// async bulkAssignIncidents(incidentIds, assignedToId) {
+//   /**
+//    * Assign multiple incidents to a user
+//    * @param {Array<string>} incidentIds - Array of incident IDs
+//    * @param {string} assignedToId - User ID to assign to
+//    */
+//   return this.request('/incidents/bulk-assign/', {
+//     method: 'POST',
+//     body: {
+//       incident_ids: incidentIds,
+//       assigned_to: assignedToId
+//     },
+//   });
+// }
+
+// // -------- Search & Filters --------
+// async searchIncidents(searchQuery, filters = {}) {
+//   /**
+//    * Search incidents with filters
+//    * @param {string} searchQuery - Search query string
+//    * @param {Object} filters - Additional filters
+//    */
+//   const params = {
+//     search: searchQuery,
+//     ...filters
+//   };
+//   const query = new URLSearchParams(params).toString();
+//   return this.request(`/incidents/?${query}`);
+// }
+
+// async getIncidentsByLocation(locationId, params = {}) {
+//   /**
+//    * Get incidents by location
+//    * @param {string} locationId - Location ID
+//    * @param {Object} params - Additional parameters
+//    */
+//   const query = new URLSearchParams({ ...params, location: locationId }).toString();
+//   return this.request(`/incidents/?${query}`);
+// }
+
+// async getIncidentsByLevel(level, params = {}) {
+//   /**
+//    * Get incidents by administrative level
+//    * @param {string} level - Administrative level (village, sector, district, province, national)
+//    * @param {Object} params - Additional parameters
+//    */
+//   const query = new URLSearchParams({ ...params, current_level: level }).toString();
+//   return this.request(`/incidents/?${query}`);
+// }
+
+// async getIncidentsByStatus(status, params = {}) {
+//   /**
+//    * Get incidents by status
+//    * @param {string} status - Status value
+//    * @param {Object} params - Additional parameters
+//    */
+//   const query = new URLSearchParams({ ...params, status }).toString();
+//   return this.request(`/incidents/?${query}`);
+// }
+
+// async getIncidentsByDateRange(startDate, endDate, params = {}) {
+//   /**
+//    * Get incidents within a date range
+//    * @param {string} startDate - Start date (ISO format)
+//    * @param {string} endDate - End date (ISO format)
+//    * @param {Object} params - Additional parameters
+//    */
+//   const query = new URLSearchParams({
+//     ...params,
+//     created_at__gte: startDate,
+//     created_at__lte: endDate
+//   }).toString();
+//   return this.request(`/incidents/?${query}`);
+// }
+
+// -------- Incidents --------
 async getIncidents(params = {}) {
+  /**
+   * Get a list of incidents with optional filtering
+   * @param {Object} params - Filter parameters (e.g., { status: 'open', priority: 1 })
+   */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/${query ? `?${query}` : ''}`);
 }
 
 async getIncident(id) {
+  /**
+   * Get details of a specific incident
+   * @param {string} id - Incident ID
+   */
   return this.request(`/incidents/${id}/`);
 }
 
 async createIncident(incidentData) {
+  /**
+   * Create a new incident report
+   * @param {Object} incidentData - Incident data
+   * @param {File[]} [incidentData.images] - Array of image files
+   * @param {File[]} [incidentData.videos] - Array of video files
+   * @param {File[]} [incidentData.documents] - Array of document files
+   */
   const formData = new FormData();
   Object.keys(incidentData || {}).forEach((key) => {
     const val = incidentData[key];
     if (val !== null && val !== undefined) {
       if (key === 'images' || key === 'videos' || key === 'documents') {
-        // Handle file arrays
         if (Array.isArray(val)) {
           val.forEach((file, index) => {
             formData.append(`${key}[${index}]`, file);
@@ -808,19 +1183,21 @@ async createIncident(incidentData) {
 }
 
 async updateIncident(id, incidentData) {
-  // Check if we have files to upload
+  /**
+   * Update an existing incident
+   * @param {string} id - Incident ID
+   * @param {Object} incidentData - Updated incident data
+   */
   const hasFiles = (incidentData.images && incidentData.images.length > 0) ||
                    (incidentData.videos && incidentData.videos.length > 0) ||
                    (incidentData.documents && incidentData.documents.length > 0);
-  
+
   if (hasFiles) {
-    // Use FormData for file uploads
     const formData = new FormData();
     Object.keys(incidentData || {}).forEach((key) => {
       const val = incidentData[key];
       if (val !== null && val !== undefined) {
         if (key === 'images' || key === 'videos' || key === 'documents') {
-          // Handle file arrays
           if (Array.isArray(val)) {
             val.forEach((file, index) => {
               formData.append(`${key}[${index}]`, file);
@@ -833,44 +1210,77 @@ async updateIncident(id, incidentData) {
     });
     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: formData });
   } else {
-    // Use JSON for regular updates without files
     return this.request(`/incidents/${id}/`, { method: 'PATCH', body: incidentData });
   }
 }
 
 async deleteIncident(id) {
+  /**
+   * Delete an incident
+   * @param {string} id - Incident ID
+   */
   return this.request(`/incidents/${id}/`, { method: 'DELETE' });
 }
 
 // -------- Incident Assignment & Status --------
-async assignIncident(id, assignedToId) {
+async assignIncident(id, assignedToId, feedback = '') {
+  /**
+   * Assign an incident to a user
+   * @param {string} id - Incident ID
+   * @param {string} assignedToId - User ID to assign to
+   * @param {string} [feedback] - Optional feedback for the assignee
+   */
+  const body = { assigned_to: assignedToId };
+  if (feedback) body.feedback = feedback;
   return this.request(`/incidents/${id}/assign/`, {
     method: 'POST',
-    body: { assigned_to: assignedToId },
+    body: body,
   });
 }
 
-async updateIncidentStatus(id, status, resolutionNotes = '') {
+async updateIncidentStatus(id, status, resolutionNotes = '', feedback = '') {
+  /**
+   * Update the status of an incident
+   * @param {string} id - Incident ID
+   * @param {string} status - New status
+   * @param {string} [resolutionNotes] - Resolution notes (for 'resolved' status)
+   * @param {string} [feedback] - Optional feedback for the reporter
+   */
+  const body = { status, resolution_notes: resolutionNotes };
+  if (feedback) body.feedback_for_reporter = feedback;
   return this.request(`/incidents/${id}/update-status/`, {
     method: 'POST',
-    body: { 
-      status,
-      resolution_notes: resolutionNotes 
-    },
+    body: body,
   });
 }
 
-async resolveIncident(id, resolutionNotes = '') {
+async resolveIncident(id, resolutionNotes = '', feedback = '') {
+  /**
+   * Mark an incident as resolved
+   * @param {string} id - Incident ID
+   * @param {string} [resolutionNotes] - Resolution notes
+   * @param {string} [feedback] - Optional feedback for the reporter
+   */
+  const body = { resolution_notes: resolutionNotes };
+  if (feedback) body.feedback_for_reporter = feedback;
   return this.request(`/incidents/${id}/resolve/`, {
     method: 'POST',
-    body: { resolution_notes: resolutionNotes },
+    body: body,
   });
 }
 
-async dismissIncident(id, dismissalReason = '') {
+async dismissIncident(id, dismissalReason = '', feedback = '') {
+  /**
+   * Dismiss an incident
+   * @param {string} id - Incident ID
+   * @param {string} [dismissalReason] - Reason for dismissal
+   * @param {string} [feedback] - Optional feedback for the reporter
+   */
+  const body = { dismissal_reason: dismissalReason };
+  if (feedback) body.feedback_for_reporter = feedback;
   return this.request(`/incidents/${id}/dismiss/`, {
     method: 'POST',
-    body: { dismissal_reason: dismissalReason },
+    body: body,
   });
 }
 
@@ -880,13 +1290,15 @@ async addIncidentResponse(id, responseData) {
    * Document actions taken at current administrative level
    * @param {string} id - Incident ID
    * @param {Object} responseData - Response data
-   * @param {string} responseData.action_type - Type of action (received, assessed, in_progress, action_taken, escalated, resolved, closed)
+   * @param {string} responseData.action_type - Type of action
    * @param {string} responseData.notes - What was done at this level
    * @param {string} [responseData.resources_deployed] - Resources deployed
    * @param {string} [responseData.outcome] - Result of actions
    * @param {boolean} [responseData.escalation_needed] - Whether escalation is needed
    * @param {string} [responseData.escalation_reason] - Why escalation is needed
    * @param {Object} [responseData.attachments] - Attachments/photos
+   * @param {string} [responseData.feedback_for_reporter] - Feedback for the reporter
+   * @param {string} [responseData.feedback_for_lower_levels] - Feedback for lower levels
    */
   return this.request(`/incidents/${id}/add-response/`, {
     method: 'POST',
@@ -894,15 +1306,18 @@ async addIncidentResponse(id, responseData) {
   });
 }
 
-async escalateIncident(id, reason) {
+async escalateIncident(id, reason, feedback = '') {
   /**
    * Escalate incident to next administrative level
    * @param {string} id - Incident ID
-   * @param {string} reason - Reason for escalation (minimum 10 characters)
+   * @param {string} reason - Reason for escalation
+   * @param {string} [feedback] - Optional feedback for the reporter
    */
+  const body = { reason };
+  if (feedback) body.feedback_for_reporter = feedback;
   return this.request(`/incidents/${id}/escalate/`, {
     method: 'POST',
-    body: { reason },
+    body: body,
   });
 }
 
@@ -929,7 +1344,6 @@ async uploadIncidentMedia(id, mediaData) {
   if (mediaData.caption) {
     formData.append('caption', mediaData.caption);
   }
-  
   return this.request(`/incidents/${id}/upload-media/`, {
     method: 'POST',
     body: formData,
@@ -950,6 +1364,7 @@ async deleteIncidentMedia(mediaId) {
 async getMyIncidentReports(params = {}) {
   /**
    * Get incidents reported by current user (citizens only)
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/my-reports/${query ? `?${query}` : ''}`);
@@ -958,6 +1373,7 @@ async getMyIncidentReports(params = {}) {
 async getAssignedIncidents(params = {}) {
   /**
    * Get incidents assigned to current user (administrative users)
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/assigned-to-me/${query ? `?${query}` : ''}`);
@@ -966,6 +1382,7 @@ async getAssignedIncidents(params = {}) {
 async getMyLevelIncidents(params = {}) {
   /**
    * Get incidents at current user's administrative level
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/my-level/${query ? `?${query}` : ''}`);
@@ -974,6 +1391,7 @@ async getMyLevelIncidents(params = {}) {
 async getNeedsEscalation(params = {}) {
   /**
    * Get incidents flagged for escalation at current user's level
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/needs-escalation/${query ? `?${query}` : ''}`);
@@ -982,6 +1400,7 @@ async getNeedsEscalation(params = {}) {
 async getPriorityIncidents(params = {}) {
   /**
    * Get high priority incidents (priority 1-2)
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/priority/${query ? `?${query}` : ''}`);
@@ -990,15 +1409,46 @@ async getPriorityIncidents(params = {}) {
 async getRecentIncidents(params = {}) {
   /**
    * Get recent incidents (last 24 hours)
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/recent/${query ? `?${query}` : ''}`);
+}
+
+// -------- Notifications --------
+async getMyNotifications(params = {}) {
+  /**
+   * Get notifications for the current user
+   * @param {Object} params - Optional filter parameters (e.g., { is_read: false })
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/my-notifications/${query ? `?${query}` : ''}`);
+}
+
+async markNotificationAsRead(notificationId) {
+  /**
+   * Mark a notification as read
+   * @param {string} notificationId - Notification ID
+   */
+  return this.request(`/notifications/${notificationId}/mark-read/`, {
+    method: 'POST',
+  });
+}
+
+async markAllNotificationsAsRead() {
+  /**
+   * Mark all notifications as read
+   */
+  return this.request('/notifications/mark-all-read/', {
+    method: 'POST',
+  });
 }
 
 // -------- Statistics & Analytics --------
 async getIncidentStats(params = {}) {
   /**
    * Get incident statistics and analytics
+   * @param {Object} params - Optional filter parameters
    */
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/stats/${query ? `?${query}` : ''}`);
@@ -1063,18 +1513,48 @@ async bulkUpdateIncidents(incidentIds, updateData) {
   });
 }
 
-async bulkAssignIncidents(incidentIds, assignedToId) {
+async bulkAssignIncidents(incidentIds, assignedToId, feedback = '') {
   /**
    * Assign multiple incidents to a user
    * @param {Array<string>} incidentIds - Array of incident IDs
    * @param {string} assignedToId - User ID to assign to
+   * @param {string} [feedback] - Optional feedback for the assignee
    */
+  const body = { incident_ids: incidentIds, assigned_to: assignedToId };
+  if (feedback) body.feedback = feedback;
   return this.request('/incidents/bulk-assign/', {
     method: 'POST',
-    body: {
-      incident_ids: incidentIds,
-      assigned_to: assignedToId
-    },
+    body: body,
+  });
+}
+
+async bulkEscalateIncidents(incidentIds, reason, feedback = '') {
+  /**
+   * Escalate multiple incidents
+   * @param {Array<string>} incidentIds - Array of incident IDs
+   * @param {string} reason - Reason for escalation
+   * @param {string} [feedback] - Optional feedback for the reporter
+   */
+  const body = { incident_ids: incidentIds, reason };
+  if (feedback) body.feedback_for_reporter = feedback;
+  return this.request('/incidents/bulk-escalate/', {
+    method: 'POST',
+    body: body,
+  });
+}
+
+async bulkResolveIncidents(incidentIds, resolutionNotes = '', feedback = '') {
+  /**
+   * Resolve multiple incidents
+   * @param {Array<string>} incidentIds - Array of incident IDs
+   * @param {string} [resolutionNotes] - Resolution notes
+   * @param {string} [feedback] - Optional feedback for the reporter
+   */
+  const body = { incident_ids: incidentIds, resolution_notes: resolutionNotes };
+  if (feedback) body.feedback_for_reporter = feedback;
+  return this.request('/incidents/bulk-resolve/', {
+    method: 'POST',
+    body: body,
   });
 }
 
@@ -1085,10 +1565,7 @@ async searchIncidents(searchQuery, filters = {}) {
    * @param {string} searchQuery - Search query string
    * @param {Object} filters - Additional filters
    */
-  const params = {
-    search: searchQuery,
-    ...filters
-  };
+  const params = { search: searchQuery, ...filters };
   const query = new URLSearchParams(params).toString();
   return this.request(`/incidents/?${query}`);
 }
@@ -1137,6 +1614,60 @@ async getIncidentsByDateRange(startDate, endDate, params = {}) {
   }).toString();
   return this.request(`/incidents/?${query}`);
 }
+
+// -------- Feedback --------
+async addFeedbackToIncident(incidentId, feedbackData) {
+  /**
+   * Add feedback to an incident (for reporter or lower levels)
+   * @param {string} incidentId - Incident ID
+   * @param {Object} feedbackData - Feedback data
+   * @param {string} [feedbackData.feedback_for_reporter] - Feedback for the reporter
+   * @param {string} [feedbackData.feedback_for_lower_levels] - Feedback for lower levels
+   */
+  return this.request(`/incidents/${incidentId}/add-feedback/`, {
+    method: 'POST',
+    body: feedbackData,
+  });
+}
+
+async getFeedbackForIncident(incidentId, params = {}) {
+  /**
+   * Get feedback for a specific incident
+   * @param {string} incidentId - Incident ID
+   * @param {Object} params - Optional filter parameters
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/${incidentId}/feedback/${query ? `?${query}` : ''}`);
+}
+
+// -------- User-Specific Actions --------
+async getMyNotifications(params = {}) {
+  /**
+   * Get notifications for the current user
+   * @param {Object} params - Optional filter parameters
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/my-notifications/${query ? `?${query}` : ''}`);
+}
+
+async getMyAssignedIncidents(params = {}) {
+  /**
+   * Get incidents assigned to the current user
+   * @param {Object} params - Optional filter parameters
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/assigned-to-me/${query ? `?${query}` : ''}`);
+}
+
+async getMyReportedIncidents(params = {}) {
+  /**
+   * Get incidents reported by the current user
+   * @param {Object} params - Optional filter parameters
+   */
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/incidents/my-reports/${query ? `?${query}` : ''}`);
+}
+
 
 
   // -------- Emergency Contacts --------

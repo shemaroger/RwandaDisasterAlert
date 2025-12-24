@@ -492,10 +492,7 @@ class IncidentMediaSerializer(serializers.ModelSerializer):
             # Fallback if request is not available
             return obj.file.url
         return None
-
-
 class IncidentLevelResponseSerializer(serializers.ModelSerializer):
-    """Serializer for level responses"""
     responder_name = serializers.CharField(source='responder.username', read_only=True)
     admin_level_display = serializers.CharField(source='get_admin_level_display', read_only=True)
     action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
@@ -510,7 +507,10 @@ class IncidentLevelResponseSerializer(serializers.ModelSerializer):
             'feedback_for_reporter', 'feedback_for_lower_levels'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-
+        extra_kwargs = {
+            'feedback_for_reporter': {'required': False, 'allow_blank': True},
+            'feedback_for_lower_levels': {'required': False, 'allow_blank': True},
+        }
 
 class IncidentReportSerializer(serializers.ModelSerializer):
     """Main serializer for incident reports with full details"""

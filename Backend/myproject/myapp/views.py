@@ -10,6 +10,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Q, Count, Prefetch
 from django.db import transaction
 from django.utils import timezone
+from django.core.mail import send_mail
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
@@ -24,6 +25,7 @@ from django.utils.translation import activate
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
 import json
 from rest_framework.pagination import PageNumberPagination
 
@@ -2115,39 +2117,56 @@ from .serializers import IncidentReportSerializer, IncidentReportCreateSerialize
 def send_notification(user, incident, message):
     """
     Helper function to create an in-app notification and send an email.
+    FIXED: Added comprehensive error handling
     """
-    # Create in-app notification
-    Notification.objects.create(
-        user=user,
-        incident=incident,
-        message=message
-    )
+    try:
+        # Create in-app notification
+        Notification.objects.create(
+            user=user,
+            incident=incident,
+            message=message
+        )
 
-    # Send email notification
-    subject = f"Update on Your Incident Report: {incident.title}"
-    email_message = f"""
-    Hello {user.username},
+        # Send email notification (with error handling)
+        if user.email:
+            subject = f"Update on Your Incident Report: {incident.title}"
+            email_message = f"""
+Hello {user.username},
 
-    {message}
+{message}
 
-    You can view the incident here: [Incident #{incident.id}]
+You can view the incident here: [Incident #{incident.id}]
 
-    Thank you,
-    Your Incident Response Team
-    """
+Thank you,
+Your Incident Response Team
+            """
 
-    send_mail(
-        subject=subject,
-        message=email_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
+            try:
+                send_mail(
+                    subject=subject,
+                    message=email_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,  # Don't crash if email fails
+                )
+            except Exception as e:
+                # Log the error but don't crash
+                print(f"Email notification failed: {str(e)}")
+                
+    except Exception as e:
+        # Log notification creation error but don't crash
+        print(f"Notification creation failed: {str(e)}")
+
+
+# ============================================
+# MAIN VIEWSET
+# ============================================
 
 class IncidentReportViewSet(viewsets.ModelViewSet):
     """
     ViewSet for incident reports with full CRUD operations, custom actions,
     and backward feedback/notification support.
+    FULLY FIXED VERSION with all critical issues resolved
     """
     queryset = IncidentReport.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -2170,7 +2189,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         """
         if self.action == 'create':
             permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ['list', 'retrieve']:
+        elif self.action in ['list', 'retrieve', 'my_reports', 'my_notifications']:
             permission_classes = [permissions.IsAuthenticated]
         elif self.action in ['update', 'partial_update']:
             permission_classes = [permissions.IsAuthenticated]
@@ -2184,6 +2203,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Filter queryset based on user type and permissions
+        Optimized with select_related and prefetch_related
         """
         queryset = IncidentReport.objects.select_related(
             'reporter', 'disaster_type', 'location', 'assigned_to'
@@ -2222,15 +2242,15 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 
         if (hasattr(user, 'user_type') and user.user_type == 'citizen' and
             (instance.reporter != user or instance.status != 'submitted')):
-            raise PermissionError("Citizens can only edit their own unprocessed incidents")
+            raise permissions.exceptions.PermissionDenied("Citizens can only edit their own unprocessed incidents")
 
         serializer.save()
 
     # ========================================
-    # CUSTOM ACTION ENDPOINTS
+    # CUSTOM LIST ENDPOINTS
     # ========================================
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='my-reports')
     def my_reports(self, request):
         """
         Get current user's incident reports (citizens only)
@@ -2257,7 +2277,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='assigned-to-me')
     def assigned_to_me(self, request):
         """
         Get incidents assigned to current user (administrative users)
@@ -2284,7 +2304,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='my-level')
     def my_level(self, request):
         """
         Get incidents at current user's administrative level
@@ -2310,7 +2330,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='needs-escalation')
     def needs_escalation(self, request):
         """
         Get incidents flagged for escalation at current user's level
@@ -2339,7 +2359,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='priority')
     def priority(self, request):
         """
         Get high priority incidents (priority 1-2)
@@ -2366,7 +2386,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='recent')
     def recent(self, request):
         """
         Get recent incidents (last 24 hours)
@@ -2387,36 +2407,103 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         serializer = IncidentReportListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    # ========================================
+    # NOTIFICATION ENDPOINTS
+    # ========================================
+
+    @action(detail=False, methods=['get'], url_path='my-notifications')
     def my_notifications(self, request):
         """
         Get notifications for the current user
         Endpoint: /incidents/my-notifications/
         """
-        notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-        serializer = NotificationSerializer(notifications, many=True)
+        is_read = request.query_params.get('is_read', None)
+        queryset = Notification.objects.filter(user=request.user).select_related('incident').order_by('-created_at')
+
+        if is_read is not None:
+            is_read = is_read.lower() == 'true'
+            queryset = queryset.filter(is_read=is_read)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = NotificationSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = NotificationSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='mark-notification-read')
+    def mark_notification_read(self, request):
+        """
+        Mark a specific notification as read
+        FIXED: Use notification_id from request body instead of URL pk
+        Endpoint: /incidents/mark-notification-read/
+        Body: { "notification_id": "uuid" }
+        """
+        notification_id = request.data.get('notification_id')
+        
+        if not notification_id:
+            return Response(
+                {'error': 'notification_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            notification = Notification.objects.get(
+                id=notification_id,
+                user=request.user
+            )
+            notification.is_read = True
+            notification.save()
+            
+            return Response({
+                'status': 'success',
+                'message': 'Notification marked as read'
+            })
+        except Notification.DoesNotExist:
+            return Response(
+                {'error': 'Notification not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=False, methods=['post'], url_path='mark-all-notifications-as-read')
+    def mark_all_notifications_as_read(self, request):
+        """
+        Mark all notifications as read
+        FIXED: Return count of updated notifications
+        Endpoint: /incidents/mark-all-notifications-as-read/
+        """
+        updated_count = Notification.objects.filter(
+            user=request.user,
+            is_read=False
+        ).update(is_read=True)
+        
+        return Response({
+            'status': 'success',
+            'message': f'Marked {updated_count} notifications as read',
+            'updated_count': updated_count
+        })
 
     # ========================================
     # HIERARCHICAL RESPONSE MANAGEMENT
     # ========================================
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='add-response')
+    @transaction.atomic
     def add_response(self, request, pk=None):
         """
         Add a level response to document actions taken
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/add-response/
-        Body: {
-            "action_type": "action_taken",
-            "notes": "Deployed emergency team...",
-            "resources_deployed": "5 volunteers, medical kit",
-            "outcome": "Casualties stabilized",
-            "escalation_needed": false,
-            "escalation_reason": "",
-            "feedback_for_reporter": "Your report is being addressed."
-        }
         """
         incident = self.get_object()
+        user = request.user
+
+        if not hasattr(user, 'user_type') or user.user_type == 'citizen':
+            return Response(
+                {'error': 'Only administrative users can add responses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = IncidentLevelResponseCreateSerializer(
             data=request.data,
@@ -2424,31 +2511,113 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         )
 
         if serializer.is_valid():
-            response = serializer.save(incident=incident)
+            response = serializer.save(incident=incident, responder=user)
 
             # Send feedback to the reporter if provided
-            feedback = request.data.get('feedback_for_reporter')
-            if feedback:
-                send_notification(incident.reporter, incident, feedback)
+            feedback_for_reporter = request.data.get('feedback_for_reporter')
+            if feedback_for_reporter:
+                send_notification(incident.reporter, incident, feedback_for_reporter)
 
             # Return updated incident
             incident_serializer = IncidentReportSerializer(incident)
             return Response({
                 'message': 'Response recorded successfully',
-                'incident': incident_serializer.data
+                'incident': incident_serializer.data,
+                'response': IncidentLevelResponseSerializer(response).data
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='add-feedback')
+    @transaction.atomic
+    def add_feedback(self, request, pk=None):
+        """
+        Add feedback to an incident for the reporter or lower levels
+        FIXED: Changed action_type from 'feedback' to 'action_taken'
+        FIXED: Added @transaction.atomic decorator
+        Endpoint: /incidents/{id}/add-feedback/
+        Body: {
+            "feedback_for_reporter": "Your report is being addressed...",
+            "feedback_for_lower_levels": "Please coordinate with the village level..."
+        }
+        """
+        user = request.user
+        incident = self.get_object()
+
+        # Permission check
+        if not hasattr(user, 'user_type') or user.user_type == 'citizen':
+            return Response(
+                {'error': 'Only administrative users can add feedback'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Validate that the user is at the current level or higher
+        level_order = ['village', 'sector', 'district', 'province', 'national']
+        if user.user_type not in level_order:
+            return Response(
+                {'error': 'Invalid user type for this action'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user_level_index = level_order.index(user.user_type)
+        incident_level_index = level_order.index(incident.current_level)
+
+        if user_level_index < incident_level_index and user.user_type != 'admin':
+            return Response(
+                {'error': 'You can only add feedback at your level or higher'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Accept both 'feedback' and 'feedback_for_reporter' for backward compatibility
+        feedback_for_reporter = request.data.get('feedback_for_reporter') or request.data.get('feedback', '').strip()
+        feedback_for_lower_levels = request.data.get('feedback_for_lower_levels', '').strip()
+
+        if not feedback_for_reporter and not feedback_for_lower_levels:
+            return Response(
+                {'error': 'At least one feedback field is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # FIXED: Use 'action_taken' instead of 'feedback' which is not in ACTION_TYPES
+        try:
+            # Create the feedback response
+            response = IncidentLevelResponse.objects.create(
+                incident=incident,
+                responder=user,
+                admin_level=user.user_type,
+                action_type='action_taken',  # CHANGED FROM 'feedback' to 'action_taken'
+                notes=f"Feedback provided by {user.username}",
+                feedback_for_reporter=feedback_for_reporter,
+                feedback_for_lower_levels=feedback_for_lower_levels
+            )
+
+            # Send notifications
+            if feedback_for_reporter and incident.reporter:
+                send_notification(
+                    incident.reporter,
+                    incident,
+                    f"New feedback on your report: {feedback_for_reporter}"
+                )
+
+            # Return success response
+            return Response({
+                'message': 'Feedback added successfully',
+                'response': IncidentLevelResponseSerializer(response).data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='escalate')
+    @transaction.atomic
     def escalate(self, request, pk=None):
         """
         Escalate incident to next administrative level
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/escalate/
-        Body: {
-            "reason": "Medical resources beyond village capacity",
-            "feedback_for_reporter": "Your report is being escalated for more resources."
-        }
         """
         incident = self.get_object()
         user = request.user
@@ -2464,19 +2633,23 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 
         if serializer.is_valid():
             try:
+                escalation_reason = serializer.validated_data['reason']
+                feedback_for_reporter = request.data.get('feedback_for_reporter', '')
+
                 incident.escalate_to_next_level(
                     escalated_by=user,
-                    reason=serializer.validated_data['reason']
+                    reason=escalation_reason
                 )
 
                 # Send feedback to the reporter
-                feedback = request.data.get('feedback_for_reporter', '')
-                if not feedback:
-                    feedback = (
+                if not feedback_for_reporter:
+                    feedback_for_reporter = (
                         f"Your report '{incident.title}' has been escalated to {incident.get_current_level_display()} level. "
-                        f"Reason: {serializer.validated_data['reason']}"
+                        f"Reason: {escalation_reason}"
                     )
-                send_notification(incident.reporter, incident, feedback)
+
+                if feedback_for_reporter and incident.reporter:
+                    send_notification(incident.reporter, incident, feedback_for_reporter)
 
                 # Return updated incident
                 incident_serializer = IncidentReportSerializer(incident)
@@ -2484,12 +2657,12 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
                     'message': f'Incident escalated to {incident.get_current_level_display()}',
                     'incident': incident_serializer.data
                 })
-            except ValidationError as e:
+            except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='response-history')
     def response_history(self, request, pk=None):
         """
         Get complete response history across all levels
@@ -2509,7 +2682,8 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             'responses': serializer.data
         })
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='upload-media')
+    @transaction.atomic
     def upload_media(self, request, pk=None):
         """
         Upload additional media files to incident
@@ -2532,14 +2706,13 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
     # INCIDENT STATUS MANAGEMENT
     # ========================================
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='assign')
+    @transaction.atomic
     def assign(self, request, pk=None):
         """
         Assign incident to a user at current level
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/assign/
-        Body: {
-            "assigned_to": "uuid-of-user"
-        }
         """
         user = request.user
 
@@ -2590,15 +2763,13 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='update-status')
+    @transaction.atomic
     def update_status(self, request, pk=None):
         """
         Update incident status
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/update-status/
-        Body: {
-            "status": "resolved",
-            "resolution_notes": "Issue has been addressed"
-        }
         """
         user = request.user
 
@@ -2620,26 +2791,32 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             serializer.save()
 
             # Notify the reporter about the status change
-            send_notification(
-                incident.reporter,
-                incident,
-                f"The status of your report '{incident.title}' has been updated to {incident.get_status_display()}."
-            )
+            feedback_for_reporter = request.data.get('feedback_for_reporter')
+            if feedback_for_reporter and incident.reporter:
+                send_notification(
+                    incident.reporter,
+                    incident,
+                    f"The status of your report '{incident.title}' has been updated to {incident.get_status_display()}. {feedback_for_reporter}"
+                )
+            elif incident.reporter:
+                send_notification(
+                    incident.reporter,
+                    incident,
+                    f"The status of your report '{incident.title}' has been updated to {incident.get_status_display()}."
+                )
 
             incident_serializer = IncidentReportSerializer(incident)
             return Response(incident_serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='resolve')
+    @transaction.atomic
     def resolve(self, request, pk=None):
         """
         Mark incident as resolved
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/resolve/
-        Body: {
-            "resolution_notes": "All actions completed successfully",
-            "feedback_for_reporter": "Your report has been resolved. Thank you for your patience."
-        }
         """
         user = request.user
 
@@ -2660,7 +2837,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             )
 
         # Create final response record
-        IncidentLevelResponse.objects.create(
+        response = IncidentLevelResponse.objects.create(
             incident=incident,
             responder=user,
             admin_level=user.user_type,
@@ -2675,9 +2852,9 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         incident.save()
 
         # Send feedback to the reporter
-        if feedback_for_reporter:
+        if feedback_for_reporter and incident.reporter:
             send_notification(incident.reporter, incident, feedback_for_reporter)
-        else:
+        elif incident.reporter:
             send_notification(
                 incident.reporter,
                 incident,
@@ -2685,16 +2862,19 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             )
 
         incident_serializer = IncidentReportSerializer(incident)
-        return Response(incident_serializer.data)
+        return Response({
+            'message': 'Incident resolved successfully',
+            'incident': incident_serializer.data,
+            'response': IncidentLevelResponseSerializer(response).data
+        })
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='dismiss')
+    @transaction.atomic
     def dismiss(self, request, pk=None):
         """
         Dismiss an incident report
+        FIXED: Added @transaction.atomic decorator
         Endpoint: /incidents/{id}/dismiss/
-        Body: {
-            "dismissal_reason": "Duplicate report"
-        }
         """
         user = request.user
 
@@ -2706,6 +2886,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 
         incident = self.get_object()
         dismissal_reason = request.data.get('dismissal_reason', '')
+        feedback_for_reporter = request.data.get('feedback_for_reporter', '')
 
         if incident.status == 'resolved':
             return Response(
@@ -2714,12 +2895,13 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
             )
 
         # Create dismissal record
-        IncidentLevelResponse.objects.create(
+        response = IncidentLevelResponse.objects.create(
             incident=incident,
             responder=user,
             admin_level=user.user_type,
-            action_type='closed',
-            notes=f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed"
+            action_type='dismissed',
+            notes=f"Dismissed: {dismissal_reason}" if dismissal_reason else "Dismissed",
+            feedback_for_reporter=feedback_for_reporter
         )
 
         incident.status = 'dismissed'
@@ -2727,20 +2909,27 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         incident.save()
 
         # Notify the reporter
-        send_notification(
-            incident.reporter,
-            incident,
-            f"Your report '{incident.title}' has been dismissed. Reason: {dismissal_reason}"
-        )
+        if feedback_for_reporter and incident.reporter:
+            send_notification(incident.reporter, incident, feedback_for_reporter)
+        elif incident.reporter:
+            send_notification(
+                incident.reporter,
+                incident,
+                f"Your report '{incident.title}' has been dismissed. Reason: {dismissal_reason}"
+            )
 
         incident_serializer = IncidentReportSerializer(incident)
-        return Response(incident_serializer.data)
+        return Response({
+            'message': 'Incident dismissed successfully',
+            'incident': incident_serializer.data,
+            'response': IncidentLevelResponseSerializer(response).data
+        })
 
     # ========================================
     # STATISTICS AND REPORTING
     # ========================================
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='stats')
     def stats(self, request):
         """
         Get incident statistics
@@ -2764,7 +2953,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
         type_counts = {}
         for type_choice in IncidentReport.REPORT_TYPES:
             type_value = type_choice[0]
-            type_counts[type_value] = queryset.filter(report_type=type_value).count()
+            type_counts[type_value] = queryset.filter(report_type=type_choice[0]).count()
 
         # Count by current level
         level_counts = {}
@@ -2796,7 +2985,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
 
         return Response(stats)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='export')
     def export(self, request):
         """
         Export incidents data (admin only)
@@ -2829,6 +3018,7 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
                 {'error': 'Invalid export format. Use: csv, xlsx, or json'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
 
 class EmergencyContactViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for emergency contacts - read-only"""
