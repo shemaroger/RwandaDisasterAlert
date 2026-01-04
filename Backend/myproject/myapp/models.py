@@ -210,6 +210,146 @@ class AlertDelivery(models.Model):
     def __str__(self):
         return f"{self.alert.title} -> {self.user.username} ({self.delivery_method})"
 
+# class IncidentReport(models.Model):
+#     """Citizen-generated incident reports"""
+#     REPORT_TYPES = [
+#         ('emergency', 'Emergency'),
+#         ('hazard', 'Hazard'),
+#         ('infrastructure', 'Infrastructure Damage'),
+#         ('health', 'Health Emergency'),
+#         ('security', 'Security Incident'),
+#         ('other', 'Other'),
+#     ]
+    
+#     STATUS_CHOICES = [
+#         ('submitted', 'Submitted'),
+#         ('under_review', 'Under Review'),
+#         ('in_progress', 'In Progress'),
+#         ('escalated', 'Escalated'),
+#         ('resolved', 'Resolved'),
+#         ('dismissed', 'Dismissed'),
+#     ]
+    
+#     PRIORITY_CHOICES = [
+#         (1, 'Critical'),
+#         (2, 'High'),
+#         (3, 'Medium'),
+#         (4, 'Low'),
+#         (5, 'Minimal'),
+#     ]
+    
+#     # Administrative levels in order
+#     ADMIN_LEVELS = [
+#         ('village', 'Village'),
+#         ('cell', 'Cell')
+#         ('sector', 'Sector'),
+#         ('district', 'District'),
+#         ('province', 'Province'),
+#         ('national', 'National'),
+#     ]
+
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incident_reports')
+#     report_type = models.CharField(max_length=20, choices=REPORT_TYPES)
+#     disaster_type = models.ForeignKey('DisasterType', on_delete=models.SET_NULL, blank=True, null=True)
+    
+#     title = models.CharField(max_length=200)
+#     description = models.TextField()
+    
+#     # Location
+#     location = models.ForeignKey('Location', on_delete=models.SET_NULL, blank=True, null=True)
+#     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+#     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+#     address = models.TextField(blank=True)
+    
+#     # Status and handling
+#     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='submitted')
+#     priority = models.IntegerField(choices=PRIORITY_CHOICES, default=3)
+    
+#     # Current handling level
+#     current_level = models.CharField(
+#         max_length=20, 
+#         choices=ADMIN_LEVELS,
+#         default='village',
+#         help_text="Current administrative level handling this incident"
+#     )
+    
+#     # Currently assigned to
+#     assigned_to = models.ForeignKey(
+#         User, 
+#         on_delete=models.SET_NULL, 
+#         blank=True, 
+#         null=True, 
+#         related_name='assigned_incidents',
+#         help_text="Current user assigned to handle this incident"
+#     )
+    
+#     # Track if escalation is needed
+#     needs_escalation = models.BooleanField(default=False)
+#     escalation_reason = models.TextField(blank=True)
+    
+#     # Additional details
+#     casualties = models.IntegerField(blank=True, null=True)
+#     property_damage = models.TextField(blank=True)
+#     immediate_needs = models.TextField(blank=True)
+    
+#     # Resolution
+#     resolved_at = models.DateTimeField(blank=True, null=True)
+#     resolution_notes = models.TextField(blank=True)
+    
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         ordering = ['-created_at']
+#         indexes = [
+#             models.Index(fields=['status', '-created_at']),
+#             models.Index(fields=['current_level', 'status']),
+#             models.Index(fields=['assigned_to', '-created_at']),
+#             models.Index(fields=['location', '-created_at']),
+#         ]
+
+#     def __str__(self):
+#         return f"{self.title} - {self.get_status_display()} ({self.get_current_level_display()})"
+    
+#     def get_next_level(self):
+#         """Returns the next escalation level, or None if at national level"""
+#         levels = dict(self.ADMIN_LEVELS)
+#         level_order = list(levels.keys())
+#         try:
+#             current_index = level_order.index(self.current_level)
+#             if current_index < len(level_order) - 1:
+#                 return level_order[current_index + 1]
+#         except ValueError:
+#             pass
+#         return None
+    
+#     def can_escalate(self):
+#         """Check if incident can be escalated to next level"""
+#         return self.get_next_level() is not None and self.status != 'resolved'
+    
+#     def escalate_to_next_level(self, escalated_by, reason):
+#         """Escalate incident to the next administrative level"""
+#         next_level = self.get_next_level()
+#         if not next_level:
+#             raise ValidationError("Cannot escalate beyond national level")
+        
+#         self.current_level = next_level
+#         self.needs_escalation = False
+#         self.escalation_reason = reason
+#         self.status = 'escalated'
+#         self.assigned_to = None  # Will be reassigned at next level
+#         self.save()
+        
+#         # Create escalation record
+#         IncidentLevelResponse.objects.create(
+#             incident=self,
+#             responder=escalated_by,
+#             admin_level=escalated_by.user_type,
+#             action_type='escalated',
+#             notes=f"Escalated to {next_level}: {reason}"
+#         )
+
 class IncidentReport(models.Model):
     """Citizen-generated incident reports"""
     REPORT_TYPES = [
@@ -238,9 +378,10 @@ class IncidentReport(models.Model):
         (5, 'Minimal'),
     ]
     
-    # Administrative levels in order
+    # ✅ UPDATED: Administrative levels in order with CELL level added
     ADMIN_LEVELS = [
         ('village', 'Village'),
+        ('cell', 'Cell'),  # ✅ ADDED: Cell level between village and sector
         ('sector', 'Sector'),
         ('district', 'District'),
         ('province', 'Province'),
@@ -265,11 +406,11 @@ class IncidentReport(models.Model):
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='submitted')
     priority = models.IntegerField(choices=PRIORITY_CHOICES, default=3)
     
-    # Current handling level
+    # Current handling level - defaults to village (lowest level)
     current_level = models.CharField(
         max_length=20, 
         choices=ADMIN_LEVELS,
-        default='village',
+        default='village',  # ✅ Reports start at village level
         help_text="Current administrative level handling this incident"
     )
     
@@ -312,7 +453,11 @@ class IncidentReport(models.Model):
         return f"{self.title} - {self.get_status_display()} ({self.get_current_level_display()})"
     
     def get_next_level(self):
-        """Returns the next escalation level, or None if at national level"""
+        """
+        Returns the next escalation level, or None if at national level
+        ✅ UPDATED: Now includes cell level in escalation path
+        Escalation path: village → cell → sector → district → province → national
+        """
         levels = dict(self.ADMIN_LEVELS)
         level_order = list(levels.keys())
         try:
@@ -323,12 +468,30 @@ class IncidentReport(models.Model):
             pass
         return None
     
+    def get_previous_level(self):
+        """
+        Returns the previous level in hierarchy, or None if at village level
+        ✅ NEW: Method to get previous level for de-escalation or feedback
+        """
+        levels = dict(self.ADMIN_LEVELS)
+        level_order = list(levels.keys())
+        try:
+            current_index = level_order.index(self.current_level)
+            if current_index > 0:
+                return level_order[current_index - 1]
+        except ValueError:
+            pass
+        return None
+    
     def can_escalate(self):
         """Check if incident can be escalated to next level"""
         return self.get_next_level() is not None and self.status != 'resolved'
     
     def escalate_to_next_level(self, escalated_by, reason):
-        """Escalate incident to the next administrative level"""
+        """
+        Escalate incident to the next administrative level
+        ✅ UPDATED: Works with new cell level in hierarchy
+        """
         next_level = self.get_next_level()
         if not next_level:
             raise ValidationError("Cannot escalate beyond national level")
@@ -348,6 +511,9 @@ class IncidentReport(models.Model):
             action_type='escalated',
             notes=f"Escalated to {next_level}: {reason}"
         )
+        
+        return self
+
 
 class IncidentLevelResponse(models.Model):
     """Tracks actions taken at each administrative level"""
