@@ -2,10 +2,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as SecureStore from "expo-secure-store";
 
-const DEFAULT_BASE = "http://192.168.8.107:8000/api"; // Your actual IP
+const DEFAULT_BASE = "http://192.168.8.100:8000/api"; // Your actual IP
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL as string) || DEFAULT_BASE;
 
-// ==================== TYPES ====================
+// ==================== TYPES ==================== http://192.168.8.100:8000
 
 export interface User {
   id: number;

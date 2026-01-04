@@ -9,6 +9,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const { register, loading, error } = useAuth();
 
+  // ✅ FIXED: user_type is now included with default value 'citizen'
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -17,9 +18,9 @@ const Signup = () => {
     first_name: '',
     last_name: '',
     phone_number: '',
-    preferred_language: 'rw',
     district: '',
-    accepted_terms: false
+    user_type: 'citizen', // ✅ CRITICAL FIX - This field is required by backend
+    preferred_language: 'rw'
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -164,7 +165,7 @@ const Signup = () => {
     if (currentStep === 2) {
       if (validateStep2()) {
         try {
-          // Prepare data for API (match the backend model fields)
+          // ✅ CRITICAL FIX: Added user_type to registration data payload
           const registrationData = {
             username: formData.username,
             email: formData.email,
@@ -174,10 +175,19 @@ const Signup = () => {
             last_name: formData.last_name,
             phone_number: formData.phone_number || null,
             preferred_language: formData.preferred_language,
-            district: formData.district || null
+            district: formData.district || null,
+            user_type: formData.user_type // ✅ THIS WAS MISSING - NOW ADDED!
           };
 
+          console.log('📝 Sending registration data:', {
+            ...registrationData,
+            password: '***',
+            password_confirm: '***'
+          });
+
           const result = await register(registrationData);
+
+          console.log('✅ Registration successful!', result);
 
           // Set success data
           const selectedDistrict = districts.find(d => d.id === formData.district);
@@ -203,7 +213,7 @@ const Signup = () => {
           }, 5000);
         } catch (err) {
           // Error is handled by AuthContext and displayed via error prop
-          console.error('Registration failed:', err);
+          console.error('❌ Registration failed:', err);
         }
       }
     }

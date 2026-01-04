@@ -16,6 +16,7 @@ class User(AbstractUser):
         ('citizen', 'Citizen'),
         ('admin', 'Administrator'),
         ('village', 'Village'),
+        ('cell', 'Cell'),
         ('sector', 'Sector'),
         ('district', 'District'),
         ('province', 'Province'),

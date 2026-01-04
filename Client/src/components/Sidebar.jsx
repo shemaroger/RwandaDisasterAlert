@@ -322,14 +322,14 @@ const Sidebar = ({
         requiredLevel: ['admin', 'district', 'province', 'national']
       },
 
-      {
-        name: 'Alert Deliveries',
-        id: 'deliveries',
-        path: '/admin/deliveries',
-        icon: Radio,
-        description: 'Delivery status & reports',
-        requiredLevel: ['admin', 'district', 'province', 'national']
-      },
+      // {
+      //   name: 'Alert Deliveries',
+      //   id: 'deliveries',
+      //   path: '/admin/deliveries',
+      //   icon: Radio,
+      //   description: 'Delivery status & reports',
+      //   requiredLevel: ['admin', 'district', 'province', 'national']
+      // },
 
       // ==================== CITIZEN ALERTS ====================
       {
@@ -424,26 +424,26 @@ const Sidebar = ({
       // },
 
       // ==================== SAFETY CHECK-IN (CITIZEN) ====================
-      {
-        name: 'Safety Check-in',
-        id: 'safety-checkin',
-        path: '/citizen/safety/checkin',
-        icon: Shield,
-        description: 'Report your safety status',
-        requiredLevel: 'citizen'
-      },
+      // {
+      //   name: 'Safety Check-in',
+      //   id: 'safety-checkin',
+      //   path: '/citizen/safety/checkin',
+      //   icon: Shield,
+      //   description: 'Report your safety status',
+      //   requiredLevel: 'citizen'
+      // },
 
       // ==================== SYSTEM SETTINGS (ADMIN ONLY) ====================
-      {
-        name: 'System Settings',
-        id: 'settings',
-        path: '/admin/settings',
-        icon: Settings,
-        description: 'System configuration',
-        badge: 'Admin',
-        badgeColor: 'red',
-        requiredLevel: 'admin'
-      }
+      // {
+      //   name: 'System Settings',
+      //   id: 'settings',
+      //   path: '/admin/settings',
+      //   icon: Settings,
+      //   description: 'System configuration',
+      //   badge: 'Admin',
+      //   badgeColor: 'red',
+      //   requiredLevel: 'admin'
+      // }
     ];
   };
 
@@ -639,7 +639,7 @@ const Sidebar = ({
               </div>
             )}
 
-            {/* System Status - Fixed above user profile */}
+            {/* System Status - Fixed above user profile 
             <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 flex-shrink-0">
               <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
                 System Status
@@ -668,6 +668,7 @@ const Sidebar = ({
                 </div>
               </div>
             </div>
+            */}
 
             {/* User Profile - Fixed at bottom */}
             <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex-shrink-0">
