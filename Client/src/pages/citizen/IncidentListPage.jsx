@@ -13,7 +13,8 @@ import {
   User,
   Calendar,
   Download,
-  RefreshCw
+  RefreshCw,
+  Building
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,7 +29,8 @@ const IncidentListPage = ({ citizenView = false }) => {
   const [filters, setFilters] = useState({
     status: '',
     report_type: '',
-    priority: ''
+    priority: '',
+    current_level: '' // ✅ ADDED: Filter by administrative level
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -43,6 +45,26 @@ const IncidentListPage = ({ citizenView = false }) => {
     'verified': 'bg-green-100 text-green-800',
     'resolved': 'bg-gray-100 text-gray-800',
     'dismissed': 'bg-red-100 text-red-800'
+  };
+
+  // ✅ ADDED: Level colors for cell administrative level
+  const LEVEL_COLORS = {
+    'village': 'bg-green-100 text-green-800',
+    'cell': 'bg-teal-100 text-teal-800',
+    'sector': 'bg-blue-100 text-blue-800',
+    'district': 'bg-purple-100 text-purple-800',
+    'province': 'bg-orange-100 text-orange-800',
+    'national': 'bg-red-100 text-red-800'
+  };
+
+  // ✅ ADDED: Level labels for display
+  const LEVEL_LABELS = {
+    'village': 'Village',
+    'cell': 'Cell',
+    'sector': 'Sector',
+    'district': 'District',
+    'province': 'Province',
+    'national': 'National'
   };
 
   const PRIORITY_COLORS = {
@@ -229,7 +251,8 @@ const IncidentListPage = ({ citizenView = false }) => {
       {!citizenView && (
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* ✅ UPDATED: Changed from 4 columns to 5 to include level filter */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
@@ -252,6 +275,21 @@ const IncidentListPage = ({ citizenView = false }) => {
                 <option value="verified">Verified</option>
                 <option value="resolved">Resolved</option>
                 <option value="dismissed">Dismissed</option>
+              </select>
+
+              {/* ✅ ADDED: Administrative level filter */}
+              <select
+                value={filters.current_level}
+                onChange={(e) => setFilters(prev => ({ ...prev, current_level: e.target.value }))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Levels</option>
+                <option value="village">Village</option>
+                <option value="cell">Cell</option>
+                <option value="sector">Sector</option>
+                <option value="district">District</option>
+                <option value="province">Province</option>
+                <option value="national">National</option>
               </select>
 
               <select
@@ -322,6 +360,12 @@ const IncidentListPage = ({ citizenView = false }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
+                  {/* ✅ ADDED: Current Level column */}
+                  {!citizenView && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Level
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
@@ -374,6 +418,15 @@ const IncidentListPage = ({ citizenView = false }) => {
                         </div>
                       </div>
                     </td>
+                    {/* ✅ ADDED: Current Level column display */}
+                    {!citizenView && (
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${LEVEL_COLORS[incident.current_level] || 'bg-gray-100 text-gray-800'}`}>
+                          <Building className="w-3 h-3" />
+                          {LEVEL_LABELS[incident.current_level] || incident.current_level}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[incident.status] || 'bg-gray-100 text-gray-800'}`}>
                         {incident.status.replace('_', ' ')}

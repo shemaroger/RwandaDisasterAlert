@@ -1,4 +1,4 @@
-// contexts/AuthContext.jsx - Complete Updated Version with User Type Fix
+// contexts/AuthContext.jsx - Complete Updated Version with Cell Level Support
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService, { ApiError } from '../services/api';
 
@@ -303,13 +303,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Helper function to get redirect path based on user_type (updated for Hierarchical System)
+  // ✅ UPDATED: Helper function to get redirect path with Cell Level support
   const getRedirectPath = (userType) => {
     switch (userType) {
       case 'admin':
         return '/admin/dashboard';
       case 'village':
         return '/village/dashboard';
+      case 'cell': // ✅ ADDED: Cell level redirect
+        return '/cell/dashboard';
       case 'sector':
         return '/sector/dashboard';
       case 'district':
@@ -558,6 +560,11 @@ export const AuthProvider = ({ children }) => {
     return hasUserType('village');
   };
 
+  // ✅ ADDED: Check if user is at cell level
+  const isCellLevel = () => {
+    return hasUserType('cell');
+  };
+
   // Check if user is at sector level
   const isSectorLevel = () => {
     return hasUserType('sector');
@@ -578,9 +585,9 @@ export const AuthProvider = ({ children }) => {
     return hasUserType('national');
   };
 
-  // Check if user is at any administrative level
+  // ✅ UPDATED: Check if user is at any administrative level (including cell)
   const isAdministrativeLevel = () => {
-    return hasAnyUserType(['village', 'sector', 'district', 'province', 'national']);
+    return hasAnyUserType(['village', 'cell', 'sector', 'district', 'province', 'national']);
   };
 
   // Check if user has a specific administrative level
@@ -613,9 +620,9 @@ export const AuthProvider = ({ children }) => {
     return user.user_type;
   };
 
-  // Check if user's level is higher than or equal to specified level
+  // ✅ UPDATED: Check if user's level is higher than or equal to specified level (including cell)
   const isLevelOrHigher = (targetLevel) => {
-    const levelHierarchy = ['village', 'sector', 'district', 'province', 'national', 'admin'];
+    const levelHierarchy = ['village', 'cell', 'sector', 'district', 'province', 'national', 'admin'];
     const userLevel = getUserAdminLevel();
     
     if (!userLevel) return false;
@@ -742,8 +749,9 @@ export const AuthProvider = ({ children }) => {
     isCitizen,
     isVerified,
     
-    // Hierarchical level checking functions
+    // ✅ UPDATED: Hierarchical level checking functions (including cell)
     isVillageLevel,
+    isCellLevel, // ✅ ADDED
     isSectorLevel,
     isDistrictLevel,
     isProvinceLevel,

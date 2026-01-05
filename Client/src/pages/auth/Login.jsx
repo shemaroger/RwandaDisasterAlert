@@ -23,7 +23,7 @@ const Login = () => {
   const successMessage = location.state?.message;
   const prefillUsername = location.state?.username || location.state?.email;
 
-  // Updated route access checker for hierarchical escalation system
+  // ✅ UPDATED: Route access checker with cell level support
   const checkRouteAccess = (path, userType) => {
     const routeAccess = {
       // Admin routes - Admin only
@@ -37,6 +37,10 @@ const Login = () => {
       // Village level routes
       '/village': ['admin', 'village'],
       '/village/dashboard': ['admin', 'village'],
+      
+      // ✅ ADDED: Cell level routes
+      '/cell': ['admin', 'cell'],
+      '/cell/dashboard': ['admin', 'cell'],
       
       // Sector level routes
       '/sector': ['admin', 'sector'],
@@ -61,11 +65,11 @@ const Login = () => {
       '/citizen': ['admin', 'citizen'],
       '/citizen/dashboard': ['admin', 'citizen'],
       
-      // Shared routes - All administrative levels
-      '/incidents/admin': ['admin', 'village', 'sector', 'district', 'province', 'national'],
+      // ✅ UPDATED: Shared routes - All administrative levels (including cell)
+      '/incidents/admin': ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national'],
       
-      // General dashboard - All authenticated users
-      '/dashboard': ['admin', 'village', 'sector', 'district', 'province', 'national', 'citizen'],
+      // ✅ UPDATED: General dashboard - All authenticated users (including cell)
+      '/dashboard': ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national', 'citizen'],
     };
 
     // Check if the path matches any defined route

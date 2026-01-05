@@ -23,11 +23,12 @@ const RWANDA_DISTRICTS = [
 const USER_TYPES = [
   { value: 'citizen', label: 'Citizen', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Users, level: 0 },
   { value: 'village', label: 'Village Officer', color: 'bg-green-50 text-green-700 border-green-200', icon: Home, level: 1 },
-  { value: 'sector', label: 'Sector Officer', color: 'bg-teal-50 text-teal-700 border-teal-200', icon: Building, level: 2 },
-  { value: 'district', label: 'District Officer', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: Layers, level: 3 },
-  { value: 'province', label: 'Province Officer', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Map, level: 4 },
-  { value: 'national', label: 'National Officer', color: 'bg-red-50 text-red-700 border-red-200', icon: Globe, level: 5 },
-  { value: 'admin', label: 'System Administrator', color: 'bg-gray-50 text-gray-700 border-gray-200', icon: Shield, level: 6 }
+  { value: 'cell', label: 'Cell Officer', color: 'bg-green-50 text-green-700 border-green-200', icon: Home, level: 2 },
+  { value: 'sector', label: 'Sector Officer', color: 'bg-teal-50 text-teal-700 border-teal-200', icon: Building, level: 3 },
+  { value: 'district', label: 'District Officer', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: Layers, level: 4 },
+  { value: 'province', label: 'Province Officer', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Map, level: 5 },
+  { value: 'national', label: 'National Officer', color: 'bg-red-50 text-red-700 border-red-200', icon: Globe, level: 6 },
+  { value: 'admin', label: 'System Administrator', color: 'bg-gray-50 text-gray-700 border-gray-200', icon: Shield, level: 7 }
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -61,11 +62,12 @@ const getUserLevelBadge = (userType) => {
   const levelLabels = {
     0: 'Public',
     1: 'Village Level',
-    2: 'Sector Level',
-    3: 'District Level',
-    4: 'Province Level',
-    5: 'National Level',
-    6: 'System Level'
+    2:  'Cell Level',
+    3: 'Sector Level',
+    4: 'District Level',
+    5: 'Province Level',
+    6: 'National Level',
+    7: 'System Level'
   };
   
   return {

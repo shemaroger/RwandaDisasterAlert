@@ -231,8 +231,10 @@ const EscalationModal = ({ isOpen, onClose, onSubmit, incidentTitle, currentLeve
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ UPDATED: Added cell level
   const LEVEL_LABELS = {
     village: t('adminLevel.village', { defaultValue: 'Village' }),
+    cell: t('adminLevel.cell', { defaultValue: 'Cell' }),
     sector: t('adminLevel.sector', { defaultValue: 'Sector' }),
     district: t('adminLevel.district', { defaultValue: 'District' }),
     province: t('adminLevel.province', { defaultValue: 'Province' }),
@@ -636,16 +638,20 @@ const IncidentDetailPage = ({ citizenView = false }) => {
     1: 'bg-red-500', 2: 'bg-orange-500', 3: 'bg-yellow-500', 4: 'bg-blue-500', 5: 'bg-gray-500'
   };
 
+  // ✅ UPDATED: Added cell level with teal color
   const LEVEL_COLORS = {
     'village': 'bg-green-100 text-green-800 border-green-200',
+    'cell': 'bg-teal-100 text-teal-800 border-teal-200',
     'sector': 'bg-blue-100 text-blue-800 border-blue-200',
     'district': 'bg-purple-100 text-purple-800 border-purple-200',
     'province': 'bg-orange-100 text-orange-800 border-orange-200',
     'national': 'bg-red-100 text-red-800 border-red-200'
   };
 
+  // ✅ UPDATED: Added cell level
   const LEVEL_LABELS = {
     'village': t('adminLevel.village', { defaultValue: 'Village' }),
+    'cell': t('adminLevel.cell', { defaultValue: 'Cell' }),
     'sector': t('adminLevel.sector', { defaultValue: 'Sector' }),
     'district': t('adminLevel.district', { defaultValue: 'District' }),
     'province': t('adminLevel.province', { defaultValue: 'Province' }),
@@ -821,10 +827,11 @@ const IncidentDetailPage = ({ citizenView = false }) => {
     return user?.user_type === incident?.current_level || ['admin', 'national'].includes(user?.user_type);
   };
 
+  // ✅ UPDATED: Added cell to level_order
   const canAddFeedback = () => {
     if (citizenView) return false;
     if (!user?.user_type || !incident?.current_level) return false;
-    const level_order = ['village', 'sector', 'district', 'province', 'national'];
+    const level_order = ['village', 'cell', 'sector', 'district', 'province', 'national'];
     const userLevelIndex = level_order.indexOf(user.user_type);
     const incidentLevelIndex = level_order.indexOf(incident.current_level);
     return user.user_type === 'admin' || (userLevelIndex >= incidentLevelIndex && userLevelIndex !== -1);
