@@ -81,6 +81,7 @@ const CitizenIncidentReport = () => {
 
   const ADMIN_LEVEL_LABELS = {
     village: t('adminLevel.village', { defaultValue: 'Village' }),
+    cell: t('adminLevel.cell', { defaultValue: 'Cell' }),
     sector: t('adminLevel.sector', { defaultValue: 'Sector' }),
     district: t('adminLevel.district', { defaultValue: 'District' }),
     province: t('adminLevel.province', { defaultValue: 'Province' }),
@@ -220,7 +221,7 @@ const CitizenIncidentReport = () => {
   };
 
   const debugFormData = () => {
-    console.log('Form validation debug:');
+    console.log('=== Form Validation Debug ===');
     console.log('report_type:', formData.report_type);
     console.log('title:', formData.title);
     console.log('description:', formData.description);
@@ -229,6 +230,11 @@ const CitizenIncidentReport = () => {
     console.log('address:', formData.address);
     console.log('location:', formData.location);
     console.log('All form data:', formData);
+    console.log('Media files:', {
+      images: mediaFiles.images.length,
+      videos: mediaFiles.videos.length,
+      documents: mediaFiles.documents.length
+    });
   };
 
   const reverseGeocode = async (lat, lng) => {
@@ -430,56 +436,65 @@ const CitizenIncidentReport = () => {
     setErrors(prev => ({ ...prev, submit: null }));
     
     try {
-      const incidentData = {
-        report_type: formData.report_type,
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-      };
-
+      // Create FormData object for multipart/form-data submission
+      const formDataToSend = new FormData();
+      
+      // Add required fields
+      formDataToSend.append('report_type', formData.report_type);
+      formDataToSend.append('title', formData.title.trim());
+      formDataToSend.append('description', formData.description.trim());
+      
+      // Add optional fields only if they have values
       if (formData.disaster_type) {
-        incidentData.disaster_type = formData.disaster_type;
+        formDataToSend.append('disaster_type', formData.disaster_type);
       }
       
       if (formData.location) {
-        incidentData.location = formData.location;
+        formDataToSend.append('location', formData.location);
       }
       
       if (formData.latitude && formData.longitude) {
-        incidentData.latitude = parseFloat(formData.latitude);
-        incidentData.longitude = parseFloat(formData.longitude);
+        formDataToSend.append('latitude', formData.latitude.toString());
+        formDataToSend.append('longitude', formData.longitude.toString());
       }
       
       if (formData.address.trim()) {
-        incidentData.address = formData.address.trim();
+        formDataToSend.append('address', formData.address.trim());
       }
       
       if (formData.casualties) {
-        incidentData.casualties = parseInt(formData.casualties);
+        formDataToSend.append('casualties', formData.casualties);
       }
       
       if (formData.property_damage) {
-        incidentData.property_damage = formData.property_damage;
+        formDataToSend.append('property_damage', formData.property_damage);
       }
       
       if (formData.immediate_needs.trim()) {
-        incidentData.immediate_needs = formData.immediate_needs.trim();
+        formDataToSend.append('immediate_needs', formData.immediate_needs.trim());
       }
 
-      if (mediaFiles.images.length > 0) {
-        incidentData.images = mediaFiles.images;
+      // Add media files
+      mediaFiles.images.forEach((file, index) => {
+        formDataToSend.append(`images[${index}]`, file);
+      });
+      
+      mediaFiles.videos.forEach((file, index) => {
+        formDataToSend.append(`videos[${index}]`, file);
+      });
+
+      mediaFiles.documents.forEach((file, index) => {
+        formDataToSend.append(`documents[${index}]`, file);
+      });
+
+      console.log('📤 Submitting incident report...');
+      console.log('Form data entries:');
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0], ':', pair[1] instanceof File ? `File: ${pair[1].name}` : pair[1]);
       }
       
-      if (mediaFiles.videos.length > 0) {
-        incidentData.videos = mediaFiles.videos;
-      }
-
-      if (mediaFiles.documents.length > 0) {
-        incidentData.documents = mediaFiles.documents;
-      }
-
-      console.log('Submitting incident report with data:', incidentData);
-      
-      const result = await apiService.createIncident(incidentData);
+      // Call API with FormData
+      const result = await apiService.createIncident(formDataToSend);
       
       console.log('✅ Incident created successfully:', result);
       setSubmittedData(result);
@@ -495,18 +510,33 @@ const CitizenIncidentReport = () => {
       });
       let fieldErrors = {};
       
-      if (error.message && error.message.includes('ApiError:')) {
-        const errorText = error.message.replace('ApiError: ', '');
-        const errors = errorText.split(', ');
+      // Handle different error types
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
+        console.log('Error response data:', errorData);
         
-        if (errors.length >= 3 && errors.every(e => e === 'This field is required.')) {
-          if (!formData.report_type) fieldErrors.report_type = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
-          if (!formData.title.trim()) fieldErrors.title = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
-          if (!formData.description.trim()) fieldErrors.description = t('validation.fieldRequired', { defaultValue: 'This field is required.' });
-          errorMessage = t('messages.fillRequiredFields', { defaultValue: 'Please fill in all required fields.' });
-        } else {
-          errorMessage = errorText;
+        // Handle field-specific errors
+        if (typeof errorData === 'object' && !errorData.detail && !errorData.error) {
+          Object.keys(errorData).forEach(field => {
+            const fieldError = Array.isArray(errorData[field]) 
+              ? errorData[field][0] 
+              : errorData[field];
+            
+            fieldErrors[field] = fieldError;
+            console.log(`Field error - ${field}:`, fieldError);
+          });
+          
+          errorMessage = t('messages.fillRequiredFields', { 
+            defaultValue: 'Please fix the errors in the form and try again.' 
+          });
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
         }
+      } else if (error.message && error.message.includes('ApiError:')) {
+        const errorText = error.message.replace('ApiError: ', '');
+        errorMessage = errorText;
       } else if (error.status === 400) {
         errorMessage = t('messages.checkFormData', { defaultValue: 'Please check your form data and try again.' });
       } else if (error.status === 413) {
@@ -583,7 +613,7 @@ const CitizenIncidentReport = () => {
                     {t('success.reportReceived', { 
                       title: submittedData.title,
                       level: ADMIN_LEVEL_LABELS[submittedData.current_level] || t('adminLevel.local', { defaultValue: 'local' }),
-                      defaultValue: `Your incident report "${submittedData.title}" has been received and assigned to local authorities.`
+                      defaultValue: `Your incident report "${submittedData.title}" has been received and assigned to ${ADMIN_LEVEL_LABELS[submittedData.current_level] || 'local'} authorities.`
                     })}
                   </p>
                   <p className="text-sm text-green-600">
@@ -1063,7 +1093,7 @@ const CitizenIncidentReport = () => {
                     <option value="">{t('form.selectDistrict', { defaultValue: 'Select district/province if known' })}</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>
-                        {location.name} ({location.type})
+                        {location.name} ({location.location_type || location.type})
                       </option>
                     ))}
                   </select>

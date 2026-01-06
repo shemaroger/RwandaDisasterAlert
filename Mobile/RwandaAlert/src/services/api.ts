@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as SecureStore from "expo-secure-store";
 
-const DEFAULT_BASE = "http://192.168.8.100:8000/api"; // Your actual IP
+// const DEFAULT_BASE = "http://192.168.8.100:8080/api"; // Your actual IP  172.20.10.13
+const DEFAULT_BASE = "http://172.20.10.13:8080/api"; // Your actual IP  172.20.10.13
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL as string) || DEFAULT_BASE;
 
 // ==================== TYPES ==================== http://192.168.8.100:8000
@@ -55,17 +56,26 @@ export interface Alert {
 }
 
 export interface Incident {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  disaster_type: number;
-  severity: "low" | "medium" | "high" | "critical";
-  status: "reported" | "verified" | "in_progress" | "resolved";
-  location: number;
+  report_type: string;
+  disaster_type?: number;
+  priority?: number;
+  status: "submitted" | "under_review" | "in_progress" | "escalated" | "resolved" | "dismissed";
+  status_display?: string;
+  current_level?: string;
+  location?: number;
   latitude?: number;
   longitude?: number;
-  reported_by?: number;
+  address?: string;
+  casualties?: number;
+  property_damage?: string;
+  immediate_needs?: string;
+  reporter?: number;
+  assigned_to?: number;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface EmergencyContact {
@@ -547,72 +557,265 @@ class ApiService {
     return this.request<ApiResponse<Incident>>(`/incidents/${query ? `?${query}` : ""}`);
   }
 
-  async getIncident(id: number): Promise<Incident> {
+  async getIncident(id: string): Promise<Incident> {
     return this.request<Incident>(`/incidents/${id}/`);
   }
 
-  async createIncident(incidentData: Record<string, any>): Promise<Incident> {
-    const formData = new FormData();
-
-    Object.keys(incidentData || {}).forEach((key) => {
-      const val = incidentData[key];
-      if (val === undefined || val === null) return;
-
-      if (key === "images" || key === "videos") {
-        if (Array.isArray(val)) {
-          val.forEach((file: any, idx: number) => {
-            // RN file format: { uri, name, type }
-            formData.append(`${key}[${idx}]`, {
-              uri: file.uri,
-              name: file.name || `file-${Date.now()}-${idx}`,
-              type: file.type || "application/octet-stream",
-            } as any);
-          });
-        }
+  async createIncident(incidentData: Record<string, any> | FormData): Promise<Incident> {
+    try {
+      // Check if it's already FormData (from React Native component)
+      const isFormData = incidentData instanceof FormData;
+      
+      console.log('=== API createIncident ===');
+      console.log('Is FormData:', isFormData);
+      
+      if (isFormData) {
+        // Use the existing request method which handles FormData properly
+        return this.request<Incident>("/incidents/", { 
+          method: "POST", 
+          body: incidentData,
+          timeout: 30000, // 30 seconds for file uploads
+        });
       } else {
-        formData.append(key, String(val));
+        // Create FormData from object (for backward compatibility)
+        console.log('Creating FormData from object');
+        const formDataToSend = new FormData();
+        
+        Object.keys(incidentData || {}).forEach((key) => {
+          const val = incidentData[key];
+          if (val === undefined || val === null) return;
+          
+          if (key === "images" || key === "videos" || key === "documents") {
+            if (Array.isArray(val)) {
+              val.forEach((file: any, idx: number) => {
+                // RN file format: { uri, name, type }
+                formDataToSend.append(`${key}[${idx}]`, {
+                  uri: file.uri,
+                  name: file.name || `file-${Date.now()}-${idx}`,
+                  type: file.type || file.mimeType || "application/octet-stream",
+                } as any);
+              });
+            }
+          } else {
+            formDataToSend.append(key, String(val));
+          }
+        });
+        
+        return this.request<Incident>("/incidents/", { 
+          method: "POST", 
+          body: formDataToSend,
+          timeout: 30000,
+        });
       }
+    } catch (error: any) {
+      console.error('❌ API Error creating incident:', error);
+      throw error;
+    }
+  }
+
+  async updateIncident(id: string, incidentData: Partial<Incident>): Promise<Incident> {
+    // Check if update includes files
+    const hasFiles = (incidentData as any).images || (incidentData as any).videos || (incidentData as any).documents;
+    
+    if (hasFiles) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      Object.keys(incidentData || {}).forEach((key) => {
+        const val = (incidentData as any)[key];
+        if (val === undefined || val === null) return;
+        
+        if (key === "images" || key === "videos" || key === "documents") {
+          if (Array.isArray(val)) {
+            val.forEach((file: any, idx: number) => {
+              formData.append(`${key}[${idx}]`, {
+                uri: file.uri,
+                name: file.name || `file-${Date.now()}-${idx}`,
+                type: file.type || file.mimeType || "application/octet-stream",
+              } as any);
+            });
+          }
+        } else {
+          formData.append(key, String(val));
+        }
+      });
+      
+      return this.request<Incident>(`/incidents/${id}/`, { 
+        method: "PATCH", 
+        body: formData,
+        timeout: 30000,
+      });
+    }
+    
+    // Regular JSON update
+    return this.request<Incident>(`/incidents/${id}/`, { 
+      method: "PATCH", 
+      body: incidentData 
     });
-
-    return this.request<Incident>("/incidents/", { method: "POST", body: formData });
   }
 
-  async updateIncident(id: number, incidentData: Partial<Incident>): Promise<Incident> {
-    return this.request<Incident>(`/incidents/${id}/`, { method: "PATCH", body: incidentData });
-  }
-
-  async deleteIncident(id: number): Promise<void> {
+  async deleteIncident(id: string): Promise<void> {
     return this.request(`/incidents/${id}/`, { method: "DELETE" });
   }
 
-  async assignIncident(id: number, assignedToId: number): Promise<Incident> {
+  async assignIncident(id: string, assignedToId: string, feedback = ""): Promise<Incident> {
+    const body: any = { assigned_to: assignedToId };
+    if (feedback) body.feedback = feedback;
+    
     return this.request<Incident>(`/incidents/${id}/assign/`, {
       method: "POST",
-      body: { assigned_to: assignedToId },
+      body: body,
     });
   }
 
-  async verifyIncident(id: number): Promise<Incident> {
+  async escalateIncident(id: string, reason: string, feedback = ""): Promise<Incident> {
+    const body: any = { reason };
+    if (feedback) body.feedback_for_reporter = feedback;
+    
+    return this.request<Incident>(`/incidents/${id}/escalate/`, {
+      method: "POST",
+      body: body,
+    });
+  }
+
+  async addIncidentResponse(id: string, responseData: Record<string, any>): Promise<any> {
+    return this.request(`/incidents/${id}/add-response/`, {
+      method: "POST",
+      body: responseData,
+    });
+  }
+
+  async addFeedbackToIncident(id: string, feedbackData: Record<string, any>): Promise<any> {
+    return this.request(`/incidents/${id}/add-feedback/`, {
+      method: "POST",
+      body: feedbackData,
+    });
+  }
+
+  async updateIncidentStatus(id: string, status: string, resolutionNotes = "", feedback = ""): Promise<Incident> {
+    const body: any = { status, resolution_notes: resolutionNotes };
+    if (feedback) body.feedback_for_reporter = feedback;
+    
+    return this.request<Incident>(`/incidents/${id}/update-status/`, {
+      method: "POST",
+      body: body,
+    });
+  }
+
+  async verifyIncident(id: string): Promise<Incident> {
     return this.request<Incident>(`/incidents/${id}/verify/`, { method: "POST" });
   }
 
-  async resolveIncident(id: number, resolutionNotes = ""): Promise<Incident> {
+  async resolveIncident(id: string, resolutionNotes = "", feedback = ""): Promise<Incident> {
+    const body: any = { resolution_notes: resolutionNotes };
+    if (feedback) body.feedback_for_reporter = feedback;
+    
     return this.request<Incident>(`/incidents/${id}/resolve/`, {
       method: "POST",
-      body: { resolution_notes: resolutionNotes },
+      body: body,
     });
   }
 
-  async getMyIncidentReports(): Promise<Incident[]> {
-    return this.request<Incident[]>("/incidents/my-reports/");
+  async dismissIncident(id: string, dismissalReason = "", feedback = ""): Promise<Incident> {
+    const body: any = { dismissal_reason: dismissalReason };
+    if (feedback) body.feedback_for_reporter = feedback;
+    
+    return this.request<Incident>(`/incidents/${id}/dismiss/`, {
+      method: "POST",
+      body: body,
+    });
   }
 
-  async getAssignedIncidents(): Promise<Incident[]> {
-    return this.request<Incident[]>("/incidents/assigned-to-me/");
+  async getIncidentResponseHistory(id: string): Promise<any> {
+    return this.request(`/incidents/${id}/response-history/`);
   }
 
-  async getPriorityIncidents(): Promise<Incident[]> {
-    return this.request<Incident[]>("/incidents/priority/");
+  async uploadIncidentMedia(id: string, mediaData: Record<string, any>): Promise<any> {
+    const formData = new FormData();
+    formData.append('media_type', mediaData.media_type);
+    formData.append('file', {
+      uri: mediaData.file.uri,
+      name: mediaData.file.name,
+      type: mediaData.file.type || mediaData.file.mimeType,
+    } as any);
+    if (mediaData.caption) {
+      formData.append('caption', mediaData.caption);
+    }
+    
+    return this.request(`/incidents/${id}/upload-media/`, {
+      method: "POST",
+      body: formData,
+      timeout: 30000,
+    });
+  }
+
+  async getMyIncidentReports(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/my-reports/${query ? `?${query}` : ""}`);
+  }
+
+  async getAssignedIncidents(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/assigned-to-me/${query ? `?${query}` : ""}`);
+  }
+
+  async getMyLevelIncidents(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/my-level/${query ? `?${query}` : ""}`);
+  }
+
+  async getNeedsEscalation(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/needs-escalation/${query ? `?${query}` : ""}`);
+  }
+
+  async getPriorityIncidents(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/priority/${query ? `?${query}` : ""}`);
+  }
+
+  async getRecentIncidents(params: PaginationParams = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/recent/${query ? `?${query}` : ""}`);
+  }
+
+  async getIncidentStats(params: Record<string, any> = {}): Promise<any> {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/incidents/stats/${query ? `?${query}` : ""}`);
+  }
+
+  async exportIncidents(format = 'json', params: Record<string, any> = {}): Promise<any> {
+    const query = new URLSearchParams({ ...params, format }).toString();
+    return this.request(`/incidents/export/?${query}`);
+  }
+
+  async searchIncidents(searchQuery: string, filters: Record<string, any> = {}): Promise<ApiResponse<Incident>> {
+    const params = { search: searchQuery, ...filters };
+    const query = new URLSearchParams(params).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/?${query}`);
+  }
+
+  async getIncidentsByLocation(locationId: string, params: Record<string, any> = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams({ ...params, location: locationId }).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/?${query}`);
+  }
+
+  async getIncidentsByLevel(level: string, params: Record<string, any> = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams({ ...params, current_level: level }).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/?${query}`);
+  }
+
+  async getIncidentsByStatus(status: string, params: Record<string, any> = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams({ ...params, status }).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/?${query}`);
+  }
+
+  async getIncidentsByDateRange(startDate: string, endDate: string, params: Record<string, any> = {}): Promise<ApiResponse<Incident>> {
+    const query = new URLSearchParams({
+      ...params,
+      created_at__gte: startDate,
+      created_at__lte: endDate
+    }).toString();
+    return this.request<ApiResponse<Incident>>(`/incidents/?${query}`);
   }
 
   // ==================== EMERGENCY CONTACTS ====================
@@ -976,10 +1179,6 @@ class ApiService {
 
   async getRecentAlerts(): Promise<Alert[]> {
     return this.request<Alert[]>("/dashboard/recent-alerts/");
-  }
-
-  async getRecentIncidents(): Promise<Incident[]> {
-    return this.request<Incident[]>("/dashboard/recent-incidents/");
   }
 
   // ==================== NOTIFICATIONS ====================

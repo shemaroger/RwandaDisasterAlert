@@ -398,8 +398,8 @@ class IncidentReport(models.Model):
     
     # Location
     location = models.ForeignKey('Location', on_delete=models.SET_NULL, blank=True, null=True)
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=7, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=7, blank=True, null=True)
     address = models.TextField(blank=True)
     
     # Status and handling

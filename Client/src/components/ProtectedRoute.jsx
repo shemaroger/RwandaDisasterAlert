@@ -1,4 +1,4 @@
-// components/ProtectedRoute.jsx - Updated for Hierarchical Escalation System
+// components/ProtectedRoute.jsx - Updated for Hierarchical Escalation System with Cell Level
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -190,7 +190,7 @@ const UnauthorizedAccess = ({
   const { logout } = useAuth();
 
   const handleGoToDashboard = () => {
-    // Redirect based on user type with hierarchical levels
+    // Redirect based on user type with hierarchical levels including Cell
     switch (userType) {
       case 'admin':
         window.location.href = '/admin/dashboard';
@@ -206,6 +206,9 @@ const UnauthorizedAccess = ({
         break;
       case 'sector':
         window.location.href = '/sector/dashboard';
+        break;
+      case 'cell': // ✅ ADDED: Cell level
+        window.location.href = '/cell/dashboard';
         break;
       case 'village':
         window.location.href = '/village/dashboard';
@@ -234,6 +237,8 @@ const UnauthorizedAccess = ({
         return 'District Level Administrator';
       case 'sector':
         return 'Sector Level Administrator';
+      case 'cell': // ✅ ADDED: Cell level display name
+        return 'Cell Level Administrator';
       case 'village':
         return 'Village Level Administrator';
       case 'citizen':
@@ -378,6 +383,7 @@ export const usePermissions = () => {
     isAdmin,
     isCitizen,
     isVillageLevel,
+    isCellLevel, // ✅ ADDED: Cell level check
     isSectorLevel,
     isDistrictLevel,
     isProvinceLevel,
@@ -411,7 +417,8 @@ export const usePermissions = () => {
   // Analytics and reporting
   const canViewReports = () => canViewAnalytics();
   const canViewDeliveryReports = () => canViewAnalytics();
-  const canExportData = () => isLevelOrHigher('district');
+  // ✅ UPDATED: All admin levels can export data
+  const canExportData = () => isAdministrativeLevel() || isAdmin();
   
   // Incident management permissions
   const canReportIncidents = () => true; // All authenticated users
@@ -436,22 +443,23 @@ export const usePermissions = () => {
   const canAccessAdminDashboard = () => isAdministrativeLevel() || isAdmin();
   const canAccessCitizenDashboard = () => isCitizen();
   
-  // Level-specific permissions
+  // Level-specific permissions including Cell
   const canAccessVillageDashboard = () => isLevelOrHigher('village');
+  const canAccessCellDashboard = () => isLevelOrHigher('cell'); // ✅ ADDED
   const canAccessSectorDashboard = () => isLevelOrHigher('sector');
   const canAccessDistrictDashboard = () => isLevelOrHigher('district');
   const canAccessProvinceDashboard = () => isLevelOrHigher('province');
   const canAccessNationalDashboard = () => isNationalLevel() || isAdmin();
   
-  // Resource management
-  const canManageResources = () => isLevelOrHigher('sector');
+  // Resource management - ✅ UPDATED: Cell level can manage resources
+  const canManageResources = () => isLevelOrHigher('cell');
   const canDeployResources = () => isAdministrativeLevel() || isAdmin();
   const canRequestResources = () => isAdministrativeLevel() || isAdmin();
   
-  // Coordination permissions
+  // Coordination permissions - ✅ UPDATED: Cell level can coordinate
   const canCoordinateResponse = () => isAdministrativeLevel() || isAdmin();
-  const canInitiateEvacuation = () => isLevelOrHigher('sector');
-  const canDeclareEmergency = () => isLevelOrHigher('district');
+  const canInitiateEvacuation = () => isLevelOrHigher('cell'); // ✅ UPDATED: Cell can initiate evacuations
+  const canDeclareEmergency = () => isLevelOrHigher('sector'); // ✅ UPDATED: Sector+ can declare emergencies
 
   return {
     user,
@@ -460,6 +468,7 @@ export const usePermissions = () => {
     isAdmin,
     isCitizen,
     isVillageLevel,
+    isCellLevel, // ✅ ADDED
     isSectorLevel,
     isDistrictLevel,
     isProvinceLevel,
@@ -499,7 +508,7 @@ export const usePermissions = () => {
     canViewAnalytics,
     canViewReports,
     canViewDeliveryReports,
-    canExportData,
+    canExportData, // ✅ UPDATED: All admin levels can export
     
     // Communication
     canSendBulkNotifications,
@@ -517,6 +526,7 @@ export const usePermissions = () => {
     canAccessAdminDashboard,
     canAccessCitizenDashboard,
     canAccessVillageDashboard,
+    canAccessCellDashboard, // ✅ ADDED
     canAccessSectorDashboard,
     canAccessDistrictDashboard,
     canAccessProvinceDashboard,

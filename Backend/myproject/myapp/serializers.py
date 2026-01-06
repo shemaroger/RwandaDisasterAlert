@@ -593,35 +593,71 @@ class IncidentReportCreateSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'address', 'casualties',
             'property_damage', 'immediate_needs'
         ]
+        extra_kwargs = {
+            'disaster_type': {'required': False, 'allow_null': True},
+            'location': {'required': False, 'allow_null': True},
+            'latitude': {'required': False, 'allow_null': True},
+            'longitude': {'required': False, 'allow_null': True},
+            'address': {'required': False, 'allow_blank': True},
+            'casualties': {'required': False, 'allow_null': True},
+            'property_damage': {'required': False, 'allow_blank': True},
+            'immediate_needs': {'required': False, 'allow_blank': True},
+        }
+    
+    def validate_title(self, value):
+        """Ensure title is not empty"""
+        if not value or len(value.strip()) < 3:
+            raise serializers.ValidationError("Title must be at least 3 characters long.")
+        return value.strip()
+    
+    def validate_description(self, value):
+        """Ensure description is not empty"""
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError("Description must be at least 10 characters long.")
+        return value.strip()
     
     def create(self, validated_data):
-        # Set the reporter from request user
-        validated_data['reporter'] = self.context['request'].user
-        
-        # Create the incident report
+        """
+        Create incident report with media files
+        Note: reporter is set by ViewSet's perform_create method
+        """
+        # Create the incident report (reporter already set in validated_data by perform_create)
         incident = super().create(validated_data)
         
         # Handle file uploads from FormData
-        request = self.context['request']
+        request = self.context.get('request')
         
-        # Process uploaded files and create IncidentMedia objects
-        for key, file in request.FILES.items():
-            media_type = None
-            
-            if key.startswith('images['):
-                media_type = 'image'
-            elif key.startswith('videos['):
-                media_type = 'video'
-            elif key.startswith('documents['):
-                media_type = 'document'
-            
-            if media_type:
-                IncidentMedia.objects.create(
-                    incident=incident,
-                    media_type=media_type,
-                    file=file,
-                    uploaded_by=request.user
-                )
+        if request and hasattr(request, 'FILES'):
+            # Process uploaded files and create IncidentMedia objects
+            for key, file in request.FILES.items():
+                media_type = None
+                
+                # Determine media type based on field name
+                if key.startswith('images[') or key == 'images':
+                    media_type = 'image'
+                elif key.startswith('videos[') or key == 'videos':
+                    media_type = 'video'
+                elif key.startswith('documents[') or key == 'documents':
+                    media_type = 'document'
+                elif key.startswith('image'):
+                    media_type = 'image'
+                elif key.startswith('video'):
+                    media_type = 'video'
+                elif key.startswith('document'):
+                    media_type = 'document'
+                
+                # Create media object if type is determined
+                if media_type:
+                    try:
+                        IncidentMedia.objects.create(
+                            incident=incident,
+                            media_type=media_type,
+                            file=file,
+                            uploaded_by=request.user
+                        )
+                    except Exception as e:
+                        # Log error but don't fail the entire creation
+                        print(f"Error creating media file: {str(e)}")
         
         return incident
 

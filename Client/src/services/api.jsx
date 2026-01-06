@@ -1138,7 +1138,7 @@ getWebSocketUrl(chatRoomId) {
 //   return this.request(`/incidents/?${query}`);
 // }
 
-// -------- Incidents --------
+/// -------- Incidents --------
 async getIncidents(params = {}) {
   /**
    * Get a list of incidents with optional filtering
@@ -1159,27 +1159,45 @@ async getIncident(id) {
 async createIncident(incidentData) {
   /**
    * Create a new incident report
-   * @param {Object} incidentData - Incident data
+   * @param {FormData|Object} incidentData - Incident data (can be FormData or plain object)
    * @param {File[]} [incidentData.images] - Array of image files
    * @param {File[]} [incidentData.videos] - Array of video files
    * @param {File[]} [incidentData.documents] - Array of document files
    */
+  
+  // If already FormData, use it directly
+  if (incidentData instanceof FormData) {
+    return this.request('/incidents/', { 
+      method: 'POST', 
+      body: incidentData 
+    });
+  }
+  
+  // Otherwise, convert object to FormData
   const formData = new FormData();
+  
   Object.keys(incidentData || {}).forEach((key) => {
     const val = incidentData[key];
+    
     if (val !== null && val !== undefined) {
       if (key === 'images' || key === 'videos' || key === 'documents') {
+        // Handle file arrays
         if (Array.isArray(val)) {
           val.forEach((file, index) => {
             formData.append(`${key}[${index}]`, file);
           });
         }
       } else {
+        // Handle regular fields
         formData.append(key, val);
       }
     }
   });
-  return this.request('/incidents/', { method: 'POST', body: formData });
+  
+  return this.request('/incidents/', { 
+    method: 'POST', 
+    body: formData 
+  });
 }
 
 async updateIncident(id, incidentData) {
@@ -1430,8 +1448,9 @@ async markNotificationAsRead(notificationId) {
    * Mark a notification as read
    * @param {string} notificationId - Notification ID
    */
-  return this.request(`/notifications/${notificationId}/mark-read/`, {
+  return this.request(`/incidents/mark-notification-read/`, {
     method: 'POST',
+    body: { notification_id: notificationId },
   });
 }
 
@@ -1439,7 +1458,7 @@ async markAllNotificationsAsRead() {
   /**
    * Mark all notifications as read
    */
-  return this.request('/notifications/mark-all-read/', {
+  return this.request('/incidents/mark-all-notifications-as-read/', {
     method: 'POST',
   });
 }
@@ -1583,7 +1602,7 @@ async getIncidentsByLocation(locationId, params = {}) {
 async getIncidentsByLevel(level, params = {}) {
   /**
    * Get incidents by administrative level
-   * @param {string} level - Administrative level (village, sector, district, province, national)
+   * @param {string} level - Administrative level (village, cell, sector, district, province, national)
    * @param {Object} params - Additional parameters
    */
   const query = new URLSearchParams({ ...params, current_level: level }).toString();
@@ -1641,15 +1660,6 @@ async getFeedbackForIncident(incidentId, params = {}) {
 }
 
 // -------- User-Specific Actions --------
-async getMyNotifications(params = {}) {
-  /**
-   * Get notifications for the current user
-   * @param {Object} params - Optional filter parameters
-   */
-  const query = new URLSearchParams(params).toString();
-  return this.request(`/incidents/my-notifications/${query ? `?${query}` : ''}`);
-}
-
 async getMyAssignedIncidents(params = {}) {
   /**
    * Get incidents assigned to the current user
@@ -1668,33 +1678,31 @@ async getMyReportedIncidents(params = {}) {
   return this.request(`/incidents/my-reports/${query ? `?${query}` : ''}`);
 }
 
+// -------- Emergency Contacts --------
+async getEmergencyContacts(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/emergency-contacts/${query ? `?${query}` : ''}`);
+}
 
+async getEmergencyContact(id) {
+  return this.request(`/emergency-contacts/${id}/`);
+}
 
-  // -------- Emergency Contacts --------
-  async getEmergencyContacts(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/emergency-contacts/${query ? `?${query}` : ''}`);
-  }
+async getEmergencyContactsByLocation(locationId) {
+  return this.request(`/emergency-contacts/by_location/?location_id=${locationId}`);
+}
 
-  async getEmergencyContact(id) {
-    return this.request(`/emergency-contacts/${id}/`);
-  }
+async getNearbyEmergencyContacts(latitude, longitude) {
+  const params = new URLSearchParams({ latitude, longitude }).toString();
+  return this.request(`/emergency-contacts/nearby/?${params}`);
+}
 
-  async getEmergencyContactsByLocation(locationId) {
-    return this.request(`/emergency-contacts/by_location/?location_id=${locationId}`);
-  }
-
-  async getNearbyEmergencyContacts(latitude, longitude) {
-    const params = new URLSearchParams({ latitude, longitude }).toString();
-    return this.request(`/emergency-contacts/nearby/?${params}`);
-  }
-
-  async getPublicEmergencyContacts(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/public/emergency-contacts/${query ? `?${query}` : ''}`, {
-      includeAuth: false,
-    });
-  }
+async getPublicEmergencyContacts(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return this.request(`/public/emergency-contacts/${query ? `?${query}` : ''}`, {
+    includeAuth: false,
+  });
+}
 
 //   // -------- Safety Guides --------
 //   async getSafetyGuides(params = {}) {

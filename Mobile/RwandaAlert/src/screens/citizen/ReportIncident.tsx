@@ -81,13 +81,20 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
   const loadInitialData = async () => {
     setDataLoading(true);
     try {
+      console.log('🔄 Loading form initial data...');
+      
       const [disasterTypesRes, locationsRes] = await Promise.all([
-        apiService.getDisasterTypes().catch(() => ({ results: [] })),
-        apiService.getLocations().catch(() => ({ results: [] }))
+        apiService.getDisasterTypes({ is_active: true, ordering: 'name' }).catch(() => ({ results: [] })),
+        apiService.getLocations({ ordering: 'name' }).catch(() => ({ results: [] }))
       ]);
       
-      setDisasterTypes(disasterTypesRes.results || []);
-      setLocations(locationsRes.results || []);
+      const disasterTypesData = disasterTypesRes.results || disasterTypesRes || [];
+      const locationsData = locationsRes.results || locationsRes || [];
+      
+      setDisasterTypes(disasterTypesData);
+      setLocations(locationsData);
+      
+      console.log(`✅ Loaded ${disasterTypesData.length} disaster types and ${locationsData.length} locations`);
     } catch (error) {
       console.error('Failed to load initial data:', error);
     } finally {
@@ -120,18 +127,22 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
       }));
 
       // Reverse geocode
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
+      try {
+        const addresses = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
 
-      if (addresses.length > 0 && !formData.address.trim()) {
-        const addr = addresses[0];
-        const address = [addr.street, addr.district, addr.city, addr.region, addr.country]
-          .filter(Boolean)
-          .join(', ');
-        
-        setFormData(prev => ({ ...prev, address }));
+        if (addresses.length > 0 && !formData.address.trim()) {
+          const addr = addresses[0];
+          const address = [addr.street, addr.district, addr.city, addr.region, addr.country]
+            .filter(Boolean)
+            .join(', ');
+          
+          setFormData(prev => ({ ...prev, address }));
+        }
+      } catch (geocodeError) {
+        console.warn('Reverse geocoding failed:', geocodeError);
       }
 
       setLocationLoading(false);
@@ -150,6 +161,9 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
     if (errors[name]) {
       setErrors((prev: any) => ({ ...prev, [name]: null }));
     }
+    if (errors.submit) {
+      setErrors((prev: any) => ({ ...prev, submit: null }));
+    }
   };
 
   const pickImages = async () => {
@@ -157,26 +171,58 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant camera roll permission');
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photos to upload images.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Settings', 
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              }
+            }
+          ]
+        );
         return;
       }
 
+      console.log('📷 Opening image picker...');
+
+      // ✅ Fixed: Remove mediaTypes parameter
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         quality: 0.8,
         allowsEditing: false,
+        selectionLimit: 5,
       });
 
-      if (!result.canceled && result.assets) {
-        const newImages = result.assets.map(asset => ({
+      console.log('Image picker result:', result);
+
+      if (result.canceled) {
+        console.log('Image picker canceled');
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const newImages = result.assets.map((asset, index) => ({
           uri: asset.uri,
-          name: asset.fileName || `image_${Date.now()}.jpg`,
-          type: 'image/jpeg'
+          name: asset.fileName || `image_${Date.now()}_${index}.jpg`,
+          type: 'image/jpeg',
+          mimeType: asset.mimeType || 'image/jpeg'
         }));
 
+        console.log(`Processing ${newImages.length} images...`);
+
         if (mediaFiles.images.length + newImages.length > 5) {
-          Alert.alert('Too many files', 'Maximum 5 images allowed');
+          Alert.alert(
+            'Too Many Images',
+            `You can only upload up to 5 images. You currently have ${mediaFiles.images.length} and tried to add ${newImages.length} more.`
+          );
           return;
         }
 
@@ -184,29 +230,55 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
           ...prev,
           images: [...prev.images, ...newImages]
         }));
+        
+        console.log(`✅ Added ${newImages.length} images successfully`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick images');
+      Alert.alert('Error', `Failed to pick images: ${error.message || 'Unknown error'}`);
     }
   };
 
   const pickVideos = async () => {
     try {
+      console.log('🎥 Opening video picker...');
+
       const result = await DocumentPicker.getDocumentAsync({
         type: 'video/*',
-        multiple: true,
+        multiple: false,
+        copyToCacheDirectory: true,
       });
 
-      if (result.type === 'success') {
+      console.log('Video picker result:', result);
+
+      if (result.canceled) {
+        console.log('Video picker canceled');
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        // Check file size (max 50MB)
+        const maxSize = 50 * 1024 * 1024;
+        if (asset.size && asset.size > maxSize) {
+          Alert.alert(
+            'File Too Large',
+            `The video is too large (${(asset.size / (1024 * 1024)).toFixed(2)}MB). Maximum size is 50MB.`
+          );
+          return;
+        }
+
         const newVideo = {
-          uri: result.uri,
-          name: result.name,
-          type: 'video/mp4'
+          uri: asset.uri,
+          name: asset.name,
+          type: 'video/mp4',
+          mimeType: asset.mimeType || 'video/mp4',
+          size: asset.size
         };
 
         if (mediaFiles.videos.length >= 5) {
-          Alert.alert('Too many files', 'Maximum 5 videos allowed');
+          Alert.alert('Maximum Videos Reached', 'You can only upload up to 5 videos.');
           return;
         }
 
@@ -214,10 +286,12 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
           ...prev,
           videos: [...prev.videos, newVideo]
         }));
+        
+        console.log('✅ Added video successfully:', asset.name);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Video picker error:', error);
-      Alert.alert('Error', 'Failed to pick video');
+      Alert.alert('Error', `Failed to pick video: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -239,12 +313,18 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
       newErrors.title = 'Title is required';
     } else if (formData.title.trim().length < 5) {
       newErrors.title = 'Title must be at least 5 characters';
+    } else if (formData.title.length > 200) {
+      newErrors.title = 'Title cannot exceed 200 characters';
     }
 
     if (!formData.description.trim()) {
       newErrors.description = 'Description is required';
     } else if (formData.description.trim().length < 10) {
       newErrors.description = 'Description must be at least 10 characters';
+    }
+
+    if (formData.casualties && (isNaN(parseInt(formData.casualties)) || parseInt(formData.casualties) < 0)) {
+      newErrors.casualties = 'Casualties must be a valid number (0 or greater)';
     }
 
     if (!formData.latitude || !formData.longitude) {
@@ -258,43 +338,134 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
   };
 
   const handleSubmit = async () => {
+    console.log('=== SUBMIT STARTED ===');
+    
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fill in all required fields');
       return;
     }
 
     setLoading(true);
+    setErrors((prev: any) => ({ ...prev, submit: null }));
+    
     try {
-      const incidentData: any = {
-        report_type: formData.report_type,
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-      };
+      console.log('=== FORM DATA VALIDATION ===');
+      console.log('report_type:', formData.report_type);
+      console.log('title:', formData.title.trim());
+      console.log('description:', formData.description.trim());
 
-      if (formData.disaster_type) incidentData.disaster_type = formData.disaster_type;
-      if (formData.location) incidentData.location = formData.location;
-      if (formData.latitude && formData.longitude) {
-        incidentData.latitude = parseFloat(formData.latitude.toString());
-        incidentData.longitude = parseFloat(formData.longitude.toString());
+      // ✅ Create FormData instead of plain object
+      const formDataToSend = new FormData();
+
+      // Add required fields
+      formDataToSend.append('report_type', formData.report_type);
+      formDataToSend.append('title', formData.title.trim());
+      formDataToSend.append('description', formData.description.trim());
+
+      console.log('✅ Added required fields to FormData');
+
+      // Add optional fields
+      if (formData.disaster_type) {
+        formDataToSend.append('disaster_type', formData.disaster_type);
       }
-      if (formData.address.trim()) incidentData.address = formData.address.trim();
-      if (formData.casualties) incidentData.casualties = parseInt(formData.casualties);
-      if (formData.property_damage) incidentData.property_damage = formData.property_damage;
-      if (formData.immediate_needs.trim()) incidentData.immediate_needs = formData.immediate_needs.trim();
-      if (mediaFiles.images.length > 0) incidentData.images = mediaFiles.images;
-      if (mediaFiles.videos.length > 0) incidentData.videos = mediaFiles.videos;
-
-      const result = await apiService.createIncident(incidentData);
       
+      if (formData.location) {
+        formDataToSend.append('location', formData.location);
+      }
+      
+      // ✅ Round coordinates to 6 decimal places
+      if (formData.latitude && formData.longitude) {
+        const roundedLat = parseFloat(formData.latitude.toFixed(6));
+        const roundedLng = parseFloat(formData.longitude.toFixed(6));
+        formDataToSend.append('latitude', roundedLat.toString());
+        formDataToSend.append('longitude', roundedLng.toString());
+        console.log('Added coordinates:', roundedLat, roundedLng);
+      }
+      
+      if (formData.address.trim()) {
+        formDataToSend.append('address', formData.address.trim());
+      }
+      
+      if (formData.casualties) {
+        formDataToSend.append('casualties', formData.casualties);
+      }
+      
+      if (formData.property_damage) {
+        formDataToSend.append('property_damage', formData.property_damage);
+      }
+      
+      if (formData.immediate_needs.trim()) {
+        formDataToSend.append('immediate_needs', formData.immediate_needs.trim());
+      }
+
+      // ✅ Add images with proper format
+      mediaFiles.images.forEach((img, index) => {
+        const file = {
+          uri: Platform.OS === 'ios' ? img.uri.replace('file://', '') : img.uri,
+          type: img.mimeType || img.type || 'image/jpeg',
+          name: img.name || `image_${Date.now()}_${index}.jpg`,
+        };
+        formDataToSend.append(`images[${index}]`, file as any);
+        console.log(`✅ Added image ${index}:`, file.name);
+      });
+
+      // ✅ Add videos with proper format
+      mediaFiles.videos.forEach((video, index) => {
+        const file = {
+          uri: Platform.OS === 'ios' ? video.uri.replace('file://', '') : video.uri,
+          type: video.mimeType || video.type || 'video/mp4',
+          name: video.name || `video_${Date.now()}_${index}.mp4`,
+        };
+        formDataToSend.append(`videos[${index}]`, file as any);
+        console.log(`✅ Added video ${index}:`, file.name);
+      });
+
+      console.log('📤 Submitting incident report...');
+      console.log('Form prepared with', mediaFiles.images.length, 'images and', mediaFiles.videos.length, 'videos');
+
+      // ✅ Pass FormData to API service
+      const result = await apiService.createIncident(formDataToSend);
+      
+      console.log('✅ Incident created successfully:', result);
       setSubmittedData(result);
       setSubmitted(true);
       
     } catch (error: any) {
-      console.error('Failed to submit:', error);
-      Alert.alert(
-        'Submission Failed',
-        error.message || 'Failed to submit incident report. Please try again.'
-      );
+      console.error('❌ Failed to submit:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = 'Failed to submit incident report. Please try again.';
+      let fieldErrors: any = {};
+
+      // Parse error response
+      if (error.data) {
+        const errorData = error.data;
+        console.log('Error data:', errorData);
+
+        if (typeof errorData === 'object' && !errorData.detail && !errorData.error) {
+          Object.keys(errorData).forEach(field => {
+            const fieldError = Array.isArray(errorData[field]) 
+              ? errorData[field][0] 
+              : errorData[field];
+            fieldErrors[field] = fieldError;
+          });
+          errorMessage = 'Please fix the errors in the form and try again.';
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setErrors((prev: any) => ({
+        ...prev,
+        ...fieldErrors,
+        submit: errorMessage
+      }));
+
+      Alert.alert('Submission Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -336,11 +507,16 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
             <View style={styles.successInfo}>
               <Text style={styles.successId}>Report ID: {submittedData.id}</Text>
               <Text style={styles.successText}>
-                Your incident report "{submittedData.title}" has been received.
+                Your incident report &quot;{submittedData.title}&quot; has been received and assigned to local authorities.
               </Text>
               <Text style={styles.successStatus}>
-                Status: {submittedData.status || 'Submitted'}
+                Status: {submittedData.status_display || submittedData.status || 'Submitted'}
               </Text>
+              {submittedData.priority && (
+                <Text style={styles.successStatus}>
+                  Priority: Level {submittedData.priority}
+                </Text>
+              )}
             </View>
           )}
 
@@ -359,6 +535,12 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
             <Text style={styles.emergencyFooterTitle}>Emergency Contacts</Text>
             <TouchableOpacity onPress={() => callEmergency('912')}>
               <Text style={styles.emergencyNumber}>📞 Emergency: 912</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => callEmergency('114')}>
+              <Text style={styles.emergencyNumber}>📞 Medical: 114</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => callEmergency('113')}>
+              <Text style={styles.emergencyNumber}>📞 Fire: 113</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -386,6 +568,12 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
         {errors.submit && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{errors.submit}</Text>
+          </View>
+        )}
+
+        {errors.location_required && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{errors.location_required}</Text>
           </View>
         )}
 
@@ -427,17 +615,24 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
             formData.latitude ? styles.statusSuccess : styles.statusWarning
           ]}>
             {locationLoading ? (
-              <ActivityIndicator color="#2563EB" />
-            ) : formData.latitude ? (
+              <>
+                <ActivityIndicator color="#2563EB" />
+                <Text style={styles.statusTitle}>Getting your location...</Text>
+              </>
+            ) : formData.latitude && formData.longitude ? (
               <>
                 <Text style={styles.statusTitle}>✓ GPS Location Captured</Text>
                 <Text style={styles.statusText}>
-                  {formData.latitude.toFixed(6)}, {formData.longitude?.toFixed(6)}
+                  {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                </Text>
+                <Text style={styles.statusSubtext}>
+                  Emergency responders can find you precisely
                 </Text>
               </>
             ) : (
               <>
                 <Text style={styles.statusTitle}>⚠ Manual Location Required</Text>
+                <Text style={styles.statusSubtext}>Enter address details below</Text>
                 <TouchableOpacity 
                   style={styles.locationButton}
                   onPress={getCurrentLocation}
@@ -447,6 +642,9 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
               </>
             )}
           </View>
+          {errors.location && (
+            <Text style={styles.errorText}>{errors.location}</Text>
+          )}
         </View>
 
         {/* Title */}
@@ -460,7 +658,11 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
             maxLength={200}
           />
           <View style={styles.inputFooter}>
-            {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
+            {errors.title ? (
+              <Text style={styles.errorText}>{errors.title}</Text>
+            ) : (
+              <View />
+            )}
             <Text style={styles.charCount}>{formData.title.length}/200</Text>
           </View>
         </View>
@@ -480,6 +682,7 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
           {errors.description && (
             <Text style={styles.errorText}>{errors.description}</Text>
           )}
+          <Text style={styles.charCount}>{formData.description.length} characters</Text>
         </View>
 
         {/* Address */}
@@ -491,7 +694,11 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
             style={[styles.textArea, errors.address && styles.inputError]}
             value={formData.address}
             onChangeText={(text) => handleInputChange('address', text)}
-            placeholder="District, Sector, Cell, Village, street names, landmarks..."
+            placeholder={
+              formData.latitude 
+                ? "GPS captured. Add more: building name, floor, landmarks..."
+                : "District, Sector, Cell, Village, street names, landmarks..."
+            }
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -578,6 +785,21 @@ const ReportIncident: React.FC<ReportIncidentProps> = ({ navigation }) => {
           <TouchableOpacity style={styles.uploadButton} onPress={pickVideos}>
             <Text style={styles.uploadButtonText}>🎥 Upload Videos ({mediaFiles.videos.length}/5)</Text>
           </TouchableOpacity>
+
+          {mediaFiles.videos.length > 0 && (
+            <View style={styles.videoList}>
+              {mediaFiles.videos.map((video, idx) => (
+                <View key={idx} style={styles.videoItem}>
+                  <Text style={styles.videoName} numberOfLines={1}>
+                    🎥 {video.name}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeFile('videos', idx)}>
+                    <Text style={styles.videoRemove}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Emergency Contacts */}
@@ -716,11 +938,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
+    color: '#111827',
   },
   statusText: {
     fontSize: 12,
     color: '#6B7280',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 4,
+  },
+  statusSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
   },
   locationButton: {
     marginTop: 8,
@@ -762,6 +991,7 @@ const styles = StyleSheet.create({
   charCount: {
     fontSize: 12,
     color: '#6B7280',
+    marginTop: 4,
   },
   pickerContainer: {
     backgroundColor: '#FFF',
@@ -829,6 +1059,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  videoList: {
+    marginBottom: 12,
+  },
+  videoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  videoName: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  videoRemove: {
+    color: '#DC2626',
+    fontSize: 24,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+  },
   emergencyCard: {
     backgroundColor: '#FEE2E2',
     padding: 16,
@@ -847,6 +1100,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#991B1B',
     paddingVertical: 4,
+    fontWeight: '500',
   },
   submitButton: {
     backgroundColor: '#DC2626',
@@ -935,6 +1189,7 @@ const styles = StyleSheet.create({
   successStatus: {
     fontSize: 12,
     color: '#059669',
+    marginBottom: 4,
   },
   primaryButton: {
     backgroundColor: '#2563EB',
