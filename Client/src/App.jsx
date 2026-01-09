@@ -182,7 +182,16 @@ function AppRoutes() {
       <Route path="/alerts/respond" element={<ProtectedRoute requiredUserType="citizen"><AppLayout><SafetyCheckin /></AppLayout></ProtectedRoute>} />
 
       {/* Analytics */}
-      <Route path="/analytics" element={<ProtectedRoute requiredUserTypes={["admin", "district", "province", "national"]}><AppLayout><DisasterAnalyticsReport /></AppLayout></ProtectedRoute>} />
+<Route 
+  path="/analytics" 
+  element={
+    <ProtectedRoute requiredUserTypes={["admin", "district", "province", "national"]}>
+      <AppLayout>
+        <DisasterAnalyticsReport />
+      </AppLayout>
+    </ProtectedRoute>
+  } 
+/>
 
       {/* Safety Guides */}
       <Route path="/safety-guides" element={<ProtectedRoute requiredUserTypes={["admin", "village", "cell", "sector", "district", "province", "national"]}><AppLayout><SafetyGuideList /></AppLayout></ProtectedRoute>} />

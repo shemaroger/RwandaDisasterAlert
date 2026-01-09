@@ -1,18 +1,17 @@
-// components/Sidebar.jsx - Updated with Citizen Export Option
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  AlertTriangle, Bell, Users, Shield, MapPin, FileText, Settings, 
+import {
+  AlertTriangle, Bell, Users, Shield, MapPin, FileText, Settings,
   Radio, Eye, BarChart3, Clock, Globe, MessageSquare, Home,
   X, ChevronDown, ChevronRight, Activity, Zap, Phone, Building2, BookOpen, Heart,
-  List, Plus, Download, Edit, BookOpenCheck, Building, Layers, Map, Target, 
+  List, Plus, Download, Edit, BookOpenCheck, Building, Layers, Map, Target,
   CheckCircle, ArrowUp, Send, Search, Filter, AlertCircle, TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const Sidebar = ({ 
-  sidebarOpen, 
-  setSidebarOpen, 
+const Sidebar = ({
+  sidebarOpen,
+  setSidebarOpen,
   onQuickAction,
   isMobile,
   isTablet
@@ -34,69 +33,68 @@ const Sidebar = ({
     if (isMobile || isTablet) setSidebarOpen(false);
   };
 
-  // Get user level info with Cell Level support
   const getUserLevelInfo = (userType) => {
     const levels = {
-      citizen: { 
-        label: 'Citizen', 
-        icon: Users, 
-        color: 'bg-blue-500/20', 
-        textColor: 'text-blue-300', 
+      citizen: {
+        label: 'Citizen',
+        icon: Users,
+        color: 'bg-blue-500/20',
+        textColor: 'text-blue-300',
         borderColor: 'border-blue-500/30',
-        level: 0 
+        level: 0
       },
-      village: { 
-        label: 'Village Level', 
-        icon: Home, 
-        color: 'bg-green-500/20', 
+      village: {
+        label: 'Village Level',
+        icon: Home,
+        color: 'bg-green-500/20',
         textColor: 'text-green-300',
         borderColor: 'border-green-500/30',
-        level: 1 
+        level: 1
       },
-      cell: { 
-        label: 'Cell Level', 
-        icon: Building, 
-        color: 'bg-teal-500/20', 
+      cell: {
+        label: 'Cell Level',
+        icon: Building,
+        color: 'bg-teal-500/20',
         textColor: 'text-teal-300',
         borderColor: 'border-teal-500/30',
-        level: 2 
+        level: 2
       },
-      sector: { 
-        label: 'Sector Level', 
+      sector: {
+        label: 'Sector Level',
         icon: Building2,
         color: 'bg-cyan-500/20',
         textColor: 'text-cyan-300',
         borderColor: 'border-cyan-500/30',
         level: 3
       },
-      district: { 
-        label: 'District Level', 
-        icon: Layers, 
-        color: 'bg-indigo-500/20', 
+      district: {
+        label: 'District Level',
+        icon: Layers,
+        color: 'bg-indigo-500/20',
         textColor: 'text-indigo-300',
         borderColor: 'border-indigo-500/30',
         level: 4
       },
-      province: { 
-        label: 'Province Level', 
-        icon: Map, 
-        color: 'bg-purple-500/20', 
+      province: {
+        label: 'Province Level',
+        icon: Map,
+        color: 'bg-purple-500/20',
         textColor: 'text-purple-300',
         borderColor: 'border-purple-500/30',
         level: 5
       },
-      national: { 
-        label: 'National Level', 
-        icon: Globe, 
-        color: 'bg-red-500/20', 
+      national: {
+        label: 'National Level',
+        icon: Globe,
+        color: 'bg-red-500/20',
         textColor: 'text-red-300',
         borderColor: 'border-red-500/30',
         level: 6
       },
-      admin: { 
-        label: 'System Admin', 
-        icon: Shield, 
-        color: 'bg-gray-500/20', 
+      admin: {
+        label: 'System Admin',
+        icon: Shield,
+        color: 'bg-gray-500/20',
         textColor: 'text-gray-300',
         borderColor: 'border-gray-500/30',
         level: 7
@@ -105,7 +103,6 @@ const Sidebar = ({
     return levels[userType] || levels.citizen;
   };
 
-  // Get escalation target with Cell Level support
   const getEscalationTarget = (userType) => {
     const escalationMap = {
       village: 'Cell',
@@ -120,19 +117,17 @@ const Sidebar = ({
     return escalationMap[userType];
   };
 
-  // Check if user can access a navigation item
   const canAccessItem = (item) => {
     if (!item.requiredLevel) return true;
     if (isAdmin()) return true;
-    
+
     if (Array.isArray(item.requiredLevel)) {
       return item.requiredLevel.includes(user?.user_type);
     }
-    
+
     return user?.user_type === item.requiredLevel;
   };
 
-  // Active page detection
   const getCurrentPage = () => {
     const path = location.pathname;
     if (path.includes('/dashboard')) return 'dashboard';
@@ -155,14 +150,12 @@ const Sidebar = ({
     return 'dashboard';
   };
 
-  // Comprehensive nav items with Cell Level support
   const getAllNavigationItems = () => {
     const userType = user?.user_type;
     const escalationTarget = getEscalationTarget(userType);
     const adminLevel = getUserAdminLevel();
 
     return [
-      // Dashboard
       {
         name: 'Dashboard',
         id: 'dashboard',
@@ -187,8 +180,6 @@ const Sidebar = ({
                     `${getUserLevelInfo(userType).label} dashboard`,
         requiredLevel: null
       },
-
-      // Report Incident
       {
         name: 'Report Incident',
         id: 'report-incident',
@@ -199,8 +190,6 @@ const Sidebar = ({
         badgeColor: 'green',
         requiredLevel: null
       },
-
-      // ✅ UPDATED: My Reports (Citizen) with Export sub-item
       {
         name: 'My Reports',
         id: 'my-reports',
@@ -223,15 +212,12 @@ const Sidebar = ({
           }
         ]
       },
-
-      // Incident Management (Admin Levels)
       {
         name: 'Incident Management',
         id: 'admin-incidents',
         path: '/incidents/admin/list',
         icon: FileText,
-        description: userType === 'admin' ? 'System-wide incidents' :
-                    `${getUserLevelInfo(userType).label} incidents`,
+        description: userType === 'admin' ? 'System-wide incidents' : `${getUserLevelInfo(userType).label} incidents`,
         badge: 'Staff',
         badgeColor: 'red',
         requiredLevel: ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national'],
@@ -243,82 +229,14 @@ const Sidebar = ({
             description: 'All incidents at your level'
           },
           {
-            name: 'Critical Priority',
-            path: '/incidents/admin/list?priority=1',
-            icon: AlertTriangle,
-            description: 'Critical incidents',
-            requiredLevel: ['admin', 'district', 'province', 'national']
-          },
-          {
-            name: 'High Priority',
-            path: '/incidents/admin/list?priority=2',
-            icon: AlertCircle,
-            description: 'High priority incidents',
-            requiredLevel: ['admin', 'province', 'national']
-          },
-          {
-            name: 'Pending Review',
-            path: '/incidents/admin/list?status=pending',
-            icon: Clock,
-            description: 'Awaiting verification'
-          },
-          {
-            name: 'In Progress',
-            path: '/incidents/admin/list?status=in_progress',
-            icon: Activity,
-            description: 'Currently handling'
-          },
-          {
-            name: userType === 'village' ? 'Escalated to Cell' :
-                  userType === 'cell' ? 'From Villages' :
-                  userType === 'sector' ? 'From Cells' :
-                  userType === 'district' ? 'From Sectors' :
-                  userType === 'province' ? 'From Districts' :
-                  userType === 'national' ? 'From Provinces' : 'Escalated',
-            path: userType === 'village' ? '/incidents/admin/list?escalated=true' :
-                  userType === 'cell' ? '/incidents/admin/list?escalated_from=village' :
-                  userType === 'sector' ? '/incidents/admin/list?escalated_from=cell' :
-                  userType === 'district' ? '/incidents/admin/list?escalated_from=sector' :
-                  userType === 'province' ? '/incidents/admin/list?escalated_from=district' :
-                  userType === 'national' ? '/incidents/admin/list?escalated_from=province' :
-                  '/incidents/admin/list?view=escalations',
-            icon: ArrowUp,
-            description: userType === 'village' ? `Sent to ${escalationTarget}` :
-                        `Escalated from lower levels`,
-            requiredLevel: ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national']
-          },
-          {
-            name: 'My Escalations',
-            path: '/incidents/admin/list?escalated_by=me',
-            icon: Send,
-            description: `Incidents you escalated`,
-            requiredLevel: ['village', 'cell', 'sector', 'district', 'province']
-          },
-          {
-            name: 'Track Escalated',
-            path: '/incidents/admin/list?escalated=true&track=true',
-            icon: Search,
-            description: 'Monitor escalated incidents',
-            requiredLevel: ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national']
-          },
-          {
-            name: 'Resolved',
-            path: '/incidents/admin/list?status=resolved',
-            icon: CheckCircle,
-            description: 'Completed incidents'
-          },
-          {
             name: 'Export Reports',
             path: '/incidents/export',
             icon: Download,
-            description: userType === 'admin' ? 'Export all incident data' :
-                        `Export ${getUserLevelInfo(userType).label} data`,
+            description: userType === 'admin' ? 'Export all incident data' : `Export ${getUserLevelInfo(userType).label} data`,
             requiredLevel: ['admin', 'village', 'cell', 'sector', 'district', 'province', 'national']
           }
         ]
       },
-
-      // Alerts (District+)
       {
         name: 'Alerts',
         id: 'alerts',
@@ -332,7 +250,6 @@ const Sidebar = ({
         badgeColor: 'red',
         requiredLevel: ['admin', 'district', 'province', 'national']
       },
-
       {
         name: 'Create Alert',
         id: 'create-alert',
@@ -344,8 +261,6 @@ const Sidebar = ({
                     'Send new alert',
         requiredLevel: ['admin', 'district', 'province', 'national']
       },
-
-      // Citizen Alerts
       {
         name: 'Active Alerts',
         id: 'my-responses',
@@ -354,8 +269,6 @@ const Sidebar = ({
         description: 'Your alert responses',
         requiredLevel: 'citizen'
       },
-
-      // Analytics (District+)
       {
         name: 'Analytics',
         id: 'analytics',
@@ -367,8 +280,6 @@ const Sidebar = ({
                     'Performance metrics',
         requiredLevel: ['admin', 'district', 'province', 'national']
       },
-
-      // Safety Guides
       {
         name: 'Safety Guides',
         id: 'safety-guides',
@@ -379,8 +290,6 @@ const Sidebar = ({
         badgeColor: 'red',
         requiredLevel: null
       },
-
-      // Disaster Types (District+)
       {
         name: 'Disaster Types',
         id: 'disaster-types',
@@ -389,8 +298,6 @@ const Sidebar = ({
         description: 'Manage disaster categories',
         requiredLevel: ['admin', 'district', 'province', 'national']
       },
-
-      // User Management
       {
         name: 'User Management',
         id: 'users',
@@ -401,8 +308,6 @@ const Sidebar = ({
         badgeColor: 'red',
         requiredLevel: ['admin', 'national', 'province', 'district']
       },
-
-      // Locations
       {
         name: 'Locations',
         id: 'locations',
@@ -413,8 +318,6 @@ const Sidebar = ({
         badgeColor: 'red',
         requiredLevel: ['admin', 'national', 'province', 'district']
       },
-
-      // Chat/Messages
       {
         name: 'Messages',
         id: 'chat',
@@ -429,17 +332,16 @@ const Sidebar = ({
     ];
   };
 
-  // Filter navigation items based on user access
   const getNavigationItems = () => {
     const allItems = getAllNavigationItems();
-    
+
     return allItems
       .filter(item => canAccessItem(item))
       .map(item => {
         if (item.subItems) {
           return {
             ...item,
-            subItems: item.subItems.filter(subItem => 
+            subItems: item.subItems.filter(subItem =>
               !subItem.requiredLevel || canAccessItem(subItem)
             )
           };
@@ -456,23 +358,19 @@ const Sidebar = ({
 
   return (
     <>
-      {/* Backdrop for mobile/tablet */}
       {sidebarOpen && (isMobile || isTablet) && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar Container */}
       <div className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isMobile ? 'w-80' : isTablet ? 'w-72' : 'w-72'}`}>
-        
-        {/* Sidebar Container with Gradient Background - Full Height */}
+
         <div className="h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-r border-slate-700/50 flex flex-col">
-          
-          {/* Logo Header - Fixed at top */}
+
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex items-center space-x-3">
               <div className="relative">
@@ -500,9 +398,7 @@ const Sidebar = ({
             )}
           </div>
 
-          {/* Scrollable Content Area */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* User Level Badge */}
             <div className={`mx-4 my-3 p-3 rounded-lg ${userLevelInfo.color} border ${userLevelInfo.borderColor} backdrop-blur-sm flex-shrink-0`}>
               <div className="flex items-center space-x-2">
                 <UserLevelIcon className={`h-5 w-5 ${userLevelInfo.textColor}`} />
@@ -517,14 +413,13 @@ const Sidebar = ({
               </div>
             </div>
 
-            {/* Navigation Menu - Scrollable */}
             <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600">
               {navigationItems.length > 0 ? (
                 navigationItems.map((item) => {
                   const isActive = currentPage === item.id;
                   const hasSubItems = item.subItems && item.subItems.length > 0;
                   const isExpanded = expandedSections[item.id];
-                  
+
                   return (
                     <div key={item.id}>
                       <div className="flex items-center">
@@ -570,8 +465,7 @@ const Sidebar = ({
                           </button>
                         )}
                       </div>
-                      
-                      {/* Sub-items */}
+
                       {hasSubItems && isExpanded && (
                         <div className="ml-8 mt-1 space-y-1">
                           {item.subItems.map((subItem, index) => (
@@ -602,7 +496,6 @@ const Sidebar = ({
               )}
             </nav>
 
-            {/* Escalation Info */}
             {escalationTarget && (
               <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-orange-900/20 to-red-900/20 flex-shrink-0">
                 <div className="flex items-center space-x-2 text-xs">
@@ -617,7 +510,6 @@ const Sidebar = ({
               </div>
             )}
 
-            {/* User Profile */}
             <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className={`w-10 h-10 ${userLevelInfo.color} border ${userLevelInfo.borderColor} rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm flex-shrink-0`}>
@@ -642,8 +534,8 @@ const Sidebar = ({
                   <span className="text-slate-400">Account Status:</span>
                   <div className="flex items-center space-x-1">
                     <div className={`w-2 h-2 rounded-full shadow-sm ${
-                      user.is_verified 
-                        ? 'bg-green-400 shadow-green-400/50' 
+                      user.is_verified
+                        ? 'bg-green-400 shadow-green-400/50'
                         : 'bg-amber-400 shadow-amber-400/50'
                     }`}></div>
                     <span className={`font-medium ${

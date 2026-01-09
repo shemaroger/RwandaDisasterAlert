@@ -22,9 +22,21 @@ const ProtectedRoute = ({
     hasAnyUserType, 
     isInitialized,
     isLevelOrHigher,
-    hasAdminLevel
+    hasAdminLevel,
+    debugUserInfo // Added for debugging
   } = useAuth();
   const location = useLocation();
+
+  // Debug logging - can be removed in production
+  React.useEffect(() => {
+    if (requiredUserTypes.length > 0 && user) {
+      console.log('🔍 ProtectedRoute Debug:');
+      console.log('  - User Type:', user?.user_type);
+      console.log('  - Required Types:', requiredUserTypes);
+      console.log('  - hasAnyUserType result:', hasAnyUserType(requiredUserTypes));
+      console.log('  - User object:', user);
+    }
+  }, [user, requiredUserTypes, hasAnyUserType]);
 
   // Show loading spinner while initializing auth
   if (!isInitialized || loading) {
@@ -96,7 +108,7 @@ const ProtectedRoute = ({
   }
 
   // Check hierarchical level requirement (level or higher)
-  if (requireLevelOrHigher && !isLevelOrHigher(requireLevelOrHigher)) {
+  if (requireLevelOrHigher !== null && !isLevelOrHigher(requireLevelOrHigher)) {
     if (showUnauthorized) {
       return <UnauthorizedAccess 
         requiredLevel={requireLevelOrHigher} 
@@ -119,7 +131,7 @@ const ProtectedRoute = ({
   }
 
   // Check specific level requirement (exact match)
-  if (requireLevel && !hasAdminLevel(requireLevel)) {
+  if (requireLevel !== null && !hasAdminLevel(requireLevel)) {
     if (showUnauthorized) {
       return <UnauthorizedAccess 
         requiredLevel={requireLevel} 
@@ -140,7 +152,7 @@ const ProtectedRoute = ({
   }
 
   // Check specific user type requirement
-  if (requiredUserType && !hasUserType(requiredUserType)) {
+  if (requiredUserType !== null && !hasUserType(requiredUserType)) {
     if (showUnauthorized) {
       return <UnauthorizedAccess requiredUserType={requiredUserType} userType={user?.user_type} />;
     }
@@ -159,6 +171,8 @@ const ProtectedRoute = ({
 
   // Check multiple user types requirement
   if (requiredUserTypes.length > 0 && !hasAnyUserType(requiredUserTypes)) {
+    console.log('Access denied - User type:', user?.user_type, 'not in', requiredUserTypes);
+    
     if (showUnauthorized) {
       return <UnauthorizedAccess requiredUserTypes={requiredUserTypes} userType={user?.user_type} />;
     }
@@ -187,11 +201,14 @@ const UnauthorizedAccess = ({
   userType,
   requireLevelOrHigher = false
 }) => {
-  const { logout } = useAuth();
+  const { logout, getUserType } = useAuth();
 
   const handleGoToDashboard = () => {
+    // Get the normalized user type
+    const normalizedUserType = getUserType();
+    
     // Redirect based on user type with hierarchical levels including Cell
-    switch (userType) {
+    switch (normalizedUserType) {
       case 'admin':
         window.location.href = '/admin/dashboard';
         break;
@@ -226,7 +243,10 @@ const UnauthorizedAccess = ({
   };
 
   const getUserTypeDisplayName = (userType) => {
-    switch (userType) {
+    // Normalize user type for display
+    const normalizedType = userType ? userType.toLowerCase() : userType;
+    
+    switch (normalizedType) {
       case 'admin':
         return 'System Administrator';
       case 'national':
@@ -397,7 +417,8 @@ export const usePermissions = () => {
     canManageAlerts,
     canManageIncidents,
     canAssignIncidents,
-    canViewAnalytics
+    canViewAnalytics,
+    debugUserInfo // Added for debugging
   } = useAuth();
 
   // Alert management permissions
@@ -545,6 +566,9 @@ export const usePermissions = () => {
     // Core functions
     hasUserType,
     hasAnyUserType,
+    
+    // Debug function
+    debugUserInfo,
     
     // Legacy functions for backward compatibility
     hasRole: hasUserType,

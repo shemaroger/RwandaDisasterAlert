@@ -21,6 +21,17 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Helper to get user type with normalization
+  const getUserType = () => {
+    if (!user) return null;
+    
+    // Try multiple possible property names (handle API inconsistencies)
+    const userType = user.user_type || user.role || user.userRole;
+    
+    // Normalize to lowercase for consistent checking
+    return userType ? userType.toLowerCase() : null;
+  };
+
   // Enhanced clearAllStorage function with comprehensive cleanup
   const clearAllStorage = () => {
     try {
@@ -72,6 +83,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Normalize user data function
+  const normalizeUserData = (userData) => {
+    if (!userData) return null;
+    
+    // Create a normalized user object
+    const normalized = { ...userData };
+    
+    // Ensure user_type exists and is lowercase
+    if (userData.user_type || userData.role) {
+      normalized.user_type = (userData.user_type || userData.role).toLowerCase();
+    }
+    
+    // Remove any role property to avoid confusion
+    delete normalized.role;
+    delete normalized.userRole;
+    
+    return normalized;
+  };
+
   // Initialize authentication state - UPDATED WITH FIX
   useEffect(() => {
     const initializeAuth = async () => {
@@ -87,12 +117,13 @@ export const AuthProvider = ({ children }) => {
           
           if (storedUserData) {
             try {
-              const userData = JSON.parse(storedUserData);
+              const parsedUser = JSON.parse(storedUserData);
+              const normalizedUser = normalizeUserData(parsedUser);
               
               // Verify it has required fields
-              if (userData.username && userData.user_type) {
-                console.log('✅ Auth init - user loaded from storage:', userData.user_type, userData.username);
-                setUser(userData);
+              if (normalizedUser?.username && normalizedUser?.user_type) {
+                console.log('✅ Auth init - user loaded from storage:', normalizedUser.user_type, normalizedUser.username);
+                setUser(normalizedUser);
                 setError('');
                 setLoading(false);
                 setIsInitialized(true);
@@ -109,23 +140,30 @@ export const AuthProvider = ({ children }) => {
           // Only call API if no stored data or stored data is invalid
           try {
             const userData = await apiService.getProfile();
+            const normalizedUser = normalizeUserData(userData);
             
             // ✅ FIX: Add safety check for user_type
-            if (!userData.user_type) {
-              console.error('❌ user_type missing from API response!', userData);
-              console.log('Full API response:', JSON.stringify(userData, null, 2));
+            if (!normalizedUser.user_type) {
+              console.error('❌ user_type missing from API response!', normalizedUser);
+              console.log('Full API response:', JSON.stringify(normalizedUser, null, 2));
               
-              // Temporary fallback - you can customize this based on other user fields
-              userData.user_type = 'admin';
-              console.warn('⚠️ Using fallback user_type: admin');
+              // Check for alternative field names
+              if (userData.role) {
+                normalizedUser.user_type = userData.role.toLowerCase();
+                console.warn('⚠️ Using role field as user_type:', normalizedUser.user_type);
+              } else {
+                // Temporary fallback - you can customize this based on other user fields
+                normalizedUser.user_type = 'admin';
+                console.warn('⚠️ Using fallback user_type: admin');
+              }
             }
             
-            console.log('✅ Auth init - user loaded from API:', userData.user_type, userData.username);
-            setUser(userData);
+            console.log('✅ Auth init - user loaded from API:', normalizedUser.user_type, normalizedUser.username);
+            setUser(normalizedUser);
             setError('');
             
-            // ✅ FIX: Store for next time to avoid repeated API calls
-            localStorage.setItem('user_data', JSON.stringify(userData));
+            // ✅ FIX: Store normalized data for next time to avoid repeated API calls
+            localStorage.setItem('user_data', JSON.stringify(normalizedUser));
             
           } catch (err) {
             console.warn('Failed to load user profile:', err);
@@ -183,9 +221,12 @@ export const AuthProvider = ({ children }) => {
       
       // RwandaDisasterAlert API returns user data directly
       if (response.user) {
+        // ✅ FIX: Normalize user data
+        const normalizedUser = normalizeUserData(response.user);
+        
         // ✅ FIX: Verify user_type exists in login response
-        if (!response.user.user_type) {
-          console.error('❌ user_type missing from login response!', response.user);
+        if (!normalizedUser.user_type) {
+          console.error('❌ user_type missing from login response!', normalizedUser);
           throw new Error('Invalid user data from server - missing user type');
         }
         
@@ -194,12 +235,12 @@ export const AuthProvider = ({ children }) => {
           apiService.setToken(response.token);
         }
         
-        // ✅ FIX: Store user data BEFORE setting state
-        localStorage.setItem('user_data', JSON.stringify(response.user));
+        // ✅ FIX: Store normalized user data BEFORE setting state
+        localStorage.setItem('user_data', JSON.stringify(normalizedUser));
         
-        setUser(response.user);
+        setUser(normalizedUser);
         
-        console.log('✅ Login successful - user:', response.user.user_type, response.user.username);
+        console.log('✅ Login successful - user:', normalizedUser.user_type, normalizedUser.username);
         
         // Handle remember me functionality
         if (rememberMe) {
@@ -208,7 +249,7 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('remember_user');
         }
 
-        return response;
+        return { ...response, user: normalizedUser };
       } else {
         throw new Error('Invalid response from server - no user data received');
       }
@@ -254,18 +295,20 @@ export const AuthProvider = ({ children }) => {
       
       // RwandaDisasterAlert registration might return user data immediately or require login
       if (response.user) {
+        const normalizedUser = normalizeUserData(response.user);
+        
         if (response.token) {
           apiService.setToken(response.token);
         }
         
-        // ✅ FIX: Store user data if registration returns it
-        if (response.user.user_type) {
-          localStorage.setItem('user_data', JSON.stringify(response.user));
+        // ✅ FIX: Store normalized user data if registration returns it
+        if (normalizedUser.user_type) {
+          localStorage.setItem('user_data', JSON.stringify(normalizedUser));
         }
         
-        setUser(response.user);
-        console.log('Registration successful - user:', response.user.user_type, response.user.username);
-        return response;
+        setUser(normalizedUser);
+        console.log('Registration successful - user:', normalizedUser.user_type, normalizedUser.username);
+        return { ...response, user: normalizedUser };
       } else {
         // Registration successful but no immediate login (common for approval-required systems)
         console.log('Registration successful - user needs to login');
@@ -398,13 +441,14 @@ export const AuthProvider = ({ children }) => {
     try {
       setError('');
       const updatedUser = await apiService.updateProfile(profileData);
+      const normalizedUser = normalizeUserData(updatedUser);
       
       // ✅ FIX: Update stored user data
-      localStorage.setItem('user_data', JSON.stringify(updatedUser));
+      localStorage.setItem('user_data', JSON.stringify(normalizedUser));
       
-      setUser(updatedUser);
-      console.log('Profile updated for user:', updatedUser.username);
-      return updatedUser;
+      setUser(normalizedUser);
+      console.log('Profile updated for user:', normalizedUser.username);
+      return normalizedUser;
     } catch (err) {
       let errorMessage = 'Profile update failed';
       
@@ -526,16 +570,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user has specific user_type
+  // ✅ FIXED: Check if user has specific user_type (case-insensitive)
   const hasUserType = (userType) => {
-    if (!user) return false;
-    return user.user_type === userType;
+    if (!userType) return false;
+    const currentUserType = getUserType();
+    if (!currentUserType) return false;
+    
+    return currentUserType === userType.toLowerCase();
   };
 
-  // Check if user has any of the specified user types
+  // ✅ FIXED: Check if user has any of the specified user types (case-insensitive)
   const hasAnyUserType = (userTypes) => {
-    if (!user) return false;
-    return userTypes.includes(user.user_type);
+    if (!userTypes || !Array.isArray(userTypes) || userTypes.length === 0) {
+      return false;
+    }
+    
+    const currentUserType = getUserType();
+    if (!currentUserType) return false;
+    
+    // Convert all required types to lowercase for case-insensitive comparison
+    const normalizedUserTypes = userTypes.map(type => type.toLowerCase());
+    
+    return normalizedUserTypes.includes(currentUserType);
   };
 
   // Check if user is authenticated
@@ -599,7 +655,7 @@ export const AuthProvider = ({ children }) => {
   const canHandleIncidentAtLevel = (level) => {
     if (!user) return false;
     if (isAdmin()) return true; // Admin can handle all levels
-    return user.user_type === level;
+    return hasUserType(level);
   };
 
   // Check if user can escalate incidents (any admin level can escalate)
@@ -617,7 +673,7 @@ export const AuthProvider = ({ children }) => {
     if (!user) return null;
     if (isCitizen()) return null;
     if (isAdmin()) return 'admin';
-    return user.user_type;
+    return getUserType();
   };
 
   // ✅ UPDATED: Check if user's level is higher than or equal to specified level (including cell)
@@ -630,6 +686,9 @@ export const AuthProvider = ({ children }) => {
     
     const userLevelIndex = levelHierarchy.indexOf(userLevel);
     const targetLevelIndex = levelHierarchy.indexOf(targetLevel);
+    
+    // Handle invalid target level
+    if (targetLevelIndex === -1) return false;
     
     return userLevelIndex >= targetLevelIndex;
   };
@@ -675,7 +734,7 @@ export const AuthProvider = ({ children }) => {
     return isAdmin() || hasAnyUserType(['district', 'province', 'national']);
   };
 
-  // Check if user can view analytics
+  // Check if user can view analytics (admin, district, province, national)
   const canViewAnalytics = () => {
     return isAdmin() || hasAnyUserType(['district', 'province', 'national']);
   };
@@ -691,18 +750,14 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const userData = await apiService.getProfile();
+      const normalizedUser = normalizeUserData(userData);
       
-      // ✅ FIX: Check for user_type
-      if (!userData.user_type && user?.user_type) {
-        userData.user_type = user.user_type;
-      }
-      
-      setUser(userData);
+      setUser(normalizedUser);
       
       // ✅ FIX: Update stored user data
-      localStorage.setItem('user_data', JSON.stringify(userData));
+      localStorage.setItem('user_data', JSON.stringify(normalizedUser));
       
-      return userData;
+      return normalizedUser;
     } catch (err) {
       console.warn('Failed to refresh user data:', err);
       // If refresh fails, user might need to login again
@@ -720,6 +775,21 @@ export const AuthProvider = ({ children }) => {
   const hasAnyRole = (roles) => {
     console.warn('hasAnyRole is deprecated, use hasAnyUserType instead');
     return hasAnyUserType(roles);
+  };
+
+  // Debug function to log user info
+  const debugUserInfo = () => {
+    console.log('=== DEBUG USER INFO ===');
+    console.log('User object:', user);
+    console.log('User type (raw):', user?.user_type);
+    console.log('User type (normalized):', getUserType());
+    console.log('isAdmin:', isAdmin());
+    console.log('isDistrict:', isDistrictLevel());
+    console.log('isProvince:', isProvinceLevel());
+    console.log('isNational:', isNationalLevel());
+    console.log('hasAnyUserType(["district", "province", "national"]):', 
+      hasAnyUserType(['district', 'province', 'national']));
+    console.log('=== END DEBUG ===');
   };
 
   // Context value
@@ -781,6 +851,8 @@ export const AuthProvider = ({ children }) => {
     clearError,
     getRedirectPath,
     clearAllStorage,
+    debugUserInfo,
+    getUserType, // Expose for debugging
     
     // Setters for manual state management if needed
     setUser,

@@ -149,25 +149,6 @@ const HomeScreen = ({ navigation }: any) => {
                 <Text style={styles.actionText}>Safety{'\n'}Guides</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('EmergencyContacts')}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-                  <Ionicons name="call-outline" size={28} color="#FFF" />
-                </View>
-                <Text style={styles.actionText}>Emergency{'\n'}Contacts</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('Profile')}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' }]}>
-                  <Ionicons name="person-outline" size={28} color="#FFF" />
-                </View>
-                <Text style={styles.actionText}>My{'\n'}Profile</Text>
-              </TouchableOpacity>
             </View>
           </View>
 

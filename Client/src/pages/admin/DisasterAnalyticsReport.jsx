@@ -75,7 +75,7 @@ const DisasterAnalyticsReport = () => {
     ];
 
     // Check if user can access reports using useAuth hook
-    const canAccessReports = user?.user_type === 'admin';
+    const canAccessReports = user?.user_type === 'admin' || 'national';
 
     useEffect(() => {
         if (!canAccessReports) {

@@ -99,18 +99,7 @@ const DashboardScreen = ({ navigation, route }: any) => {
       <StatusBar style="light" />
       <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.gradient}>
         {/* Header with Menu Button */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleMenuPress}>
-            <Ionicons name="menu" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{userName}</Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
-        </View>
+        
 
         {/* Main Content */}
         <ScrollView
@@ -167,20 +156,13 @@ const DashboardScreen = ({ navigation, route }: any) => {
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             <TouchableOpacity
               style={styles.actionItem}
-              onPress={() => navigation.navigate('ReportIncident')}
+              onPress={() => navigation.navigate('MyIncidents')}
             >
               <Ionicons name="camera" size={20} color="#DC2626" />
               <Text style={styles.actionText}>Report Incident</Text>
               <Ionicons name="chevron-forward" size={18} color="#64748B" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionItem}
-              onPress={() => navigation.navigate('EmergencyContacts')}
-            >
-              <Ionicons name="call" size={20} color="#10B981" />
-              <Text style={styles.actionText}>Emergency Contacts</Text>
-              <Ionicons name="chevron-forward" size={18} color="#64748B" />
-            </TouchableOpacity>
+            
             <TouchableOpacity
               style={styles.actionItem}
               onPress={() => navigation.navigate('SafetyGuides')}
